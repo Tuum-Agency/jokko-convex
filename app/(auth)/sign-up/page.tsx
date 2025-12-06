@@ -7,17 +7,56 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { FadeInView, StaggerContainer, StaggerItem, FloatingElement } from '@/components/animations'
-import { Loader2, ArrowRight, Sparkles, Users, CheckCircle } from 'lucide-react'
+import { Loader2, ArrowRight, Sparkles, Users, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 import { SocialButtons, AuthDivider } from '@/components/landing/layout'
 
+import { useAuthActions } from "@convex-dev/auth/react";
+
+import { useRouter } from 'next/navigation';
+
 export default function SignUpPage() {
+    const router = useRouter();
     const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const { signIn } = useAuthActions();
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
-        setTimeout(() => setLoading(false), 2000)
+        setError(null);
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
+        const password = formData.get("password") as string;
+        const confirmPassword = formData.get("confirmPassword") as string;
+
+        if (password !== confirmPassword) {
+            setError("Les mots de passe ne correspondent pas.");
+            setLoading(false);
+            return;
+        }
+
+        formData.delete("confirmPassword"); // Remove confirmPassword before sending
+        formData.set("flow", "signUp");
+        await signIn("password", formData)
+            .then(() => {
+                setLoading(false);
+                router.push("/dashboard");
+            })
+            .catch((err) => {
+                console.error("Sign up error:", err);
+                if (err instanceof Error) {
+                    // Try to extract the error message from the Convex error
+                    const message = err.message.includes("Le mot de passe doit contenir")
+                        ? "Le mot de passe doit contenir au moins 8 caractères."
+                        : "Une erreur est survenue lors de l'inscription.";
+                    setError(message);
+                } else {
+                    setError("Une erreur inattendue est survenue.");
+                }
+                setLoading(false);
+            });
     }
 
     return (
@@ -33,6 +72,11 @@ export default function SignUpPage() {
                                 <FadeInView delay={0.2} trigger="mount">
                                     <h2 className="text-2xl font-bold text-gray-900">Créer un compte</h2>
                                     <p className="text-gray-500">Commencez votre essai gratuit de 14 jours</p>
+                                    {error && (
+                                        <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mt-4">
+                                            {error}
+                                        </div>
+                                    )}
                                 </FadeInView>
                             </div>
 
@@ -50,19 +94,57 @@ export default function SignUpPage() {
                                         <StaggerItem>
                                             <div className="space-y-2">
                                                 <Label htmlFor="name">Nom complet</Label>
-                                                <Input id="name" required placeholder="John Doe" className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium" />
+                                                <Input id="name" name="name" required placeholder="John Doe" className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium" />
                                             </div>
                                         </StaggerItem>
                                         <StaggerItem>
                                             <div className="space-y-2">
                                                 <Label htmlFor="email">Email</Label>
-                                                <Input id="email" type="email" required placeholder="john@example.com" className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium" />
+                                                <Input id="email" name="email" type="email" required placeholder="john@example.com" className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium" />
                                             </div>
                                         </StaggerItem>
                                         <StaggerItem>
                                             <div className="space-y-2">
                                                 <Label htmlFor="password">Mot de passe</Label>
-                                                <Input id="password" type="password" required placeholder="••••••••" className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium" />
+                                                <div className="relative">
+                                                    <Input
+                                                        id="password"
+                                                        name="password"
+                                                        type={showPassword ? "text" : "password"}
+                                                        required
+                                                        placeholder="••••••••"
+                                                        className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-hidden"
+                                                    >
+                                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </StaggerItem>
+                                        <StaggerItem>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="confirmPassword"
+                                                        name="confirmPassword"
+                                                        type={showConfirmPassword ? "text" : "password"}
+                                                        required
+                                                        placeholder="••••••••"
+                                                        className="h-12 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 transition-all font-medium pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-hidden"
+                                                    >
+                                                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </StaggerItem>
                                     </div>

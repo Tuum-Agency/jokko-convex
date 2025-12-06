@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { useAuthActions } from "@convex-dev/auth/react";
 
 interface SocialButtonsProps {
   disabled?: boolean
@@ -8,10 +9,10 @@ interface SocialButtonsProps {
 }
 
 export function SocialButtons({ disabled, action }: SocialButtonsProps) {
-  const handleGoogleAuth = () => {
-    // Placeholder login logic
-    console.log("Connect with Google")
-    window.location.href = '/dashboard' // Temporary redirect for demo
+  const { signIn } = useAuthActions();
+
+  const handleGoogleAuth = async () => {
+    void signIn("google", { redirectTo: "/dashboard" });
   }
 
   const text = action === 'sign-in' ? 'Se connecter' : "S'inscrire"
