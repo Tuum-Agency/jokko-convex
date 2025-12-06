@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { DashboardLayoutClient } from "./_components/dashboard-layout-client";
 
 export default function DashboardLayout({
     children,
@@ -32,9 +33,23 @@ export default function DashboardLayout({
         );
     }
 
+    if (user === null) {
+        return null; // Don't render anything while redirecting
+    }
+
+    const dashboardUser = {
+        name: user.name || user.email || 'User',
+        email: user.email || '',
+        avatar: user.image,
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50/50">
+        <DashboardLayoutClient
+            user={dashboardUser}
+            organizationName="My Business" // Placeholder
+            organizationSlug="business"
+        >
             {children}
-        </div>
+        </DashboardLayoutClient>
     );
 }

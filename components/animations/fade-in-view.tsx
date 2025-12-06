@@ -5,6 +5,7 @@ import { ReactNode } from 'react'
 
 interface FadeInViewProps {
     children: ReactNode
+    direction?: 'up' | 'down' | 'left' | 'right'
     delay?: number
     duration?: number
     className?: string
@@ -16,18 +17,24 @@ interface FadeInViewProps {
 
 export const FadeInView = ({
     children,
+    direction = 'up',
     delay = 0,
-    duration = 0.8,
+    duration = 0.6,
     className = '',
     once = true,
     amount = 0.1,
     trigger = 'inView'
 }: FadeInViewProps) => {
     const variants: Variants = {
-        hidden: { opacity: 0, y: 20 },
+        hidden: {
+            opacity: 0,
+            y: direction === 'up' ? 20 : direction === 'down' ? -20 : 0,
+            x: direction === 'left' ? 20 : direction === 'right' ? -20 : 0
+        },
         visible: {
             opacity: 1,
             y: 0,
+            x: 0,
             transition: {
                 duration,
                 ease: [0.25, 0.1, 0.25, 1],
