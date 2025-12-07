@@ -1,0 +1,3 @@
+phone,firstName,lastName,email,company,tags
++221770000000,Test,User,test@example.com,TestCorp,Imported
++221770000001,Second,User,test2@example.com,TestCorp,Friend

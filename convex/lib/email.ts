@@ -13,9 +13,15 @@
 
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { render } from "@react-email/render";
-import { InvitationEmail } from "../../emails/invitation";
-import { VerificationEmail } from "../../emails/verification";
-import { PasswordResetEmail } from "../../emails/password-reset";
+import { InvitationEmail } from "../emails/invitation";
+import { VerificationEmail } from "../emails/verification";
+import { PasswordResetEmail } from "../emails/password_reset";
+import { DOMParser } from "@xmldom/xmldom";
+
+// Polyfill DOMParser for AWS SDK in Convex runtime
+if (typeof globalThis !== 'undefined' && !globalThis.DOMParser) {
+    (globalThis as any).DOMParser = DOMParser;
+}
 
 const ses = new SESClient({
     region: process.env.AWS_REGION!,

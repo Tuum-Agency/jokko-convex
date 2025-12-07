@@ -90,3 +90,65 @@ export const switchOrganization = mutation({
         }
     },
 });
+
+export const ensure = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (session && session.currentOrganizationId) return session.currentOrganizationId;
+
+        // Try to find any membership
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        let orgId;
+
+        if (membership) {
+            orgId = membership.organizationId;
+        } else {
+            // Create default organization
+            orgId = await ctx.db.insert("organizations", {
+                name: "My Organization",
+                slug: "my-org-" + Date.now(),
+                ownerId: userId,
+                plan: "FREE",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+            await ctx.db.insert("memberships", {
+                userId,
+                organizationId: orgId,
+                role: "OWNER",
+                status: "ONLINE",
+                maxConversations: 0,
+                activeConversations: 0,
+                lastSeenAt: Date.now(),
+                joinedAt: Date.now(),
+            });
+        }
+
+        if (session) {
+            await ctx.db.patch(session._id, {
+                currentOrganizationId: orgId,
+                lastActivityAt: Date.now(),
+            });
+        } else {
+            await ctx.db.insert("userSessions", {
+                userId,
+                currentOrganizationId: orgId,
+                lastActivityAt: Date.now(),
+            });
+        }
+
+        return orgId;
+    }
+});

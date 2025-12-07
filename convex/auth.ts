@@ -6,6 +6,12 @@ export const { auth, signIn, signOut, store } = convexAuth({
     providers: [
         Google,
         Password({
+            profile(params) {
+                return {
+                    email: params.email as string,
+                    name: params.name as string,
+                };
+            },
             validatePasswordRequirements: (password: string) => {
                 if (password.length < 8) {
                     throw new Error("Le mot de passe doit contenir au moins 8 caractères.");

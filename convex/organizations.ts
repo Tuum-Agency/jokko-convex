@@ -99,6 +99,25 @@ export const create = mutation({
             joinedAt: Date.now(),
         });
 
+        // Auto-switch to new org
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (session) {
+            await ctx.db.patch(session._id, {
+                currentOrganizationId: orgId,
+                lastActivityAt: Date.now(),
+            });
+        } else {
+            await ctx.db.insert("userSessions", {
+                userId,
+                currentOrganizationId: orgId,
+                lastActivityAt: Date.now(),
+            });
+        }
+
         return orgId;
     },
 });
