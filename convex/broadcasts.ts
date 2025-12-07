@@ -93,6 +93,11 @@ export const create = mutation({
         name: v.string(),
         templateId: v.id("templates"),
         scheduledAt: v.optional(v.number()),
+        audienceConfig: v.object({
+            type: v.union(v.literal("ALL"), v.literal("TAGS"), v.literal("COUNTRIES")),
+            tags: v.optional(v.array(v.id("tags"))),
+            countries: v.optional(v.array(v.string())),
+        }),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -111,6 +116,7 @@ export const create = mutation({
             organizationId: session.currentOrganizationId,
             name: args.name,
             templateId: args.templateId,
+            audienceConfig: args.audienceConfig,
             status: args.scheduledAt ? "SCHEDULED" : "DRAFT",
             scheduledAt: args.scheduledAt,
             sentCount: 0,

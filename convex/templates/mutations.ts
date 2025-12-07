@@ -207,3 +207,63 @@ export const updateStatus = mutation({
         });
     },
 });
+
+export const seedStandard = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) throw new Error("No active organization");
+        const orgId = session.currentOrganizationId;
+
+        // Check for hello_world
+        const existing = await ctx.db
+            .query("templates")
+            .withIndex("by_organization", q => q.eq("organizationId", orgId))
+            .filter(q => q.eq(q.field("name"), "hello_world"))
+            .first();
+
+        if (existing) {
+            return { message: "Standard templates already exist", inserted: 0 };
+        }
+
+        // Insert hello_world
+        await ctx.db.insert("templates", {
+            organizationId: orgId,
+            name: "hello_world",
+            slug: "hello_world",
+            language: "en_US", // Standard is usually en_US
+            category: "UTILITY",
+            type: "STANDARD", // Custom type for our app logic, or just UTILITY
+            description: "Standard WhatsApp Welcome Template",
+            status: "APPROVED",
+
+            header: {
+                type: "TEXT",
+                text: "Hello World"
+            },
+            body: "Welcome and congratulations. This message demonstrates your ability to send a WhatsApp message notification. You can now send any standard message.",
+            footer: "WhatsApp Business API Team",
+
+            sentCount: 0,
+            deliveredCount: 0,
+            readCount: 0,
+            repliedCount: 0,
+            clickedCount: 0,
+            convertedCount: 0,
+            failedCount: 0,
+            blockedCount: 0,
+
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        return { message: "Standard templates seeded", inserted: 1 };
+    },
+});

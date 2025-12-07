@@ -188,15 +188,14 @@ export default defineSchema({
         firstName: v.optional(v.string()),
         lastName: v.optional(v.string()),
         email: v.optional(v.string()),
+        address: v.optional(v.string()),
+        city: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()), // e.g. "+221"
 
         // Professional
         company: v.optional(v.string()),
         jobTitle: v.optional(v.string()),
-
-        // Address
-        address: v.optional(v.string()),
-        city: v.optional(v.string()),
-        country: v.optional(v.string()),
 
         // Metadata
         notes: v.optional(v.string()),
@@ -520,6 +519,11 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         name: v.string(),
         templateId: v.id("templates"),
+        audienceConfig: v.object({
+            type: v.union(v.literal("ALL"), v.literal("TAGS"), v.literal("COUNTRIES")),
+            tags: v.optional(v.array(v.id("tags"))),
+            countries: v.optional(v.array(v.string())), // Array of prefixes e.g. ["+221", "+33"]
+        }),
 
         status: v.union(
             v.literal("DRAFT"),

@@ -18,6 +18,38 @@ const getSearchName = (args: { name?: string, firstName?: string, lastName?: str
     return parts.filter(Boolean).join(" ").toLowerCase();
 };
 
+const detectCountryCode = (phone: string): string | undefined => {
+    // Clean phone: remove non-alphanumeric (keep + if present)
+    let p = phone.replace(/[^0-9+]/g, '');
+
+    // Normalize start
+    if (p.startsWith('00')) {
+        p = p.substring(2); // Remove 00
+    } else if (p.startsWith('+')) {
+        p = p.substring(1); // Remove +
+    }
+
+    // Known prefixes
+    const knownPrefixes = [
+        "221", "33", "1", "44", "212", "225", "223", "224", "241", "237",
+        "220", "222", "238", "226", "227", "228", "229", "242", "243",
+        "34", "32", "49", "41", "39", "27", "234", "233", "254"
+    ];
+
+    for (const prefix of knownPrefixes) {
+        if (p.startsWith(prefix)) {
+            return "+" + prefix;
+        }
+    }
+
+    // Fallback: first 3 digits if long enough
+    if (p.length > 7) {
+        return "+" + p.substring(0, 3);
+    }
+
+    return undefined;
+};
+
 export const list = query({
     args: {
         paginationOpts: paginationOptsValidator,
@@ -166,6 +198,7 @@ export const create = mutation({
             notes: args.notes,
             tags: tagIds,
             searchName: getSearchName(args),
+            countryCode: detectCountryCode(args.phone),
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
@@ -232,6 +265,7 @@ export const update = mutation({
             ...updates,
             tags: tagIds,
             searchName,
+            countryCode: updates.phone ? detectCountryCode(updates.phone) : (current.countryCode || (current.phone ? detectCountryCode(current.phone) : undefined)),
             updatedAt: Date.now()
         });
     }
@@ -333,6 +367,7 @@ export const batchCreate = mutation({
                 ...contactData,
                 tags: tagIds,
                 searchName,
+                countryCode: detectCountryCode(contactData.phone),
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             });
@@ -344,4 +379,51 @@ export const batchCreate = mutation({
             errors
         };
     },
+});
+
+export const getAvailableCountryCodes = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) return [];
+        const orgId = session.currentOrganizationId;
+
+        // Since we now store countryCode, we can just fetch unique values.
+        // However, we might need to backfill or handle legacy data that doesn't have it yet.
+        // For new system, we trust countryCode.
+        // If countryCode is missing, we could try to compute it on fly or just ignore?
+        // Let's rely on countryCode field for efficiency, assuming data migration or gradual fix.
+        // Or for now, we can still scan but prefer countryCode if present.
+        // To be safe and quick: scan existing valid countryCodes.
+
+        // This query fetches all contacts, which is expensive. 
+        // Ideally we should have a separate facet/index for country codes.
+        // For now, let's just collect distinct countryCodes.
+
+        const contacts = await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", q => q.eq("organizationId", orgId))
+            .collect();
+
+        const prefixes = new Set<string>();
+
+        contacts.forEach(c => {
+            if (c.countryCode) {
+                prefixes.add(c.countryCode);
+            } else {
+                // Fallback for old contacts
+                const detected = detectCountryCode(c.phone);
+                if (detected) prefixes.add(detected);
+            }
+        });
+
+        return Array.from(prefixes).sort();
+    }
 });

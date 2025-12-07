@@ -11,16 +11,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Id } from '@/convex/_generated/dataModel';
+import { Badge } from '@/components/ui/badge';
 import { ButtonGroup } from '@/components/ui/button-group';
 
 export default function NewBroadcastPage() {
     const router = useRouter();
     const createBroadcast = useMutation(api.broadcasts.create);
     const templates = useQuery(api.templates.queries.listAll); // Using listAll for dropdown
+    const tagsData = useQuery(api.tags.list);
+    const tags = tagsData?.tags || [];
+    const availableCountries = useQuery(api.contacts.getAvailableCountryCodes) || [];
 
     const [name, setName] = useState('');
     const [templateId, setTemplateId] = useState<string>('');
+    const [audienceType, setAudienceType] = useState<'ALL' | 'TAGS' | 'COUNTRIES'>('ALL');
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    const toggleTag = (tagId: string) => {
+        setSelectedTags(prev =>
+            prev.includes(tagId)
+                ? prev.filter(id => id !== tagId)
+                : [...prev, tagId]
+        );
+    };
+
+    const toggleCountry = (country: string) => {
+        setSelectedCountries(prev =>
+            prev.includes(country)
+                ? prev.filter(c => c !== country)
+                : [...prev, country]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,6 +54,11 @@ export default function NewBroadcastPage() {
             const id = await createBroadcast({
                 name,
                 templateId: templateId as Id<"templates">,
+                audienceConfig: {
+                    type: audienceType,
+                    tags: audienceType === 'TAGS' ? selectedTags as Id<"tags">[] : undefined,
+                    countries: audienceType === 'COUNTRIES' ? selectedCountries : undefined
+                }
             });
             router.push(`/dashboard/broadcasts/${id}`);
         } catch (error) {
@@ -74,6 +102,95 @@ export default function NewBroadcastPage() {
                             />
                         </div>
 
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Audience</Label>
+                                <Select value={audienceType} onValueChange={(v) => setAudienceType(v as 'ALL' | 'TAGS')}>
+                                    <SelectTrigger className="h-10">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Tous les contacts</SelectItem>
+                                        <SelectItem value="TAGS">Filtrer par tags</SelectItem>
+                                        <SelectItem value="COUNTRIES">Filtrer par pays</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {audienceType === 'TAGS' && (
+                                <div className="space-y-2 border rounded-md p-4 bg-muted/20">
+                                    <Label className="text-sm text-muted-foreground mb-2 block">Sélectionnez les tags à cibler :</Label>
+                                    {tags.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {tags.map(tag => {
+                                                const isSelected = selectedTags.includes(tag._id);
+                                                return (
+                                                    <Badge
+                                                        key={tag._id}
+                                                        variant={isSelected ? "default" : "outline"}
+                                                        className="cursor-pointer hover:opacity-80 transition-opacity select-none"
+                                                        onClick={() => toggleTag(tag._id)}
+                                                    >
+                                                        {tag.name}
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Aucun tag disponible. Créez des tags dans la section Contacts.</p>
+                                    )}
+                                    {selectedTags.length > 0 && (
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            {selectedTags.length} tag(s) sélectionné(s)
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {audienceType === 'COUNTRIES' && (
+                                <div className="space-y-2 border rounded-md p-4 bg-muted/20">
+                                    <Label className="text-sm text-muted-foreground mb-2 block">Sélectionnez les pays à cibler (indicatifs trouvés) :</Label>
+                                    {availableCountries.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {availableCountries.map(country => {
+                                                const isSelected = selectedCountries.includes(country);
+                                                // Map standard prefixes to names roughly for UI
+                                                let label = country;
+                                                if (country === '+221') label = "🇸🇳 Sénégal (+221)";
+                                                else if (country === '+33') label = "🇫🇷 France (+33)";
+                                                else if (country === '+1') label = "🇺🇸/🇨🇦 USA/Canada (+1)";
+                                                else if (country === '+44') label = "🇬🇧 UK (+44)";
+                                                else if (country === '+212') label = "🇲🇦 Maroc (+212)";
+                                                else if (country === '+225') label = "🇨🇮 Côte d'Ivoire (+225)";
+                                                else if (country === '+223') label = "🇲🇱 Mali (+223)";
+                                                else if (country === '+224') label = "🇬🇳 Guinée (+224)";
+                                                else if (country === '+241') label = "🇬🇦 Gabon (+241)";
+                                                else if (country === '+237') label = "🇨🇲 Cameroun (+237)";
+
+                                                return (
+                                                    <Badge
+                                                        key={country}
+                                                        variant={isSelected ? "default" : "outline"}
+                                                        className="cursor-pointer hover:opacity-80 transition-opacity select-none"
+                                                        onClick={() => toggleCountry(country)}
+                                                    >
+                                                        {label}
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Aucun indicatif de pays détecté.</p>
+                                    )}
+                                    {selectedCountries.length > 0 && (
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            {selectedCountries.length} pays sélectionné(s)
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="template">Template WhatsApp</Label>
                             <div className="flex gap-3 items-start">
@@ -101,7 +218,7 @@ export default function NewBroadcastPage() {
                                         Seuls les templates approuvés apparaissent ici.
                                     </p>
                                 </div>
-                                <Button type="button" variant="outline" onClick={() => router.push('/dashboard/templates')} className="h-10 px-4">
+                                <Button type="button" variant="outline" onClick={() => router.push('/dashboard/templates')} className="h-10 pTempsx-4">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Créer un modèle
                                 </Button>

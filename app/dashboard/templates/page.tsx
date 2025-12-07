@@ -7,7 +7,11 @@ import { TemplateTypeSelector } from '@/components/templates/TemplateTypeSelecto
 import { TemplateBuilder } from '@/components/templates/TemplateBuilder';
 import { TemplateType } from '@/convex/lib/templateTypes';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Loader2, Plus, ArrowLeft, Download } from 'lucide-react';
+// ... imports
+import { Id } from '@/convex/_generated/dataModel';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 type ViewState = 'LIST' | 'SELECT_TYPE' | 'CREATE' | 'EDIT';
@@ -52,6 +56,21 @@ export default function TemplatesPage() {
         // Toast?
     };
 
+    const seedStandard = useMutation(api.templates.mutations.seedStandard);
+    const [isSeeding, setIsSeeding] = useState(false);
+
+    const handleSeed = async () => {
+        setIsSeeding(true);
+        try {
+            await seedStandard();
+            // Optional: toast success
+        } catch (error) {
+            console.error("Failed to seed standard templates", error);
+        } finally {
+            setIsSeeding(false);
+        }
+    };
+
     return (
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
@@ -68,6 +87,12 @@ export default function TemplatesPage() {
                         </p>
                     </div>
                 </div>
+                {view === 'LIST' && (
+                    <Button variant="outline" onClick={handleSeed} disabled={isSeeding}>
+                        {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        Charger les standards
+                    </Button>
+                )}
             </div>
 
             {view === 'LIST' ? (
@@ -120,11 +145,6 @@ export default function TemplatesPage() {
         </div>
     );
 }
-
-// Helper wrapper to handle fetching if editing
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { Id } from '@/convex/_generated/dataModel';
 
 const BuilderWrapper = ({ type, templateId, onSuccess, onCancel }: {
     type: TemplateType,

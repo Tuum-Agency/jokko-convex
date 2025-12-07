@@ -43,10 +43,18 @@ function parseInitialValue(value: string, defaultCountry: CountryCode) {
         return { country: defaultCountry, nationalNumber: '', validation: null }
     }
     const country = detectCountry(value) || defaultCountry;
+    const countryObj = SUPPORTED_COUNTRIES.find(c => c.code === country);
+    const dialCode = countryObj?.dialCode || '';
+
+    let nationalNumber = value;
+    if (value.startsWith(dialCode)) {
+        nationalNumber = value.substring(dialCode.length);
+    }
+
     return {
         country,
-        nationalNumber: value,
-        validation: validatePhone(value)
+        nationalNumber,
+        validation: validatePhone(value, { defaultCountry: country })
     }
 }
 
@@ -79,21 +87,57 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
 
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             const raw = e.target.value
-            // In real app, we would strip country code if present, but here we just take input
             setInputValue(raw)
-            const formatted = raw; // Simplification
 
-            if (formatted) {
-                const result = validatePhone(formatted, { defaultCountry: country })
+            // Construct full number
+            // If raw already has +, assume user is pasting full number?
+            // For now, adhere to: prefix + raw
+            // But if raw starts with +, we might need to re-detect country?
+            // Let's keep it simple: assume user types national number.
+
+            // Remove leading 0 if present? 
+            // Often standard is to keep it or remove it depends on country.
+            // E.164 usually strips leading zero.
+            // Let's NOT transform input value visibly, but transform output value.
+
+            let cleanNumber = raw.replace(/\D/g, ''); // just digits
+            if (raw.startsWith('+')) {
+                // Special case: user pasted international number?
+                // We should probably allow this but for now let's just stick to apppending prefix to raw input
+            }
+
+            const prefix = currentCountry?.dialCode || '';
+            const fullNumber = prefix + raw;
+
+            if (raw) {
+                const result = validatePhone(fullNumber, { defaultCountry: country })
                 setValidation(result)
-                onChange?.(formatted, result)
+                onChange?.(fullNumber, result)
             } else {
-                // ...
+                setValidation(null)
+                onChange?.('', {
+                    valid: false,
+                    normalized: null,
+                    country,
+                    countryCode: prefix,
+                    nationalNumber: '',
+                    displayFormat: null
+                })
             }
         }
 
         const handleCountryChange = (code: string) => {
-            setCountry(code as CountryCode)
+            const newCountry = code as CountryCode
+            setCountry(newCountry)
+
+            // Re-validate with new prefix
+            const countryObj = SUPPORTED_COUNTRIES.find(c => c.code === newCountry);
+            const prefix = countryObj?.dialCode || '';
+            const fullNumber = prefix + inputValue;
+
+            const result = validatePhone(fullNumber, { defaultCountry: newCountry })
+            setValidation(result)
+            onChange?.(fullNumber, result)
         }
 
         const showValid = showValidation && inputValue && validation?.valid
