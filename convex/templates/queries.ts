@@ -80,3 +80,30 @@ export const get = query({
         return template;
     },
 });
+
+export const listAll = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) {
+            return [];
+        }
+
+        const orgId = session.currentOrganizationId;
+
+        const templates = await ctx.db
+            .query("templates")
+            .withIndex("by_organization", q => q.eq("organizationId", orgId))
+            .filter(q => q.eq(q.field("status"), "APPROVED")) // Only approved templates for campaigns?
+            .collect();
+
+        return templates;
+    },
+});

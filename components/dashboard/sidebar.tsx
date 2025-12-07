@@ -56,8 +56,8 @@ const mainNavigation = [
         icon: FileText,
     },
     {
-        name: 'Broadcast',
-        href: '/broadcast',
+        name: 'Broadcasts',
+        href: '/broadcasts',
         icon: Send,
     },
     {

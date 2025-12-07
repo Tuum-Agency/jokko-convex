@@ -12,6 +12,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 
 type ViewState = 'LIST' | 'SELECT_TYPE' | 'CREATE' | 'EDIT';
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ShortcutList } from '@/components/templates/ShortcutList';
+
+// ... imports
+
 export default function TemplatesPage() {
     const [view, setView] = useState<ViewState>('LIST');
     const [selectedType, setSelectedType] = useState<TemplateType | null>(null);
@@ -57,64 +62,60 @@ export default function TemplatesPage() {
                         </Button>
                     )}
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Templates WhatsApp</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">Templates & Raccourcis</h1>
                         <p className="text-muted-foreground">
-                            Gérez vos modèles de messages pour l'API WhatsApp Business.
+                            Gérez vos modèles WhatsApp et raccourcis de réponse rapide.
                         </p>
                     </div>
                 </div>
-                {view === 'LIST' && (
-                    <Button onClick={handleCreateClick}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nouveau Template
-                    </Button>
-                )}
             </div>
 
-            {view === 'LIST' && (
-                <TemplateList
-                    onEdit={handleEdit}
-                    onDelete={(id) => {
-                        // Ideally confirm dialog then mutation
-                        console.log("Delete", id);
-                    }}
-                />
-            )}
+            {view === 'LIST' ? (
+                <Tabs defaultValue="templates" className="w-full">
+                    <TabsList>
+                        <TabsTrigger value="templates">Templates WhatsApp</TabsTrigger>
+                        <TabsTrigger value="shortcuts">Raccourcis Messages</TabsTrigger>
+                    </TabsList>
 
-            {view === 'SELECT_TYPE' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Choisir un type de template</CardTitle>
-                        <CardDescription>Sélectionnez le type de message que vous souhaitez créer.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <TemplateTypeSelector onSelect={handleTypeSelect} />
-                    </CardContent>
-                </Card>
-            )}
+                    <TabsContent value="templates" className="space-y-4 pt-4">
+                        <TemplateList
+                            onCreate={handleCreateClick}
+                            onEdit={handleEdit}
+                            onDelete={(id) => {
+                                console.log("Delete", id);
+                            }}
+                        />
+                    </TabsContent>
 
-            {(view === 'CREATE' || view === 'EDIT') && selectedType && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    {/* Fetch data if editing - For now assume TemplateBuilder fetches or we pass id */}
-                    {/* Since TemplateBuilder fetches initialData if we implemented it that way, or we fetch here.
-                         For simplicity in this step, I'll let TemplateBuilder handle 'initialData' logic if I fetch it here, 
-                         BUT I didn't verify if TemplateBuilder fetches by ID.
-                         Looking at my code for TemplateBuilder, it takes 'initialData' prop.
-                         So I should fetch it here if EDIT.
-                         
-                         For now, to avoid complexity of fetching in parent component (requires another query),
-                         I'll render TemplateBuilder and assume for EDIT we might need to refactor slightly 
-                         or I'll just skip pre-filling for this verification step if complex.
-                         
-                         Actually, `useQuery(api.templates.queries.get, {id: editingId})` would verify efficiently.
-                     */}
-                    <BuilderWrapper
-                        type={selectedType}
-                        templateId={editingId}
-                        onSuccess={handleSuccess}
-                        onCancel={handleBack}
-                    />
-                </div>
+                    <TabsContent value="shortcuts" className="pt-4">
+                        <ShortcutList />
+                    </TabsContent>
+                </Tabs>
+            ) : (
+                <>
+                    {view === 'SELECT_TYPE' && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Choisir un type de template</CardTitle>
+                                <CardDescription>Sélectionnez le type de message que vous souhaitez créer.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <TemplateTypeSelector onSelect={handleTypeSelect} />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {(view === 'CREATE' || view === 'EDIT') && selectedType && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <BuilderWrapper
+                                type={selectedType}
+                                templateId={editingId}
+                                onSuccess={handleSuccess}
+                                onCancel={handleBack}
+                            />
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

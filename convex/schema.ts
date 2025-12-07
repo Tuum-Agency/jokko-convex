@@ -509,4 +509,62 @@ export default defineSchema({
     })
         .index('by_template', ['templateId'])
         .index('by_template_index', ['templateId', 'index']),
+
+    // ==========================================
+    // SHORTCUTS (Quick Replies)
+    // ==========================================
+    // ============================================
+    // Broadcasts (Campaigns)
+    // ============================================
+    broadcasts: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        templateId: v.id("templates"),
+
+        status: v.union(
+            v.literal("DRAFT"),
+            v.literal("SCHEDULED"),
+            v.literal("SENDING"),
+            v.literal("COMPLETED"),
+            v.literal("FAILED"),
+            v.literal("CANCELLED")
+        ),
+
+        scheduledAt: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+
+        // Stats snapshot
+        sentCount: v.number(),
+        deliveredCount: v.number(),
+        readCount: v.number(),
+        repliedCount: v.number(),
+        failedCount: v.number(),
+
+        // Metadata
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_org_status", ["organizationId", "status"]),
+
+    shortcuts: defineTable({
+        organizationId: v.id("organizations"),
+        shortcut: v.string(), // Trigger command (e.g., "/intro")
+        text: v.string(), // Full text content
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_org_shortcut", ["organizationId", "shortcut"])
+        .searchIndex("search_shortcuts", {
+            searchField: "shortcut",
+            filterFields: ["organizationId"],
+        }), // Note: text search would ideally include text field too but Convex search supports 1 searchField.
+    // I'll search on "shortcut" primarily. If user wants to search text, I might need another index or concatenation?
+    // "on va vérifier par exemple à 15".
+    // I'll stick to searching shortcut for now, or just use `shortcut` as searchField.
+    // Actually, `searchName` in contacts used concatenation.
+    // I can add a `searchField` to shortcuts too? Or just search `shortcut`.
+    // User usually searches the trigger.
+    // I'll just add search on `shortcut`.
 });
