@@ -1,23 +1,47 @@
 import { query } from "./_generated/server";
 
-export const listAll = query({
+/**
+ * Debug query to check current auth identity
+ */
+export const checkAuth = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+
+        if (!identity) {
+            return { authenticated: false, message: "Not authenticated" };
+        }
+
+        // Check if user exists in DB
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .first();
+
+        return {
+            authenticated: true,
+            identity: {
+                email: identity.email,
+                name: identity.name,
+                tokenIdentifier: identity.tokenIdentifier,
+            },
+            userExistsInDB: !!user,
+            userId: user?._id,
+        };
+    },
+});
+
+/**
+ * List all users in the database
+ */
+export const listAllUsers = query({
     args: {},
     handler: async (ctx) => {
         const users = await ctx.db.query("users").collect();
-        const orgs = await ctx.db.query("organizations").collect();
-        const memberships = await ctx.db.query("memberships").collect();
-        const poles = await ctx.db.query("poles").collect();
-
-        return {
-            users: users.map(u => ({ id: u._id, name: u.name, email: u.email })),
-            orgs: orgs.map(o => ({ id: o._id, name: o.name, slug: o.slug })),
-            memberships: memberships.map(m => ({
-                userId: m.userId,
-                orgId: m.organizationId,
-                role: m.role
-            })),
-            poles,
-            invitations: (await ctx.db.query("invitations").collect()).map(i => ({ email: i.email, name: i.name, status: i.status }))
-        };
-    }
+        return users.map(u => ({
+            _id: u._id,
+            email: u.email,
+            name: u.name,
+        }));
+    },
 });

@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Search, X, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuthActions } from '@convex-dev/auth/react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -55,6 +57,8 @@ export function DashboardHeader({
     isSidebarCollapsed = false,
     onExpandSidebar,
 }: DashboardHeaderProps) {
+    const router = useRouter()
+    const { signOut } = useAuthActions()
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
 
@@ -66,6 +70,16 @@ export function DashboardHeader({
             .join('')
             .toUpperCase()
             .slice(0, 2)
+    }
+
+    // Handle logout
+    const handleLogout = async () => {
+        try {
+            await signOut()
+            router.push('/sign-in')
+        } catch (error) {
+            console.error('Logout failed:', error)
+        }
     }
 
     // Mock notifications
@@ -230,7 +244,7 @@ export function DashboardHeader({
                             >
                                 <Avatar className="h-9 w-9 ring-2 ring-gray-100">
                                     <AvatarImage src={user.avatar} alt={user.name} />
-                                    <AvatarFallback className="bg-gradient-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
+                                    <AvatarFallback className="bg-linear-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
                                         {getInitials(user.name)}
                                     </AvatarFallback>
                                 </Avatar>
@@ -248,7 +262,10 @@ export function DashboardHeader({
                             <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
                             <DropdownMenuItem className="cursor-pointer">Help</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+                            <DropdownMenuItem
+                                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                onClick={handleLogout}
+                            >
                                 Sign out
                             </DropdownMenuItem>
                         </DropdownMenuContent>

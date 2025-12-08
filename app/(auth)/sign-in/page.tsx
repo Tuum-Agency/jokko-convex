@@ -29,16 +29,35 @@ export default function SignInPage() {
         setError(null);
         const formData = new FormData(e.currentTarget as HTMLFormElement);
         formData.set("flow", "signIn");
-        await signIn("password", formData)
-            .then(() => {
-                setLoading(false);
-                router.push("/dashboard");
-            })
-            .catch((err) => {
-                console.error("Sign in error:", err);
-                setError("Email ou mot de passe incorrect.");
-                setLoading(false);
-            });
+
+        try {
+            await signIn("password", formData);
+
+            // Après connexion réussie, récupérer l'organisation par défaut
+            // Nous devons importer fetchMutation depuis convex/nextjs ou utiliser un client direct
+            // Pour simplifier ici, nous allons rediriger vers /dashboard et laisser le layout gérer,
+            // ou mieux : tenter de récupérer le slug si possible.
+            // Comme nous sommes côté client, nous ne pouvons pas facilement appeler une mutation sans hook.
+            // Mais nous pouvons simplement rediriger vers /dashboard qui va gérer l'auth,
+            // et ensuite le layout redirigera vers le sous-domaine si nécessaire.
+
+            // Note: Pour faire une redirection propre vers le sous-domaine dès le login,
+            // l'idéal serait d'avoir un composant intermédiaire ou d'utiliser useMutation,
+            // mais useMutation ne peut pas être "await" de cette façon dans un event handler s'il n'est pas déjà monté.
+            // Cependant, signIn est async. Une fois fini, le cookie est set.
+
+            // On peut recharger la page pour trigger le middleware ou aller dashboard.
+            // Le plus simple est d'aller sur /dashboard.
+            // Si vous voulez FORCE le sous-domaine ici, il faudrait requêter l'API.
+
+            // Pour l'instant, restons simple : redirection dashboard.
+            // Le layout dashboard va s'occuper de la redirection sous-domaine (étape suivante).
+            router.push("/dashboard");
+        } catch (err) {
+            console.error("Sign in error:", err);
+            setError("Email ou mot de passe incorrect.");
+            setLoading(false);
+        }
     }
 
     return (

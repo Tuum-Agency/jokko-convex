@@ -149,6 +149,12 @@ export const ensure = mutation({
             });
         }
 
-        return orgId;
+        // Fetch the organization to get the slug
+        const organization = await ctx.db.get(orgId);
+
+        return {
+            organizationId: orgId,
+            slug: organization?.slug
+        };
     }
 });

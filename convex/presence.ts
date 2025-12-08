@@ -15,6 +15,7 @@
 
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireMembership } from "./lib/auth";
 
 /**
@@ -129,5 +130,63 @@ export const checkTimeouts = internalMutation({
         for (const m of stale) {
             await ctx.db.patch(m._id, { status: "OFFLINE" });
         }
+    },
+});
+
+/**
+ * TYPING INDICATORS
+ */
+export const sendTyping = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        conversationId: v.id("conversations"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return;
+
+        // Upsert typing status
+        const existing = await ctx.db
+            .query("typing")
+            .withIndex("by_conversation_user", (q) =>
+                q.eq("conversationId", args.conversationId).eq("userId", userId)
+            )
+            .first();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, { timestamp: Date.now() });
+        } else {
+            await ctx.db.insert("typing", {
+                conversationId: args.conversationId,
+                userId: userId,
+                timestamp: Date.now(),
+            });
+        }
+    },
+});
+
+export const listTyping = query({
+    args: {
+        conversationId: v.id("conversations"),
+    },
+    handler: async (ctx, args) => {
+        const threshold = Date.now() - 3000; // 3 seconds ago max
+
+        const typing = await ctx.db
+            .query("typing")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+            .filter((q) => q.gt(q.field("timestamp"), threshold))
+            .collect();
+
+        // Enrich with user name
+        return Promise.all(
+            typing.map(async (t) => {
+                const user = await ctx.db.get(t.userId);
+                return {
+                    userId: t.userId,
+                    name: user?.name?.split(" ")[0] || "Someone",
+                };
+            })
+        );
     },
 });

@@ -18,21 +18,25 @@ export default function DashboardLayout({
     const router = useRouter();
 
     useEffect(() => {
+        // Redirection si l'utilisateur n'est pas connecté
         if (user === null) {
             router.push('/sign-in');
             return;
         }
+        // Redirection vers l'onboarding si nécessaire
         if (user && user.onboardingCompleted === false) {
             router.push('/onboarding');
         }
     }, [user, router]);
 
     useEffect(() => {
+        // S'assurer que la session est initialisée si l'utilisateur est connecté mais pas de session active
         if (sessionData === null && user) {
             ensureSession();
         }
     }, [sessionData, user, ensureSession]);
 
+    // État de chargement initial
     if (user === undefined || sessionData === undefined) {
         return (
             <div className="flex h-screen items-center justify-center">
@@ -41,21 +45,44 @@ export default function DashboardLayout({
         );
     }
 
-    // Redirect logic
+    // Protection simple : si pas d'utilisateur, on ne rend rien (le useEffect redirige)
     if (user === null) {
         return null;
     }
 
-    // If ensure is running, sessionData might still be null briefly
-    // We can show loading until organization is confirmed, or let it flow if we handled it.
-    // If sessionData is null after ensure logic, implies we are waiting for update.
+    // En attente de l'organisation
     if (!sessionData?.organization) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center flex-col gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2">Configuration de l'organisation...</span>
+                <span className="text-sm text-gray-500">Connexion à votre espace...</span>
             </div>
         );
+    }
+
+    // Redirection vers le sous-domaine si nécessaire
+    if (typeof window !== 'undefined' && sessionData.organization.slug) {
+        const hostname = window.location.hostname;
+        const slug = sessionData.organization.slug;
+
+        // En local, on gère localhost
+        if (hostname.includes('localhost')) {
+            if (!hostname.startsWith(`${slug}.`)) {
+                // Redirection vers le sous-domaine
+                const port = window.location.port ? `:${window.location.port}` : '';
+                const newUrl = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
+                window.location.href = newUrl;
+                return null; // Empêcher le rendu pendant la redirection
+            }
+        }
+        // En prod (à adapter selon votre domaine)
+        else if (hostname.endsWith('.jokko.com')) { // Remplacez jokko.com par votre vrai domaine
+            if (!hostname.startsWith(`${slug}.`)) {
+                const newUrl = `${window.location.protocol}//${slug}.jokko.com${window.location.pathname}`;
+                window.location.href = newUrl;
+                return null;
+            }
+        }
     }
 
     return (

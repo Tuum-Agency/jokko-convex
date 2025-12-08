@@ -27,11 +27,19 @@ export function usePresence(organizationId: Id<"organizations">) {
     useEffect(() => {
         if (!organizationId) return;
 
-        // Initial heartbeat
-        heartbeat({ organizationId });
+        // Initial heartbeat - wrap in try-catch to avoid errors on first render
+        const sendHeartbeat = async () => {
+            try {
+                await heartbeat({ organizationId });
+            } catch (error) {
+                console.error('[PRESENCE] Heartbeat failed:', error);
+            }
+        };
+
+        sendHeartbeat();
 
         const interval = setInterval(() => {
-            heartbeat({ organizationId });
+            sendHeartbeat();
         }, 30_000);
 
         return () => clearInterval(interval);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
     BarChart3,
@@ -19,6 +19,7 @@ import {
     Menu,
     HelpCircle,
 } from 'lucide-react'
+import { useAuthActions } from '@convex-dev/auth/react'
 
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -112,7 +113,9 @@ export function MobileSidebar({
     organizationName = 'My Organization',
 }: MobileSidebarProps) {
     const pathname = usePathname()
+    const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
+    const { signOut } = useAuthActions()
 
     // Check if a nav item is active
     const isActive = (href: string) => {
@@ -131,6 +134,16 @@ export function MobileSidebar({
             .join('')
             .toUpperCase()
             .slice(0, 2)
+    }
+
+    // Handle logout
+    const handleLogout = async () => {
+        try {
+            await signOut()
+            router.push('/sign-in')
+        } catch (error) {
+            console.error('Logout failed:', error)
+        }
     }
 
     return (
@@ -268,6 +281,7 @@ export function MobileSidebar({
                             size="icon"
                             aria-label="Se déconnecter"
                             className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={handleLogout}
                         >
                             <LogOut className="h-4 w-4" aria-hidden="true" />
                         </Button>

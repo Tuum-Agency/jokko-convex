@@ -157,15 +157,27 @@ export const seedTeam = mutation({
         }
 
         // 5. Add 'momoseck8@gmail.com' as OWNER if exists
-        const userMomo = await ctx.db
+        let userMomo = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", "momoseck8@gmail.com"))
             .first();
 
+        if (!userMomo) {
+            console.log("Creating dev user momoseck8@gmail.com");
+            const userId = await ctx.db.insert("users", {
+                name: "Mamadou Seck",
+                email: "momoseck8@gmail.com",
+                image: "https://github.com/shadcn.png",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+            userMomo = await ctx.db.get(userId);
+        }
+
         if (userMomo) {
             const membership = await ctx.db
                 .query("memberships")
-                .withIndex("by_user_org", (q) => q.eq("userId", userMomo._id).eq("organizationId", orgId))
+                .withIndex("by_user_org", (q) => q.eq("userId", userMomo!._id).eq("organizationId", orgId))
                 .first();
 
             if (!membership) {
@@ -189,7 +201,7 @@ export const seedTeam = mutation({
             }
 
             // Also update user's current org to this one
-            const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userMomo._id)).first();
+            const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userMomo!._id)).first();
             if (session) {
                 await ctx.db.patch(session._id, { currentOrganizationId: orgId });
             } else {
@@ -199,10 +211,112 @@ export const seedTeam = mutation({
                     lastActivityAt: Date.now()
                 });
             }
-        } else {
-            console.log("User momoseck8@gmail.com not found. Skipping assignment.");
         }
 
         return "Seeding completed successfully!";
+    }
+});
+
+export const seedAssignments = mutation({
+    args: {},
+    handler: async (ctx) => {
+        // 1. Get Org
+        const org = await ctx.db.query("organizations").first();
+        if (!org) throw new Error("Run seedTeam first to create org");
+        const orgId = org._id;
+
+        // 2. Create Departments for Assignments
+        // Check if exists
+        let salesDept = await ctx.db.query("departments").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Ventes")).first();
+        if (!salesDept) {
+            const id = await ctx.db.insert("departments", {
+                organizationId: orgId,
+                name: "Ventes",
+                description: "Sales Department",
+                routingStrategy: "ROUND_ROBIN",
+                autoAssign: true,
+                priority: 1,
+                isActive: true,
+                isDefault: true,
+                activeConversations: 0,
+                queuedConversations: 0,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+            salesDept = await ctx.db.get(id);
+        }
+
+        let supportDept = await ctx.db.query("departments").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Support")).first();
+        if (!supportDept) {
+            const id = await ctx.db.insert("departments", {
+                organizationId: orgId,
+                name: "Support",
+                description: "Customer Support",
+                routingStrategy: "LEAST_BUSY",
+                autoAssign: true,
+                priority: 2,
+                isActive: true,
+                isDefault: false,
+                activeConversations: 0,
+                queuedConversations: 0,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+            supportDept = await ctx.db.get(id);
+        }
+
+        // 3. Init Agents for all Members
+        const memberships = await ctx.db.query("memberships").withIndex("by_organization", q => q.eq("organizationId", orgId)).collect();
+        for (const m of memberships) {
+            // Check if agent exists
+            const existingAgent = await ctx.db.query("agents").withIndex("by_member", q => q.eq("memberId", m.userId)).first();
+            if (!existingAgent) {
+                await ctx.db.insert("agents", {
+                    organizationId: orgId,
+                    memberId: m.userId,
+                    departmentIds: [salesDept!._id], // Assign to Sales by default
+                    primaryDepartmentId: salesDept!._id,
+                    status: "ONLINE", // Force online for demo
+                    maxConcurrentChats: 5,
+                    currentActiveChats: 0, // Reset for demo
+                    routingPriority: 1,
+                    autoAccept: true,
+                    acceptNewChats: true,
+                    lastActivityAt: Date.now(),
+                    statusUpdatedAt: Date.now(),
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+            }
+        }
+
+        // 4. Create Dummy Conversations (Unassigned)
+        const messages = [
+            "Bonjour, je voudrais des infos sur le produit X",
+            "Mon paiement a échoué",
+            "Heures d'ouverture ?",
+            "Parler à un humain svp",
+            "Urgent: Commande non reçue"
+        ];
+
+        for (const msg of messages) {
+            // Check duplicates to avoid spamming on re-seed
+            const exist = await ctx.db.query("conversations").withIndex("by_org_status", q => q.eq("organizationId", orgId).eq("status", "OPEN")).filter((q) => q.eq(q.field("preview"), msg)).first();
+            if (!exist) {
+                await ctx.db.insert("conversations", {
+                    organizationId: orgId,
+                    channel: "WHATSAPP",
+                    status: "OPEN",
+                    preview: msg,
+                    lastMessageAt: Date.now(),
+                    unreadCount: 1,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    // assignedTo: undefined -> Unassigned
+                });
+            }
+        }
+
+        return "Assignments seeded";
     }
 });

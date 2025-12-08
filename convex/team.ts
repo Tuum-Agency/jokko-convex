@@ -57,10 +57,12 @@ export const listMembers = query({
 
             return {
                 id: m._id, // Membership ID used as Member ID in frontend
+                userId: m.userId, // User ID for assignment
                 role: m.role.toLowerCase(),
                 poleId: m.poleId,
                 joinedAt: new Date(m.joinedAt).toISOString(),
                 user: {
+                    id: m.userId, // Also put it here for consistency if needed
                     name: user.name || "Unknown",
                     email: user.email,
                     avatar: user.image,

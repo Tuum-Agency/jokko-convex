@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
     BarChart3,
     MessageSquare,
+    ClipboardList,
     Users,
     FileText,
     Send,
@@ -44,6 +45,11 @@ const mainNavigation = [
         href: '/conversations',
         icon: MessageSquare,
         badge: 12,
+    },
+    {
+        name: 'Assignments',
+        href: '/assignments',
+        icon: ClipboardList,
     },
     {
         name: 'Contacts',

@@ -16,18 +16,16 @@
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { hasPermission, Permission } from "./permissions";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non authentifié");
+    const userId = await getAuthUserId(ctx);
 
-    const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", identity.email!))
-        .first();
-    if (!user) throw new Error("Utilisateur non trouvé");
+    if (!userId) {
+        throw new Error("Non authentifié");
+    }
 
-    return user._id;
+    return userId;
 }
 
 export async function requireMembership(
@@ -36,6 +34,8 @@ export async function requireMembership(
 ) {
     const userId = await requireAuth(ctx);
 
+    console.log(`[AUTH DEBUG] Looking for membership - userId: ${userId}, orgId: ${organizationId}`);
+
     const membership = await ctx.db
         .query("memberships")
         .withIndex("by_user_org", (q) =>
@@ -43,7 +43,10 @@ export async function requireMembership(
         )
         .first();
 
-    if (!membership) throw new Error("Non membre de cette organisation");
+    if (!membership) {
+        console.error(`[AUTH ERROR] No membership found for user ${userId} in org ${organizationId}`);
+        throw new Error("Non membre de cette organisation");
+    }
 
     return { userId, membership };
 }
