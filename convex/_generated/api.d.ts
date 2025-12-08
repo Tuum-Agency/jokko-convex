@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as broadcasts from "../broadcasts.js";
 import type * as cleanup from "../cleanup.js";
@@ -19,6 +20,7 @@ import type * as emails_components_layout from "../emails/components/layout.js";
 import type * as emails_invitation from "../emails/invitation.js";
 import type * as emails_password_reset from "../emails/password_reset.js";
 import type * as emails_verification from "../emails/verification.js";
+import type * as flows from "../flows.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -48,6 +50,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
   auth: typeof auth;
   broadcasts: typeof broadcasts;
   cleanup: typeof cleanup;
@@ -59,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "emails/invitation": typeof emails_invitation;
   "emails/password_reset": typeof emails_password_reset;
   "emails/verification": typeof emails_verification;
+  flows: typeof flows;
   http: typeof http;
   invitations: typeof invitations;
   "lib/auth": typeof lib_auth;

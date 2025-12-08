@@ -571,4 +571,19 @@ export default defineSchema({
     // I can add a `searchField` to shortcuts too? Or just search `shortcut`.
     // User usually searches the trigger.
     // I'll just add search on `shortcut`.
+    // ============================================
+    // Flows (Automation)
+    // ============================================
+    flows: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        description: v.optional(v.string()),
+        triggerType: v.string(), // e.g., "KEYWORD"
+        triggerConfig: v.optional(v.string()), // JSON string for config
+        nodes: v.string(), // JSON string (array of nodes)
+        edges: v.string(), // JSON string (array of edges)
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    }).index("by_organization", ["organizationId"]),
 });
