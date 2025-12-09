@@ -112,7 +112,9 @@ async function executeFlow(ctx: any, flow: any, input: { conversationId: Id<"con
     // EXECUTE START NODE
     if (startNode.type === 'message') {
         const content = startNode.data.content;
-        if (content) {
+        const interactive = (startNode.data as any).interactive; // Force cast or update type above
+
+        if (content || interactive) {
             // Get Contact Phone
             const contact = await ctx.db.get(input.contactId);
             if (!contact) {
@@ -126,8 +128,8 @@ async function executeFlow(ctx: any, flow: any, input: { conversationId: Id<"con
                 contactId: input.contactId, // receiver
                 // senderId: undefined (System/Bot)
 
-                type: "TEXT",
-                content: content,
+                type: interactive ? "INTERACTIVE" : "TEXT",
+                content: content || (interactive ? `[${interactive.type.toUpperCase()}]` : ""),
                 direction: "OUTBOUND",
                 status: "PENDING",
 
@@ -138,18 +140,20 @@ async function executeFlow(ctx: any, flow: any, input: { conversationId: Id<"con
             // Update conversation
             await ctx.db.patch(input.conversationId, {
                 lastMessageAt: Date.now(),
-                preview: `You: ${content}`,
+                preview: interactive ? `[Interactive]` : `You: ${content}`,
                 updatedAt: Date.now(),
             });
 
-            console.log(`[ENGINE] Sent message (DB): ${content}`);
+            console.log(`[ENGINE] Sent message (DB): ${content || 'Interactive'}`);
 
             // Trigger Real Send
             await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
                 messageId: messageId,
                 organizationId: input.organizationId,
                 to: contact.phone,
-                text: content
+                text: content, // Required if text
+                type: interactive ? "interactive" : "text",
+                interactive: interactive
             });
         }
     }

@@ -30,28 +30,16 @@ import { Id } from '@/convex/_generated/dataModel';
 
 // --- Components ---
 
-const MessageNode = ({ data }: { data: { label: string; content?: string } }) => {
-    return (
-        <div className="bg-white rounded-xl border-2 border-slate-200 shadow-sm min-w-[250px] overflow-hidden group hover:border-blue-500 transition-colors">
-            <Handle type="target" position={Position.Top} className="!bg-slate-300 w-3 h-3" />
-            <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-blue-500" />
-                <span className="font-semibold text-sm text-slate-700">{data.label}</span>
-            </div>
-            <div className="p-4 text-sm text-slate-600 bg-white">
-                {data.content ? (
-                    <p className="whitespace-pre-wrap">{data.content}</p>
-                ) : (
-                    <p className="italic text-slate-400">Aucun contenu</p>
-                )}
-            </div>
-            <Handle type="source" position={Position.Bottom} className="!bg-slate-300 w-3 h-3" />
-        </div>
-    );
-};
+import { CustomNodeMessage } from './nodes/CustomNodeMessage';
+import { CustomNodeStart } from './nodes/CustomNodeStart';
+import { CustomNodeInteractive } from './nodes/CustomNodeInteractive';
+import { CustomNodeAction } from './nodes/CustomNodeAction';
 
 const nodeTypes = {
-    message: MessageNode,
+    message: CustomNodeMessage,
+    start: CustomNodeStart,
+    interactive: CustomNodeInteractive,
+    action: CustomNodeAction,
 };
 
 const SUGGESTED_PROMPTS = [

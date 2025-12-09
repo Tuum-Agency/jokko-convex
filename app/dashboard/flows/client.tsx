@@ -8,6 +8,7 @@ import { Plus, MoreVertical, Play, Pause, Trash2, Edit, Workflow, Bot, ChevronLe
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -76,7 +77,23 @@ export function FlowsPageClient() {
             </div>
 
             {flows === undefined ? (
-                <div className="text-center py-12">Chargement...</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                            <div className="flex justify-between items-start mb-4">
+                                <Skeleton className="h-6 w-16 rounded-full" />
+                                <Skeleton className="h-8 w-8 rounded-md" />
+                            </div>
+                            <Skeleton className="h-6 w-3/4 mb-2" />
+                            <Skeleton className="h-4 w-full mb-1" />
+                            <Skeleton className="h-4 w-2/3 mb-6" />
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                                <Skeleton className="h-3 w-24" />
+                                <Skeleton className="h-4 w-20" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             ) : filteredFlows.length === 0 ? (
                 <Empty>
                     <EmptyHeader>

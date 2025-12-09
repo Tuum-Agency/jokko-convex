@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Skeleton } from '@/components/ui/skeleton'
 
 function StatsCard({
     title,
@@ -99,8 +100,8 @@ export default function DashboardPage() {
         <div className="space-y-6">
             {/* Page Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                    Bienvenue, {user?.name || 'User'}!
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    Bienvenue, {user ? user.name : <Skeleton className="h-8 w-40 inline-block" />}!
                 </h1>
                 <p className="text-gray-500 mt-1">
                     Voici un apercu de votre activite sur votre organisation.

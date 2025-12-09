@@ -8,13 +8,14 @@ export const sendMessage = internalAction({
         messageId: v.id("messages"),
         organizationId: v.id("organizations"),
         to: v.string(),
-        text: v.string(),
+        text: v.optional(v.string()),
+        type: v.optional(v.string()), // "text" (default) or "interactive"
+        interactive: v.optional(v.any()), // JSON payload for interactive messages
     },
     handler: async (ctx, args) => {
         // 1. Get Organization Config
         const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
 
-        // Resolve Credentials
         // Resolve Credentials
         // Prioritize ENV vars
         const envPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -28,6 +29,7 @@ export const sendMessage = internalAction({
         if (!phoneNumberId || !accessToken) {
             console.log(`[DEBUG] Org Config - PhoneID: ${org?.whatsapp?.phoneNumberId}, Token: ${org?.whatsapp?.accessToken ? "Set" : "Missing"}`);
             console.error(`[OUTBOUND] Missing WhatsApp credentials (DB or ENV) for Org ${args.organizationId}`);
+            // ... failure handling ...
             await ctx.runMutation(internal.utils.updateMessageStatus, {
                 messageId: args.messageId,
                 status: "FAILED"
@@ -35,14 +37,24 @@ export const sendMessage = internalAction({
             return;
         }
 
-        // Sanitize Phone Number (Remove spaces, ensure no + if WA doesn't want it? Actually WA API allows +, but clean is better)
-        // Usually WA API expects E.164 without +, or just digits.
-        // Docs: "Recipient's phone number with country code" (e.g., 16315555555)
-        // It does NOT want the '+' usually in the JSON body for 'to'.
-        // Let's strip everything except digits.
         const recipientPhone = args.to.replace(/\D/g, '');
 
         console.log(`[OUTBOUND] Sending message to ${recipientPhone} (ID: ${phoneNumberId})`);
+
+        // Construct Payload
+        const type = args.type || "text";
+        let messageBody: any = {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: recipientPhone,
+            type: type
+        };
+
+        if (type === "text") {
+            messageBody.text = { preview_url: false, body: args.text };
+        } else if (type === "interactive" && args.interactive) {
+            messageBody.interactive = args.interactive;
+        }
 
         try {
             const response = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
@@ -51,13 +63,7 @@ export const sendMessage = internalAction({
                     "Authorization": `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    messaging_product: "whatsapp",
-                    recipient_type: "individual",
-                    to: recipientPhone,
-                    type: "text",
-                    text: { preview_url: false, body: args.text },
-                }),
+                body: JSON.stringify(messageBody),
             });
 
             const data = await response.json();

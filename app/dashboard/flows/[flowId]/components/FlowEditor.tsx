@@ -21,13 +21,19 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button } from '@/components/ui/button';
-import { Save, ArrowLeft, Plus, Sparkles } from 'lucide-react';
+import { Save, ArrowLeft, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { CustomNodeMessage } from './nodes/CustomNodeMessage';
+import { CustomNodeMessage } from '../../components/nodes/CustomNodeMessage';
+import { CustomNodeStart } from '../../components/nodes/CustomNodeStart';
+import { CustomNodeInteractive } from '../../components/nodes/CustomNodeInteractive';
+import { CustomNodeAction } from '../../components/nodes/CustomNodeAction';
 
 const nodeTypes = {
     message: CustomNodeMessage,
+    start: CustomNodeStart,
+    interactive: CustomNodeInteractive,
+    action: CustomNodeAction,
 };
 
 interface FlowEditorProps {
@@ -174,22 +180,46 @@ function FlowEditorContent({ flowId }: FlowEditorProps) {
                         onPaneClick={onPaneClick}
                         nodeTypes={nodeTypes}
                         fitView
+                        fitViewOptions={{ maxZoom: 1 }}
                     >
                         <Background color="#aaa" gap={16} />
                         <Controls />
                         <MiniMap />
                         <Panel position="top-left" className="bg-white p-2 rounded shadow-md border border-gray-200">
-                            <div className="text-xs font-semibold text-gray-500 mb-2 uppercase">Ajouter un nœud</div>
-                            <div className="flex flex-col gap-2">
+                            <div className="text-xs font-semibold text-gray-500 mb-2 uppercase">Composants</div>
+                            <div className="grid grid-cols-1 gap-2">
                                 <div
-                                    className="px-3 py-2 bg-white border border-gray-300 rounded cursor-grab hover:bg-gray-50 text-sm flex items-center gap-2"
+                                    className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded cursor-grab hover:bg-yellow-100 text-sm flex items-center gap-2 text-yellow-800"
+                                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'start')}
+                                    draggable
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                    Déclencheur
+                                </div>
+                                <div
+                                    className="px-3 py-2 bg-blue-50 border border-blue-200 rounded cursor-grab hover:bg-blue-100 text-sm flex items-center gap-2 text-blue-800"
                                     onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'message')}
                                     draggable
                                 >
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                    Message
+                                    Message Texte
                                 </div>
-                                {/* Add more node types here */}
+                                <div
+                                    className="px-3 py-2 bg-purple-50 border border-purple-200 rounded cursor-grab hover:bg-purple-100 text-sm flex items-center gap-2 text-purple-800"
+                                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'interactive')}
+                                    draggable
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                    Choix / Menu
+                                </div>
+                                <div
+                                    className="px-3 py-2 bg-red-50 border border-red-200 rounded cursor-grab hover:bg-red-100 text-sm flex items-center gap-2 text-red-800"
+                                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'action')}
+                                    draggable
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                    Action
+                                </div>
                             </div>
                         </Panel>
                     </ReactFlow>
@@ -199,23 +229,167 @@ function FlowEditorContent({ flowId }: FlowEditorProps) {
                 {selectedNode && (
                     <div className="w-80 border-l bg-white p-4 overflow-y-auto">
                         <div className="text-lg font-semibold mb-4 border-b pb-2">Propriétés</div>
+
+                        {/* MESSAGE NODE CONFIG */}
                         {selectedNode.type === 'message' && (
                             <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-blue-700">Message Texte</h3>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contenu du message</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contenu</label>
                                     <textarea
-                                        className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:green-500"
+                                        className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:blue-500"
                                         rows={4}
-                                        value={selectedNode.data.content as string}
+                                        value={selectedNode.data.content as string || ''}
                                         onChange={(e) => updateNodeData(selectedNode.id, { content: e.target.value })}
-                                        placeholder="Entrez le texte du message..."
+                                        placeholder="Bonjour, comment puis-je vous aider ?"
                                     />
                                 </div>
                             </div>
                         )}
-                        {selectedNode.type !== 'message' && (
-                            <div className="text-sm text-gray-500">Sélectionnez un type de nœud connu pour éditer.</div>
+
+                        {/* START NODE CONFIG */}
+                        {selectedNode.type === 'start' && (
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-yellow-700">Déclencheur</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type de déclencheur</label>
+                                    <select
+                                        className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                        value={selectedNode.data.triggerType as string || 'keyword'}
+                                        onChange={(e) => updateNodeData(selectedNode.id, { triggerType: e.target.value })}
+                                    >
+                                        <option value="keyword">Mot-clé</option>
+                                        <option value="new_conversation">Nouvelle Conversation</option>
+                                        <option value="no_reply">Pas de réponse (Timeout)</option>
+                                    </select>
+                                </div>
+                                {(selectedNode.data.triggerType === 'keyword' || !selectedNode.data.triggerType) && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mots-clés (séparés par virgule)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                            value={selectedNode.data.keywords as string || ''}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { keywords: e.target.value })}
+                                            placeholder="bonjour, salut, info"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         )}
+
+                        {/* INTERACTIVE NODE CONFIG */}
+                        {selectedNode.type === 'interactive' && (
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-purple-700">Message Interactif</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <Button
+                                            size="sm"
+                                            variant={selectedNode.data.interactiveType === 'list' ? "default" : "outline"}
+                                            onClick={() => updateNodeData(selectedNode.id, { interactiveType: 'list' })}
+                                            className="flex-1"
+                                        >
+                                            Liste (Menu)
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={selectedNode.data.interactiveType === 'button' ? "default" : "outline"}
+                                            onClick={() => updateNodeData(selectedNode.id, { interactiveType: 'button' })}
+                                            className="flex-1"
+                                        >
+                                            Boutons
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message principal</label>
+                                    <textarea
+                                        className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                        rows={2}
+                                        value={selectedNode.data.content as string || ''}
+                                        onChange={(e) => updateNodeData(selectedNode.id, { content: e.target.value })}
+                                        placeholder="Choisissez une option :"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
+                                    <div className="space-y-2">
+                                        {((selectedNode.data.options as any[]) || []).map((opt, idx) => (
+                                            <div key={idx} className="flex gap-2">
+                                                <input
+                                                    className="flex-1 rounded-md border border-gray-300 p-1 text-sm"
+                                                    value={opt.label || opt.title}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...((selectedNode.data.options as any[]) || [])];
+                                                        newOpts[idx] = { ...newOpts[idx], label: e.target.value, title: e.target.value, id: e.target.value.toLowerCase().replace(/\s/g, '_') };
+                                                        updateNodeData(selectedNode.id, { options: newOpts });
+                                                    }}
+                                                />
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
+                                                    const newOpts = [...((selectedNode.data.options as any[]) || [])];
+                                                    newOpts.splice(idx, 1);
+                                                    updateNodeData(selectedNode.id, { options: newOpts });
+                                                }}>
+                                                    &times;
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        <Button size="sm" variant="outline" className="w-full border-dashed" onClick={() => {
+                                            const newOpts = [...((selectedNode.data.options as any[]) || [])];
+                                            newOpts.push({ id: `opt_${Date.now()}`, title: 'Nouvelle option', label: 'Nouvelle option' });
+                                            updateNodeData(selectedNode.id, { options: newOpts });
+                                        }}>
+                                            + Ajouter une option
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ACTION NODE CONFIG */}
+                        {selectedNode.type === 'action' && (
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-red-700">Action Système</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type d'action</label>
+                                    <select
+                                        className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                        value={selectedNode.data.actionType as string || 'tag'}
+                                        onChange={(e) => updateNodeData(selectedNode.id, { actionType: e.target.value })}
+                                    >
+                                        <option value="tag">Ajouter un Tag</option>
+                                        <option value="assign">Assigner à un Agent</option>
+                                        <option value="close">Clôturer la conversation</option>
+                                    </select>
+                                </div>
+                                {selectedNode.data.actionType === 'tag' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom du Tag</label>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                            value={selectedNode.data.details as string || ''}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { details: e.target.value })}
+                                            placeholder="ex: VIP, Support"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Common: Delete Button */}
+                        <div className="pt-4 mt-4 border-t">
+                            <Button variant="destructive" size="sm" className="w-full" onClick={() => {
+                                setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+                                setSelectedNode(null);
+                            }}>
+                                Supprimer le nœud
+                            </Button>
+                        </div>
                     </div>
                 )}
             </div>

@@ -54,9 +54,23 @@ export const generateFlow = action({
             // Mock response for testing
             return {
                 nodes: [
-                    { id: '1', type: 'message', position: { x: 250, y: 100 }, data: { label: 'Message 1', content: 'Ceci est un flux mocké (Pas de clé API).' } }
+                    { id: '1', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Start', triggerType: 'keyword', keywords: 'demo' } },
+                    { id: '2', type: 'message', position: { x: 250, y: 150 }, data: { label: 'Welcome', content: 'Welcome to the Demo Flow!' } },
+                    {
+                        id: '3', type: 'interactive', position: { x: 250, y: 300 }, data: {
+                            label: 'Options',
+                            interactiveType: 'list',
+                            content: 'Choose an option:',
+                            options: [{ id: 'opt1', title: 'Sales', label: 'Sales' }, { id: 'opt2', title: 'Support', label: 'Support' }]
+                        }
+                    },
+                    { id: '4', type: 'action', position: { x: 250, y: 500 }, data: { label: 'Assign Agent', actionType: 'assign', details: 'Support Team' } }
                 ],
-                edges: []
+                edges: [
+                    { id: 'e1-2', source: '1', target: '2' },
+                    { id: 'e2-3', source: '2', target: '3' },
+                    { id: 'e3-4', source: '3', target: '4' }
+                ]
             };
         }
 
@@ -96,15 +110,36 @@ export const generateFlow = action({
                       ]
                     }
                     
-                    Supported node types:
-                    - "message": Mandatory "content" in data. Content should be the actual text sent to the user.
-                    
+                    Supported node types & structure:
+
+                    1. "start" (The Trigger):
+                       - data: { "label": "Start", "triggerType": "keyword", "keywords": "hello, start" }
+                       (Always include one start node).
+
+                    2. "message" (Text only):
+                       - data: { "label": "Welcome", "content": "Hello! How can I help?" }
+
+                    3. "interactive" (Buttons or Lists):
+                       - data: {
+                           "label": "Choose Option",
+                           "interactiveType": "list" (OR "button" for <= 3 options),
+                           "content": "Please select a service:",
+                           "options": [
+                               { "id": "opt_1", "title": "Sales", "label": "Sales" },
+                               { "id": "opt_2", "title": "Support", "label": "Support" }
+                           ]
+                       }
+
+                    4. "action" (System operations):
+                       - data: { "label": "Tag User", "actionType": "tag", "details": "Lead" }
+                       (actionTypes: "tag", "assign", "close")
+
                     CRITICAL RULES:
-                    1. LABELS: Use descriptive labels like "Welcome Message", "First Follow-up", "Promo Offer" instead of "Message 1".
-                    2. CONTENT: The content must be engaging, professional, and match the user's intent perfectly. Use emojis if appropriate.
-                    3. DATA USAGE: If the user asks about "services" or "offerings", USE the 'AVAILABLE ORGANIZATION SERVICES' list provided above. Do not hallucinate services.
-                    4. STRUCTURE: Arrange nodes vertically with sufficient vertical spacing (at least 150px gap).
-                    5. IDs: Use simple string IDs ('1', '2', '3') or keep existing ones.
+                    1. START NODE: Every flow MUST have exactly one 'start' node.
+                    2. SERVICES: Use the 'AVAILABLE ORGANIZATION SERVICES' list to populate 'interactive' node options if relevant.
+                    3. LOGIC: Flow should generally go Start -> Message/Interactive -> (Decision) -> Message -> Action.
+                    4. IDS: Use simple unique string IDs.
+                    5. LAYOUT: Calculate "position" {x, y} so nodes flow logically from top to bottom.
                     
                     Return ONLY the JSON.`
                     },
