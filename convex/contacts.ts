@@ -121,6 +121,39 @@ export const list = query({
     },
 });
 
+export const get = query({
+    args: { id: v.id("contacts") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null; // or throw
+
+        const contact = await ctx.db.get(args.id);
+        if (!contact) return null;
+
+        // Verify organization membership/access?
+        // Ideally yes.
+        const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
+        if (session?.currentOrganizationId !== contact.organizationId) {
+            // In strict mode, throw or return null.
+            // For now return null to be safe if crossed orgs.
+            return null;
+        }
+
+        // Enrich tags
+        const tags = await Promise.all(
+            (contact.tags || []).map(id => ctx.db.get(id))
+        );
+
+        return {
+            ...contact,
+            id: contact._id, // Client expects 'id'
+            // Map tags to strings as expected by UI for now, or objects?
+            // UI uses string[] in ContactDetails interface: `tags: string[]`
+            tags: tags.filter(t => t).map(t => t!.name)
+        };
+    }
+});
+
 export const create = mutation({
     args: {
         phone: v.string(),

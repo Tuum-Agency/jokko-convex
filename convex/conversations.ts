@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireMembership, requirePermission } from "./lib/auth";
 import { canSeeAllConversations } from "./lib/permissions";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // ============================================
 // Queries
@@ -169,6 +170,43 @@ export const getById = query({
     },
 });
 
+// List conversations by contact (history)
+export const listByContact = query({
+    args: {
+        contactId: v.id("contacts"),
+        organizationId: v.id("organizations")
+    },
+    handler: async (ctx, args) => {
+        await requireMembership(ctx, args.organizationId);
+
+        // Fetch conversations for this contact
+        // Using filter because we might not have a perfect index for (organizationId, contactId)
+        // Schema has index("by_organization", ["organizationId"])
+        // We can filter by contactId on that.
+        // Or if we added the optional index mention in plan, we'd use it.
+        // For now, filter is fine for reasonably sized organizations.
+        // Actually schema has:
+        // .index("by_organization", ["organizationId"])
+        // And usually fetching by filtering `contactId` on that index is acceptable if selectivity is high.
+
+        const conversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .filter(q => q.eq(q.field("contactId"), args.contactId))
+            .order("desc") // Newest first
+            .collect();
+
+        return conversations.map(c => ({
+            _id: c._id,
+            status: c.status,
+            createdAt: c.createdAt,
+            lastMessageAt: c.lastMessageAt,
+            preview: c.preview,
+            channel: c.channel
+        }));
+    }
+});
+
 // ============================================
 // Mutations
 // ============================================
@@ -182,13 +220,9 @@ export const resolve = mutation({
         await requirePermission(ctx, conversation.organizationId, "conversations:update");
 
         await ctx.db.patch(args.id, {
-            status: "RESOLVED", // Or ARCHIVED ?
-            // If system uses ARCHIVED as closed state:
-            // status: "ARCHIVED" 
+            status: "RESOLVED",
+            updatedAt: Date.now()
         });
-        // Schema says "OPEN", "CLOSED", "SNOOZED".
-        // Let's use "CLOSED".
-        await ctx.db.patch(args.id, { status: "CLOSED" });
     },
 });
 
@@ -227,4 +261,61 @@ export const markAsRead = mutation({
 
         await ctx.db.patch(args.id, { unreadCount: 0 });
     }
+});
+// ... (existing code)
+
+export const getSidebarStats = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        // Get current selected organization from session
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) return null;
+
+        const organizationId = session.currentOrganizationId;
+
+        // Fetch counts
+        // 1. Unread assigned to me
+        // We can't index this perfectly without a specific index. 
+        // For now, fetch my active conversations and count.
+        // Assuming "by_org_last_message" and filtering in memory is okay for per-user load.
+        // Better: if we had "by_assignee" index.
+        // Schema wasn't fully visible but usually we have indexes.
+        // Let's use `list` logic's optimization or just iterate.
+        // Given `list` does `by_org_last_message`, let's do that.
+
+        const conversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_org_last_message", (q) =>
+                q.eq("organizationId", organizationId)
+            )
+            .collect();
+
+        const unreadCount = conversations.filter(
+            c => c.assignedTo === userId && (c.unreadCount || 0) > 0 && c.status !== "ARCHIVED" && c.status !== "RESOLVED"
+        ).length;
+
+        // 2. Unassigned (for Assignments tab if needed, though user asked for 'Conversations' badge)
+        // Similar filter
+        const unassignedCount = conversations.filter(
+            c => !c.assignedTo && c.status !== "ARCHIVED" && c.status !== "RESOLVED"
+        ).length;
+
+        // Global unread (all conversations) - maybe for admin?
+        const allUnreadCount = conversations.filter(
+            c => (c.unreadCount || 0) > 0 && c.status !== "ARCHIVED" && c.status !== "RESOLVED"
+        ).length;
+
+        return {
+            unread: unreadCount,
+            unassigned: unassignedCount,
+            allUnread: allUnreadCount
+        };
+    },
 });

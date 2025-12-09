@@ -29,7 +29,7 @@ export interface VisibilityContext {
     organizationId: Id<'organizations'>
     role: 'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT'
     agentId?: Id<'agents'>
-    departmentIds?: Id<'departments'>[]
+    departmentIds?: string[]
 }
 
 export function getVisibilityLevel(role: string): VisibilityLevel {
@@ -53,7 +53,7 @@ export function getVisibilityLevel(role: string): VisibilityLevel {
 export interface ConversationForVisibility {
     organizationId: Id<'organizations'>
     assignedToAgentId?: Id<'agents'>
-    departmentId?: Id<'departments'>
+    departmentId?: string
     status: string
 }
 

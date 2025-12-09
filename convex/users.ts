@@ -115,3 +115,38 @@ export const whoAmI = query({
         };
     },
 });
+// ... (existing code)
+
+export const updatePresence = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) return null;
+
+        await ctx.db.patch(session._id, {
+            lastActivityAt: Date.now(),
+        });
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", session.currentOrganizationId!)
+            )
+            .first();
+
+        if (membership) {
+            const updates: any = { lastSeenAt: Date.now() };
+            if (membership.status === "OFFLINE") {
+                updates.status = "ONLINE";
+            }
+            await ctx.db.patch(membership._id, updates);
+        }
+    },
+});

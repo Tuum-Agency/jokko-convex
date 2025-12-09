@@ -23,6 +23,7 @@ import type * as emails_components_layout from "../emails/components/layout.js";
 import type * as emails_invitation from "../emails/invitation.js";
 import type * as emails_password_reset from "../emails/password_reset.js";
 import type * as emails_verification from "../emails/verification.js";
+import type * as engine from "../engine.js";
 import type * as files from "../files.js";
 import type * as flows from "../flows.js";
 import type * as http from "../http.js";
@@ -49,6 +50,10 @@ import type * as templates_mutations from "../templates/mutations.js";
 import type * as templates_queries from "../templates/queries.js";
 import type * as templates_webhooks from "../templates/webhooks.js";
 import type * as users from "../users.js";
+import type * as utils from "../utils.js";
+import type * as webhook from "../webhook.js";
+import type * as whatsapp from "../whatsapp.js";
+import type * as whatsapp_actions from "../whatsapp_actions.js";
 
 import type {
   ApiFromModules,
@@ -72,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "emails/invitation": typeof emails_invitation;
   "emails/password_reset": typeof emails_password_reset;
   "emails/verification": typeof emails_verification;
+  engine: typeof engine;
   files: typeof files;
   flows: typeof flows;
   http: typeof http;
@@ -98,6 +104,10 @@ declare const fullApi: ApiFromModules<{
   "templates/queries": typeof templates_queries;
   "templates/webhooks": typeof templates_webhooks;
   users: typeof users;
+  utils: typeof utils;
+  webhook: typeof webhook;
+  whatsapp: typeof whatsapp;
+  whatsapp_actions: typeof whatsapp_actions;
 }>;
 
 /**

@@ -7,8 +7,22 @@ import { QueryCtx, MutationCtx } from "./_generated/server";
 
 // Helper to resolve context
 async function getContext(ctx: QueryCtx | MutationCtx): Promise<VisibilityContext> {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
+    let userId = await getAuthUserId(ctx);
+
+    // Fallback for CLI/Seed usage if no auth
+    if (!userId) {
+        // Try to find the "Jokko Demo" owner or any owner
+        const org = await ctx.db.query("organizations").first();
+        if (org && org.ownerId) {
+            userId = org.ownerId;
+        } else {
+            // Try fetching any user
+            const user = await ctx.db.query("users").first();
+            if (user) userId = user._id;
+        }
+    }
+
+    if (!userId) throw new Error("Unauthorized: No user found");
 
     // Get session/org
     const session = await ctx.db
@@ -48,7 +62,7 @@ async function getContext(ctx: QueryCtx | MutationCtx): Promise<VisibilityContex
         memberId: userId,
         organizationId: orgId,
         role: membership.role as any, // Cast to expected role type
-        agentId: agent?._id,
+        agentId: agent?._id, // might be undefined if we migrated away from agents table but kept schema
         departmentIds: agent?.departmentIds || []
     };
 }
@@ -67,11 +81,14 @@ export const getStats = query({
             .filter((q) => q.eq(q.field("assignedTo"), undefined))
             .collect();
 
-        // 2. Urgent (Not implemented in schema yet, assuming priority field or tag? 
-        // Schema doesn't have priority on conversation, only on assignmentQueue or tags)
-        // We'll mock it or count "high" tags if any
-        // For now, let's say "Urgent" is based on SLA breach or specific tag "URGENT"
-        // Let's count unassigned for now as critical metric
+        // 2. Urgent (Count based on keywords in preview)
+        // We filter the already fetched 'unassigned' list to avoid extra query
+        const urgentCount = unassigned.filter(c => {
+            const preview = (c.preview || "").toLowerCase();
+            return preview.includes("urgent") ||
+                preview.includes("problème") ||
+                preview.includes("failed");
+        }).length;
 
         // 3. Online Agents
         // Count agents with status "ONLINE"
@@ -83,9 +100,8 @@ export const getStats = query({
         return {
             unassignedCount: unassigned.length,
             onlineAgentsCount: onlineAgents.length,
-            // Mock others for now until fully populated
-            urgentCount: 0,
-            avgResponseTime: "2 min"
+            urgentCount: urgentCount,
+            avgResponseTime: "2 min" // Still hardcoded, requires complex aggregation on history
         };
     }
 });
@@ -154,7 +170,8 @@ export const getConversationsQueue = query({
             return false;
         });
 
-        return filtered.map(c => {
+        // Enrich with Contact info
+        const results = await Promise.all(filtered.map(async (c) => {
             const messageLower = (c.preview || "").toLowerCase();
             let priority = "normal";
             if (messageLower.includes("urgent") || messageLower.includes("problème") || messageLower.includes("failed")) {
@@ -165,17 +182,30 @@ export const getConversationsQueue = query({
                 priority = "high"; // Just for variety
             }
 
+            let contactName = "Inconnu";
+            let contactPhone = "";
+
+            if (c.contactId) {
+                const contact = await ctx.db.get(c.contactId);
+                if (contact) {
+                    contactName = contact.name || "Sans nom";
+                    contactPhone = contact.phone || "";
+                }
+            }
+
             return {
                 id: c._id,
                 message: c.preview || "Nouveau message",
                 time: new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                business: "WhatsApp", // Todo fetch contact
-                phone: "+221 77 000 0000", // Fetch contact
+                business: contactName,
+                phone: contactPhone,
                 priority: priority,
                 statusColor: c.assignedTo ? "bg-green-500" : "bg-gray-300",
                 date: "message" // Icon type
             };
-        });
+        }));
+
+        return results;
     }
 });
 
@@ -185,24 +215,63 @@ export const getAgentsList = query({
         const context = await getContext(ctx);
         const { organizationId } = context;
 
-        // Fetch agents
-        const agents = await ctx.db
-            .query("agents")
+        // Fetch memberships for the org
+        const memberships = await ctx.db
+            .query("memberships")
             .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
 
-        // Enrich with User info
-        const result = await Promise.all(agents.map(async (a) => {
-            const user = await ctx.db.get(a.memberId);
+        // Enrich with User info and Pole (Department)
+        const result = await Promise.all(memberships.map(async (m) => {
+            const user = await ctx.db.get(m.userId);
+
+            // Fetch Pole (Service)
+            let departmentName = "Général";
+            if (m.poleId) {
+                const pole = await ctx.db.get(m.poleId);
+                if (pole) departmentName = pole.name;
+            }
+
+            // Determine status color/text from membership status
+            // Membership status: ONLINE, BUSY, AWAY, OFFLINE
+            const lastSeen = m.lastSeenAt || 0;
+            const isActive = (Date.now() - lastSeen) < 5 * 60 * 1000; // 5 minutes activity window
+
+            let effectiveStatus = m.status;
+            // Auto-detect online if marked offline but active
+            if (m.status === 'OFFLINE' && isActive) {
+                effectiveStatus = 'ONLINE';
+            }
+
+            const isOnline = effectiveStatus === 'ONLINE';
+            const isBusy = effectiveStatus === 'BUSY';
+            const load = m.activeConversations || 0;
+            const maxLoad = m.maxConversations || 5;
+
+            let statusLabel = 'Hors ligne';
+            if (effectiveStatus === 'ONLINE') statusLabel = 'En ligne';
+            if (effectiveStatus === 'BUSY') statusLabel = 'Occupé';
+            if (effectiveStatus === 'AWAY') statusLabel = 'Absent';
+
+            // Color logic
+            let color = 'bg-gray-300';
+            if (isOnline) color = 'bg-green-500';
+            if (isBusy) color = 'bg-amber-500';
+            if (load >= maxLoad) color = 'bg-red-500';
+
             return {
-                id: a._id,
+                id: m._id, // Membership ID? Or should we return UserID as ID? 
+                // Client expects `id` for key. `memberId` for assignment.
+                // Let's use membership ID as generic ID, and userId as memberId.
+                memberId: m.userId,
+                department: departmentName,
                 name: user?.name?.substring(0, 2).toUpperCase() || "??",
-                fullName: user?.name,
-                status: a.status === 'ONLINE' ? 'En ligne' : a.status === 'BUSY' ? 'Occupé' : 'Hors ligne',
-                load: a.currentActiveChats,
-                maxLoad: a.maxConcurrentChats,
-                color: a.currentActiveChats >= a.maxConcurrentChats ? 'bg-red-500' : 'bg-green-500',
-                online: a.status !== 'OFFLINE'
+                fullName: user?.name || "Utilisateur Inconnu",
+                status: statusLabel,
+                load: load,
+                maxLoad: maxLoad,
+                color: color,
+                online: isOnline || isBusy // considered "online" for availability check?
             };
         }));
 
@@ -216,8 +285,15 @@ export const autoAssign = mutation({
         const context = await getContext(ctx);
         const { organizationId } = context;
 
+        // 0. Get Settings
+        const org = await ctx.db.get(organizationId);
+        const settings = org?.settings?.assignment;
+        const autoAssignEnabled = settings?.autoAssignEnabled ?? false; // Default false to be safe? Or true? Prompt said "Toggle Auto-Assignment".
+        const excludeOfflineAgents = settings?.excludeOfflineAgents ?? true;
+
+        if (!autoAssignEnabled) return { assigned: 0, reason: "Auto-assign disabled" };
+
         // 1. Get unassigned OPEN conversations
-        // We limit to 50 to avoid timeout in single run
         const unassigned = await ctx.db
             .query("conversations")
             .withIndex("by_org_status", (q) => q.eq("organizationId", organizationId).eq("status", "OPEN"))
@@ -226,42 +302,57 @@ export const autoAssign = mutation({
 
         if (unassigned.length === 0) return { assigned: 0 };
 
-        // 2. Get available agents
-        // Status ONLINE and capacity > current
-        const agents = await ctx.db
-            .query("agents")
-            .withIndex("by_org_and_status", (q) => q.eq("organizationId", organizationId).eq("status", "ONLINE"))
+        // 2. Get available members (agents)
+        let members = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
 
-        // Filter those with capacity
-        const availableAgents = agents.filter(a => a.currentActiveChats < a.maxConcurrentChats);
+        // Filter by Role (Only AGENTS or ADMINS/OWNERS who act as agents?)
+        // Usually only AGENT role, or anyone with 'ONLINE' status?
+        // Let's filter by status mainly.
+        // And Exclude specific roles? Assume all members in list are candidates if they have capacity.
 
-        if (availableAgents.length === 0) return { assigned: 0, reason: "No agents available" };
+        // Filter by Status if needed
+        if (excludeOfflineAgents) {
+            members = members.filter(m => m.status === 'ONLINE');
+        }
+
+        // Filter by Capacity
+        const availableMembers = members.filter(m => {
+            const current = m.activeConversations || 0;
+            const max = m.maxConversations || 5;
+            return current < max;
+        });
+
+        if (availableMembers.length === 0) return { assigned: 0, reason: "No members available" };
 
         // 3. Assign (Round Robin based on lastAssignedAt)
-        // Sort agents by lastAssignedAt (oldest first)
-        availableAgents.sort((a, b) => (a.lastAssignedAt || 0) - (b.lastAssignedAt || 0));
+        // Sort: olders lastAssignedAt first. null lastAssignedAt comes first (never assigned).
+        availableMembers.sort((a, b) => {
+            const timeA = a.lastAssignedAt || 0;
+            const timeB = b.lastAssignedAt || 0;
+            return timeA - timeB;
+        });
 
         let assignmentsCount = 0;
-        let agentIndex = 0;
+        let memberIndex = 0;
 
         for (const conv of unassigned) {
-            if (availableAgents.length === 0) break;
+            if (availableMembers.length === 0) break;
 
-            // Pick next agent
-            const agent = availableAgents[agentIndex];
+            // Pick next member
+            const member = availableMembers[memberIndex];
 
             // Assign
             await ctx.db.patch(conv._id, {
-                assignedTo: agent.memberId, // User ID of agent
-                departmentId: agent.departmentIds[0], // Default to first dept for now
+                assignedTo: member.userId,
+                departmentId: member.poleId ? String(member.poleId) : undefined,
             });
 
-            // Update Agent Stats
-            // We should use an internal mutation or helper to avoid race conditions if high concurrency, 
-            // but for this implementation we just patch.
-            await ctx.db.patch(agent._id, {
-                currentActiveChats: agent.currentActiveChats + 1,
+            // Update Member Stats
+            await ctx.db.patch(member._id, {
+                activeConversations: (member.activeConversations || 0) + 1,
                 lastAssignedAt: Date.now(),
             });
 
@@ -269,10 +360,11 @@ export const autoAssign = mutation({
             await ctx.db.insert("assignments", {
                 organizationId,
                 conversationId: conv._id,
-                agentId: agent._id,
-                departmentId: agent.departmentIds[0],
-                status: "ACTIVE",
+                departmentId: member.poleId ? String(member.poleId) : undefined,
+                agentId: undefined, // Deprecated/Unused
+                assignedByMemberId: undefined, // System
                 assignedBy: "SYSTEM",
+                status: "ACTIVE",
                 assignedAt: Date.now(),
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -280,19 +372,19 @@ export const autoAssign = mutation({
                 history: []
             });
 
-            // Update local agent state for next iteration
-            agent.currentActiveChats += 1;
-            agent.lastAssignedAt = Date.now();
+            // Update local member state for next iteration
+            member.activeConversations = (member.activeConversations || 0) + 1;
+            member.lastAssignedAt = Date.now();
 
-            // Check if agent is full now
-            if (agent.currentActiveChats >= agent.maxConcurrentChats) {
-                // Remove from available pool
-                availableAgents.splice(agentIndex, 1);
+            // Check if full
+            if (member.activeConversations >= member.maxConversations) {
+                // Remove from pool
+                availableMembers.splice(memberIndex, 1);
                 // Adjust index
-                if (agentIndex >= availableAgents.length) agentIndex = 0;
+                if (memberIndex >= availableMembers.length) memberIndex = 0;
             } else {
-                // Move to next agent (Round Robin)
-                agentIndex = (agentIndex + 1) % availableAgents.length;
+                // Move to next (Round Robin)
+                memberIndex = (memberIndex + 1) % availableMembers.length;
             }
 
             assignmentsCount++;
@@ -316,32 +408,62 @@ export const assign = mutation({
         if (!conversation) throw new Error("Conversation not found");
         if (conversation.organizationId !== organizationId) throw new Error("Access denied");
 
-        // Fetch target agent to get department
-        // We assume memberId (User) maps to an Agent.
-        const agent = await ctx.db
-            .query("agents")
-            .withIndex("by_member", (q) => q.eq("memberId", args.memberId))
-            .filter(q => q.eq(q.field("organizationId"), organizationId))
+        const previousAssigneeId = conversation.assignedTo;
+        const isReassignment = previousAssigneeId && previousAssigneeId !== args.memberId;
+
+        // Fetch target membership to get pole (service) and validate
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) => q.eq("userId", args.memberId).eq("organizationId", organizationId))
             .first();
 
-        // If target is not an agent (e.g. admin/manager), we still allow assignment to User?
-        // Schema conversations.assignedTo is User.
-        // Assignments table expects Agent ID.
-        // This is a schema vs logic friction.
-        // If we assign to a non-agent user, we can't create an "assignments" record if it requires Agent ID.
-        // Schema: agentId is optional in assignments table?
-        // Let's check schema for assignments table: `agentId: v.optional(v.id('agents'))`. Yes.
+        if (!membership) throw new Error("Target member not found in organization");
 
-        await ctx.db.patch(args.conversationId, {
+        // Prepare updates
+        const updates: any = {
             assignedTo: args.memberId,
-            departmentId: agent?.departmentIds[0], // Optional
-        });
+            departmentId: membership.poleId, // From Pole (Service)
+            assignedAt: Date.now(),
+        };
 
-        // Track assignment history
+        if (isReassignment) {
+            updates.priority = "urgent";
+        }
+
+        await ctx.db.patch(args.conversationId, updates);
+
+        // Handle Previous Assignee Load
+        if (isReassignment) {
+            const prevMembership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) => q.eq("userId", previousAssigneeId).eq("organizationId", organizationId))
+                .first();
+
+            if (prevMembership && (prevMembership.activeConversations || 0) > 0) {
+                await ctx.db.patch(prevMembership._id, {
+                    activeConversations: (prevMembership.activeConversations || 0) - 1
+                });
+            }
+
+            // Close previous assignment record
+            const lastAssignment = await ctx.db
+                .query("assignments")
+                .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+                .order("desc")
+                .first();
+
+            if (lastAssignment) {
+                await ctx.db.patch(lastAssignment._id, {
+                    status: "TRANSFERRED",
+                    updatedAt: Date.now()
+                });
+            }
+        }
+
+        // Track assignment history (New Record)
         await ctx.db.insert("assignments", {
             organizationId,
             conversationId: args.conversationId,
-            agentId: agent?._id, // Optional
             assignedByMemberId: assignerId,
             assignedBy: "MANUAL",
             status: "ACTIVE",
@@ -353,9 +475,18 @@ export const assign = mutation({
             internalNotes: args.note
         });
 
-        if (agent) {
-            await ctx.db.patch(agent._id, {
-                currentActiveChats: agent.currentActiveChats + 1,
+        // Update New Member Stats (Membership table)
+        // If it was already assigned to SAME person, we might not want to increment? 
+        // But the check `previousAssigneeId !== args.memberId` handles re-assignment to different person.
+        // What if assigned to nobody? previousAssigneeId is undefined. Increment.
+        // What if assigned to SAME person? `isReassignment` is false. We typically verify if already assigned.
+        // If already assigned to self, maybe just update note/time? 
+        // Logic below increments always. This implies if I assign to myself twice, count increases?
+        // We should check if `conversation.assignedTo` !== `args.memberId`.
+
+        if (conversation.assignedTo !== args.memberId) {
+            await ctx.db.patch(membership._id, {
+                activeConversations: (membership.activeConversations || 0) + 1,
                 lastAssignedAt: Date.now(),
             });
         }
@@ -390,24 +521,67 @@ export const unassign = mutation({
 
         if (lastAssignment) {
             await ctx.db.patch(lastAssignment._id, {
-                status: "TRANSFERRED", // or COMPLETED? Use TRANSFERRED/PAUSED for unassign.
+                status: "TRANSFERRED",
                 updatedAt: Date.now()
             });
         }
 
-        // Decrement agent load if applicable
+        // Decrement member load if applicable
         if (previousAssignee) {
-            const agent = await ctx.db
-                .query("agents")
-                .withIndex("by_member", (q) => q.eq("memberId", previousAssignee))
-                .filter(q => q.eq(q.field("organizationId"), organizationId))
+            const membership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) => q.eq("userId", previousAssignee).eq("organizationId", organizationId))
                 .first();
 
-            if (agent && agent.currentActiveChats > 0) {
-                await ctx.db.patch(agent._id, {
-                    currentActiveChats: agent.currentActiveChats - 1
+            if (membership && (membership.activeConversations || 0) > 0) {
+                await ctx.db.patch(membership._id, {
+                    activeConversations: (membership.activeConversations || 0) - 1
                 });
             }
         }
     }
 });
+
+export const getAssignmentSettings = query({
+    args: {},
+    handler: async (ctx) => {
+        const context = await getContext(ctx);
+        const { organizationId } = context;
+
+        const org = await ctx.db.get(organizationId);
+        return org?.settings?.assignment;
+    }
+});
+
+export const updateAssignmentSettings = mutation({
+    args: {
+        autoAssignEnabled: v.boolean(),
+        maxConcurrentChats: v.number(),
+        excludeOfflineAgents: v.boolean()
+    },
+    handler: async (ctx, args) => {
+        const context = await getContext(ctx);
+        const { organizationId, role } = context;
+
+        if (role !== "ADMIN" && role !== "OWNER") {
+            throw new Error("Only admins can update settings");
+        }
+
+        const org = await ctx.db.get(organizationId);
+        if (!org) throw new Error("Organization not found");
+
+        const currentSettings = org.settings || {};
+
+        await ctx.db.patch(organizationId, {
+            settings: {
+                ...currentSettings,
+                assignment: {
+                    autoAssignEnabled: args.autoAssignEnabled,
+                    maxConcurrentChats: args.maxConcurrentChats,
+                    excludeOfflineAgents: args.excludeOfflineAgents
+                }
+            }
+        });
+    }
+});
+

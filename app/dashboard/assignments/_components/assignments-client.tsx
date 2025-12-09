@@ -6,52 +6,106 @@ import {
     Timer,
     Users,
     MessageSquare,
+    ArrowUpRight,
+    ArrowDownRight,
+    UserPlus
 } from 'lucide-react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { AssignmentSettingsDialog } from './assignments-settings-dialog'
+import {
+    Empty,
+    EmptyContent,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyTitle,
+    EmptyMedia,
+} from '@/components/ui/empty'
+import { useState, useEffect } from 'react'
+import { Id } from '@/convex/_generated/dataModel'
 
 export default function AssignmentsClient() {
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+    const updatePresence = useMutation(api.users.updatePresence)
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            updatePresence()
+        }, 60000)
+        updatePresence() // Initial call
+        return () => clearInterval(timer)
+    }, [updatePresence])
+
     // Queries
     const statsData = useQuery(api.assignments.getStats)
     const conversationsData = useQuery(api.assignments.getConversationsQueue)
     const agentsData = useQuery(api.assignments.getAgentsList)
     const autoAssign = useMutation(api.assignments.autoAssign)
+    const assignMutation = useMutation(api.assignments.assign)
+
+    // Group agents by department
+    const agentsByDept = (agentsData || []).reduce((acc: any, agent: any) => {
+        const dept = agent.department || "Général";
+        if (!acc[dept]) acc[dept] = [];
+        acc[dept].push(agent);
+        return acc;
+    }, {});
 
     // Loading states or defaults
     const stats = [
         {
-            label: 'NON ASSIGNÉES',
+            label: 'Non assignées',
             value: statsData?.unassignedCount ?? '-',
             icon: Mail,
             color: 'text-blue-500',
             bg: 'bg-blue-50',
+            trend: 'up',
+            trendValue: '+2',
+            description: 'depuis 1h'
         },
         {
-            label: 'URGENTES',
+            label: 'Urgentes',
             value: statsData?.urgentCount ?? '-',
             icon: Flame,
             color: 'text-orange-500',
             bg: 'bg-orange-50',
+            trend: 'up',
+            trendValue: '+12.5%',
+            description: 'nécessitent attention'
         },
         {
-            label: 'TEMPS MOYEN',
+            label: 'Temps moyen',
             value: statsData?.avgResponseTime ?? '-',
             icon: Timer,
             color: 'text-gray-500',
             bg: 'bg-gray-50',
+            trend: 'down',
+            trendValue: '-15%',
+            description: 'amélioration'
         },
         {
-            label: 'AGENTS EN LIGNE',
+            label: 'Agents en ligne',
             value: statsData?.onlineAgentsCount ?? '-',
             icon: Users,
             color: 'text-green-600',
             bg: 'bg-green-50',
+            trend: 'up',
+            trendValue: '+1',
+            description: 'connectés'
         },
     ]
 
@@ -77,16 +131,32 @@ export default function AssignmentsClient() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, i) => (
                     <Card key={i} className="border-gray-200/80 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-6 flex flex-col items-start justify-between min-h-[140px]">
-                            <div className="flex items-start justify-between w-full">
-                                <div className={cn("p-3 rounded-xl mb-4 transition-colors", stat.bg)}>
-                                    <stat.icon className={cn("h-6 w-6", stat.color)} />
-                                </div>
-                                <span className="text-2xl font-bold text-gray-900">{stat.value}</span>
-                            </div>
-                            <span className="text-sm font-medium text-gray-600 tracking-wide">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 {stat.label}
-                            </span>
+                            </CardTitle>
+                            <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center", stat.bg)}>
+                                <stat.icon className={cn("h-5 w-5", stat.color)} />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className={cn(
+                                    "flex items-center text-xs font-medium",
+                                    stat.trend === 'up' ? "text-green-600" : "text-red-600"
+                                )}>
+                                    {stat.trend === 'up' ? (
+                                        <ArrowUpRight className="h-3 w-3 mr-1" />
+                                    ) : (
+                                        <ArrowDownRight className="h-3 w-3 mr-1" />
+                                    )}
+                                    {stat.trendValue}
+                                </span>
+                                <span className="text-xs text-muted-foreground truncate">
+                                    {stat.description}
+                                </span>
+                            </div>
                         </CardContent>
                     </Card>
                 ))}
@@ -97,10 +167,20 @@ export default function AssignmentsClient() {
                 {/* Left Column: Conversations List */}
                 <Card className="lg:col-span-2 border-gray-200/80 shadow-sm">
                     <CardContent className="p-0">
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
                             {(!conversationsData || conversationsData.length === 0) && (
-                                <div className="p-8 text-center text-muted-foreground">
-                                    Aucune conversation en attente.
+                                <div className="p-8 flex items-center justify-center">
+                                    <Empty>
+                                        <EmptyHeader>
+                                            <EmptyMedia variant="icon"><Mail className="h-6 w-6" /></EmptyMedia>
+                                            <EmptyTitle>Aucune conversation</EmptyTitle>
+                                        </EmptyHeader>
+                                        <EmptyContent>
+                                            <EmptyDescription>
+                                                Il n'y a actuellement aucune conversation en attente d'assignation.
+                                            </EmptyDescription>
+                                        </EmptyContent>
+                                    </Empty>
                                 </div>
                             )}
                             {conversationsData?.map((conv: any) => (
@@ -138,6 +218,50 @@ export default function AssignmentsClient() {
                                                 <span>{conv.phone}</span>
                                             </div>
                                         </div>
+
+                                        {/* Action Button */}
+                                        <div className="shrink-0 flex items-center">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                    <Button variant="ghost" size="sm" className="h-8 text-gray-500 hover:text-gray-900">
+                                                        Assigner
+                                                        <UserPlus className="ml-2 h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-[240px] max-h-[300px] overflow-y-auto">
+                                                    {Object.entries(agentsByDept).map(([dept, agents]: [string, any], index) => (
+                                                        <div key={dept}>
+                                                            {index > 0 && <DropdownMenuSeparator />}
+                                                            <DropdownMenuLabel className="text-xs font-bold text-gray-500 uppercase tracking-wider">{dept}</DropdownMenuLabel>
+                                                            {agents.map((agent: any) => (
+                                                                <DropdownMenuItem
+                                                                    key={agent.id}
+                                                                    className="cursor-pointer"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        assignMutation({
+                                                                            conversationId: conv.id as Id<"conversations">,
+                                                                            memberId: agent.memberId
+                                                                        })
+                                                                    }}
+                                                                >
+                                                                    <div className="flex items-center gap-2 w-full">
+                                                                        <div className={cn("h-2 w-2 rounded-full shrink-0", agent.online ? "bg-green-500" : "bg-gray-300")} />
+                                                                        <span className="truncate">{agent.fullName}</span>
+                                                                        {agent.load >= agent.maxLoad && (
+                                                                            <span className="ml-auto text-xs text-red-500 font-medium whitespace-nowrap">(Full)</span>
+                                                                        )}
+                                                                    </div>
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                    {(!agentsData || agentsData.length === 0) && (
+                                                        <div className="p-2 text-xs text-gray-500 text-center">Aucun agent disponible</div>
+                                                    )}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -158,7 +282,7 @@ export default function AssignmentsClient() {
                                 <div key={agent.id} className="flex items-center gap-4">
                                     <div className="relative shrink-0">
                                         <Avatar className="h-12 w-12 rounded-full border border-gray-100 shadow-sm">
-                                            <AvatarFallback className="bg-slate-800 text-white font-medium text-sm">
+                                            <AvatarFallback className="bg-gradient-to-br from-green-500 to-green-600 text-white font-medium text-sm">
                                                 {agent.name}
                                             </AvatarFallback>
                                         </Avatar>
@@ -205,12 +329,21 @@ export default function AssignmentsClient() {
                     </Card>
 
                     <div className="flex justify-end px-2">
-                        <Button variant="ghost" className="text-green-600 hover:text-green-700 hover:bg-green-50">
+                        <Button
+                            variant="ghost"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => setIsSettingsOpen(true)}
+                        >
                             Modifier les paramètres
                         </Button>
                     </div>
                 </div>
             </div>
+
+            <AssignmentSettingsDialog
+                open={isSettingsOpen}
+                onOpenChange={setIsSettingsOpen}
+            />
         </div>
     )
 }

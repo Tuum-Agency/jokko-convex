@@ -1,3 +1,4 @@
+
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
  * ║          components/conversations/ContactInfo.tsx             ║
@@ -29,7 +30,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
@@ -52,7 +53,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { cn } from '@/lib/utils'
 
 // ============================================
@@ -62,23 +65,6 @@ import { cn } from '@/lib/utils'
 interface ContactInfoProps {
     conversationId: string
     onClose: () => void
-}
-
-interface ContactDetails {
-    id: string
-    name: string | null
-    firstName: string | null
-    lastName: string | null
-    phoneNumber: string
-    email: string | null
-    company: string | null
-    profilePicture: string | null
-    tags: string[]
-    notes: string | null
-    firstContactAt: string
-    lastContactAt: string
-    conversationCount: number
-    messageCount: number
 }
 
 // ============================================
@@ -110,76 +96,138 @@ function InfoRow({
 }
 
 // ============================================
+// HISTORY LIST
+// ============================================
+
+function HistoryList({ contactId, conversationId }: { contactId: string, conversationId: string }) {
+    // History is fetched relative to contact in the same org
+    // We need to resolve org ID from conversation first, but this component is rendered ONLY when we have contact.
+    // However, `listByContact` needs organizationId.
+    // We can get it from contact.organizationId if we passed full contact object.
+
+    // BUT here we only passed `contactId` and `conversationId`.
+    // Let's assume we can fetch conversation again or use parent's data. 
+    // Since `ContactInfo` fetches conversation to get contact, it could pass down organizationId.
+    // For simplicity, let's fetch conversation here (cached).
+
+    const convId = conversationId as Id<"conversations">;
+    const currentConv = useQuery(api.conversations.getById, { id: convId });
+
+    const history = useQuery(api.conversations.listByContact,
+        (currentConv && currentConv.contactId) ? {
+            contactId: currentConv.contactId,
+            organizationId: currentConv.organizationId
+        } : "skip"
+    );
+
+    if (history === undefined) {
+        return <div className="space-y-2">
+            <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
+            <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
+        </div>
+    }
+
+    if (!history || history.length === 0) {
+        return <p className="text-sm text-gray-500 italic">Aucun historique disponible</p>
+    }
+
+    // Filter out current conversation
+    const filteredHistory = history.filter(h => h._id !== conversationId)
+
+    if (filteredHistory.length === 0) {
+        return <p className="text-sm text-gray-500 italic">Aucune autre conversation</p>
+    }
+
+    return (
+        <div className="space-y-2">
+            {filteredHistory.map((conv) => (
+                <div
+                    key={conv._id}
+                    className={cn(
+                        "flex flex-col p-2 rounded-lg border text-sm hover:bg-gray-50 transition-colors cursor-pointer",
+                        conv.status === 'OPEN' ? "border-green-200 bg-green-50/50" : "border-gray-200"
+                    )}
+                // On click navigation logic could go here
+                >
+                    <div className="flex justify-between items-start mb-1">
+                        <Badge variant="outline" className={cn(
+                            "text-[10px] h-5 px-1.5",
+                            conv.status === 'OPEN' ? "bg-green-100 text-green-700 border-green-200" :
+                                conv.status === 'RESOLVED' ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                    "bg-gray-100 text-gray-700 border-gray-200"
+                        )}>
+                            {conv.status}
+                        </Badge>
+                        <span className="text-xs text-gray-400">
+                            {format(new Date(conv.lastMessageAt), 'PP', { locale: fr })}
+                        </span>
+                    </div>
+                    <p className="text-gray-700 line-clamp-1 text-xs">
+                        {conv.preview || "Aucun message"}
+                    </p>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+// ============================================
 // CONTACT INFO
 // ============================================
 
 export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
-    const queryClient = useQueryClient()
     const [isEditingNotes, setIsEditingNotes] = useState(false)
     const [notes, setNotes] = useState('')
     const [newTag, setNewTag] = useState('')
 
-    // Fetch contact details
-    const { data: contact, isLoading } = useQuery({
-        queryKey: ['contact-details', conversationId],
-        queryFn: async () => {
-            const res = await fetch(`/api/conversations/${conversationId}/contact`)
-            if (!res.ok) throw new Error('Failed to fetch contact')
-            const data = await res.json() as ContactDetails
-            setNotes(data.notes || '')
-            return data
-        },
-    })
+    // 1. Get Conversation to resolve Contact ID
+    const convId = conversationId as Id<"conversations">;
+    const conversation = useQuery(api.conversations.getById, { id: convId });
 
-    // Update notes mutation
-    const updateNotesMutation = useMutation({
-        mutationFn: async (newNotes: string) => {
-            const res = await fetch(`/api/contacts/${contact?.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notes: newNotes }),
-            })
-            if (!res.ok) throw new Error('Failed to update notes')
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['contact-details', conversationId] })
-            setIsEditingNotes(false)
-        },
-    })
+    // 2. Get Contact Details
+    const contactId = conversation?.contactId;
+    const contact = useQuery(api.contacts.get, contactId ? { id: contactId } : "skip");
 
-    // Add tag mutation
-    const addTagMutation = useMutation({
-        mutationFn: async (tag: string) => {
-            const res = await fetch(`/api/contacts/${contact?.id}/tags`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag }),
-            })
-            if (!res.ok) throw new Error('Failed to add tag')
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['contact-details', conversationId] })
-            setNewTag('')
-        },
-    })
+    const updateContact = useMutation(api.contacts.update);
 
-    // Remove tag mutation
-    const removeTagMutation = useMutation({
-        mutationFn: async (tag: string) => {
-            const res = await fetch(`/api/contacts/${contact?.id}/tags`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag }),
-            })
-            if (!res.ok) throw new Error('Failed to remove tag')
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['contact-details', conversationId] })
-        },
-    })
+    useEffect(() => {
+        if (contact) {
+            setNotes(contact.notes || '')
+        }
+    }, [contact]);
+
+    const handleUpdateNotes = async () => {
+        if (!contact) return;
+        await updateContact({
+            id: contact.id,
+            notes: notes,
+            tags: contact.tags // Required by mutation
+        });
+        setIsEditingNotes(false);
+    };
+
+    const handleAddTag = async (tag: string) => {
+        if (!contact || !tag.trim()) return;
+        // Check if exists
+        if (contact.tags.includes(tag.trim())) return;
+
+        await updateContact({
+            id: contact.id,
+            tags: [...contact.tags, tag.trim()]
+        });
+        setNewTag('');
+    };
+
+    const handleRemoveTag = async (tagToRemove: string) => {
+        if (!contact) return;
+        await updateContact({
+            id: contact.id,
+            tags: contact.tags.filter(t => t !== tagToRemove)
+        });
+    };
 
     // Loading state
-    if (isLoading || !contact) {
+    if (conversation === undefined || contact === undefined) {
         return (
             <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between p-4 border-b border-gray-200/80">
@@ -199,14 +247,23 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
         )
     }
 
+    if (!contact) {
+        return (
+            <div className="flex flex-col h-full items-center justify-center p-4">
+                <p className="text-gray-500">Contact introuvable.</p>
+                <Button variant="ghost" onClick={onClose}>Fermer</Button>
+            </div>
+        )
+    }
+
     const initials = contact.name
         ? contact.name
             .split(' ')
-            .map((n) => n[0])
+            .map((n: string) => n[0])
             .join('')
             .toUpperCase()
             .slice(0, 2)
-        : contact.phoneNumber.slice(-2)
+        : contact.phone.slice(-2)
 
     return (
         <div className="flex flex-col h-full">
@@ -223,9 +280,9 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                     {/* Profile Section */}
                     <div className="flex flex-col items-center text-center">
                         <Avatar className="h-20 w-20 mb-3">
-                            {contact.profilePicture && (
+                            {/* {contact.profilePicture && (
                                 <AvatarImage src={contact.profilePicture} alt={contact.name || ''} />
-                            )}
+                            )} */}
                             <AvatarFallback className="text-xl bg-linear-to-br from-gray-200 to-gray-300">
                                 {initials}
                             </AvatarFallback>
@@ -233,7 +290,7 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                         <h2 className="text-lg font-semibold text-gray-900">
                             {contact.name || 'Contact'}
                         </h2>
-                        <p className="text-sm text-gray-500">{contact.phoneNumber}</p>
+                        <p className="text-sm text-gray-500">{contact.phone}</p>
                     </div>
 
                     <Separator />
@@ -242,20 +299,29 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                     <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-3">Details</h4>
                         <div className="space-y-1">
-                            <InfoRow icon={Phone} label="Telephone" value={contact.phoneNumber} />
+                            <InfoRow icon={Phone} label="Telephone" value={contact.phone} />
                             <InfoRow icon={Mail} label="Email" value={contact.email} />
                             <InfoRow icon={Building2} label="Entreprise" value={contact.company} />
                             <InfoRow
                                 icon={Calendar}
                                 label="Premier contact"
-                                value={format(new Date(contact.firstContactAt), 'PP', { locale: fr })}
+                                value={format(new Date(contact.createdAt), 'PP', { locale: fr })}
                             />
-                            <InfoRow
+                            {/* Message count not available yet in simplified schema */}
+                            {/* <InfoRow
                                 icon={MessageSquare}
                                 label="Messages"
                                 value={`${contact.messageCount} messages`}
-                            />
+                            /> */}
                         </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* History Section */}
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Historique des conversations</h4>
+                        <HistoryList contactId={contact.id} conversationId={conversationId} />
                     </div>
 
                     <Separator />
@@ -264,12 +330,12 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                     <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-3">Tags</h4>
                         <div className="flex flex-wrap gap-2">
-                            {contact.tags.map((tag) => (
+                            {contact.tags.map((tag: string) => (
                                 <Badge
                                     key={tag}
                                     variant="secondary"
                                     className="cursor-pointer hover:bg-red-100 hover:text-red-700 transition-colors"
-                                    onClick={() => removeTagMutation.mutate(tag)}
+                                    onClick={() => handleRemoveTag(tag)}
                                 >
                                     {tag}
                                     <X className="h-3 w-3 ml-1" />
@@ -283,7 +349,7 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                                     className="h-7 w-24 text-xs"
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && newTag.trim()) {
-                                            addTagMutation.mutate(newTag.trim())
+                                            handleAddTag(newTag.trim())
                                         }
                                     }}
                                 />
@@ -293,10 +359,10 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                                     className="h-7 w-7"
                                     onClick={() => {
                                         if (newTag.trim()) {
-                                            addTagMutation.mutate(newTag.trim())
+                                            handleAddTag(newTag.trim())
                                         }
                                     }}
-                                    disabled={!newTag.trim() || addTagMutation.isPending}
+                                    disabled={!newTag.trim()}
                                 >
                                     <Plus className="h-3 w-3" />
                                 </Button>
@@ -315,12 +381,11 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                                 size="sm"
                                 onClick={() => {
                                     if (isEditingNotes) {
-                                        updateNotesMutation.mutate(notes)
+                                        handleUpdateNotes()
                                     } else {
                                         setIsEditingNotes(true)
                                     }
                                 }}
-                                disabled={updateNotesMutation.isPending}
                             >
                                 {isEditingNotes ? (
                                     <>

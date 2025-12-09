@@ -20,6 +20,8 @@ import {
     HelpCircle,
 } from 'lucide-react'
 
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
@@ -44,7 +46,6 @@ const mainNavigation = [
         name: 'Conversations',
         href: '/conversations',
         icon: MessageSquare,
-        badge: 12,
     },
     {
         name: 'Assignments',
@@ -111,6 +112,18 @@ export function Sidebar({
     onToggleCollapse,
 }: SidebarProps) {
     const pathname = usePathname()
+    const stats = useQuery(api.conversations.getSidebarStats)
+
+    const navItems = mainNavigation.map(item => {
+        const itemWithBadge = { ...item, badge: undefined as number | undefined }
+        if (item.name === 'Conversations') {
+            itemWithBadge.badge = stats?.unread || undefined
+        }
+        if (item.name === 'Assignments') {
+            itemWithBadge.badge = stats?.unassigned || undefined
+        }
+        return itemWithBadge
+    })
 
     // Check if a nav item is active
     const isActive = (href: string) => {
@@ -184,7 +197,7 @@ export function Sidebar({
                 <ScrollArea className="flex-1 px-3 py-4">
                     <nav className="space-y-1">
                         <StaggerContainer staggerDelay={0.05} delayChildren={0.1} trigger="mount">
-                            {mainNavigation.map((item) => {
+                            {navItems.map((item) => {
                                 const active = isActive(item.href)
                                 const Icon = item.icon
 

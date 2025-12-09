@@ -34,3 +34,25 @@ export const deleteUser = mutation({
         console.log("Successfully deleted user and memberships");
     }
 });
+
+export const clearAllConversations = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const conversations = await ctx.db.query("conversations").collect();
+        for (const c of conversations) {
+            await ctx.db.delete(c._id);
+        }
+
+        const messages = await ctx.db.query("messages").collect();
+        for (const m of messages) {
+            await ctx.db.delete(m._id);
+        }
+
+        const assignments = await ctx.db.query("assignments").collect();
+        for (const a of assignments) {
+            await ctx.db.delete(a._id);
+        }
+
+        return `Deleted ${conversations.length} conversations, ${messages.length} messages, ${assignments.length} assignments.`;
+    }
+});

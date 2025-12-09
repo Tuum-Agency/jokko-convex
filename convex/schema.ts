@@ -76,6 +76,11 @@ export default defineSchema({
             autoReplyEnabled: v.optional(v.boolean()),
             autoReplyMessage: v.optional(v.string()),
             defaultLanguage: v.optional(v.string()),
+            assignment: v.optional(v.object({
+                autoAssignEnabled: v.boolean(),
+                maxConcurrentChats: v.number(),
+                excludeOfflineAgents: v.boolean()
+            }))
         })),
         plan: v.union(
             v.literal("FREE"),
@@ -123,6 +128,7 @@ export default defineSchema({
         activeConversations: v.number(),
         lastSeenAt: v.number(),
         joinedAt: v.number(),
+        lastAssignedAt: v.optional(v.number()),
         invitedById: v.optional(v.id("users")),
     })
         .index("by_user", ["userId"])
@@ -604,7 +610,7 @@ export default defineSchema({
         // Assignment
         assignedTo: v.optional(v.id("users")),
         assignedAt: v.optional(v.number()), // Log assignment time
-        departmentId: v.optional(v.id("departments")),
+        departmentId: v.optional(v.string()),
 
         // Window
         windowExpiresAt: v.optional(v.number()), // WhatsApp 24h window expiration
@@ -613,6 +619,7 @@ export default defineSchema({
         lastMessageAt: v.number(),
         unreadCount: v.number(),
         preview: v.optional(v.string()),
+        priority: v.optional(v.string()), // "urgent", "high", "normal", "low"
 
         // Tags
         tags: v.optional(v.array(v.string())),
@@ -762,8 +769,8 @@ export default defineSchema({
         memberId: v.id('users'), // Changed from 'members' to 'users' as per existing schema structure where users are the member entities
 
         // Department assignments
-        departmentIds: v.array(v.id('departments')),
-        primaryDepartmentId: v.optional(v.id('departments')),
+        departmentIds: v.array(v.string()),
+        primaryDepartmentId: v.optional(v.string()),
 
         // Skills/Tags for skills-based routing
         skills: v.optional(v.array(v.string())),
@@ -876,7 +883,7 @@ export default defineSchema({
                 v.literal('AUTO_REPLY'),
                 v.literal('ESCALATE')
             ),
-            departmentId: v.optional(v.id('departments')),
+            departmentId: v.optional(v.string()),
             agentId: v.optional(v.id('agents')),
             tagName: v.optional(v.string()),
             priority: v.optional(v.number()),
@@ -916,7 +923,7 @@ export default defineSchema({
 
         // Current assignment
         agentId: v.optional(v.id('agents')),
-        departmentId: v.optional(v.id('departments')),
+        departmentId: v.optional(v.string()),
 
         // Status
         status: v.union(
@@ -960,8 +967,8 @@ export default defineSchema({
             action: v.string(),
             fromAgentId: v.optional(v.id('agents')),
             toAgentId: v.optional(v.id('agents')),
-            fromDepartmentId: v.optional(v.id('departments')),
-            toDepartmentId: v.optional(v.id('departments')),
+            fromDepartmentId: v.optional(v.string()),
+            toDepartmentId: v.optional(v.string()),
             reason: v.optional(v.string()),
             performedBy: v.optional(v.id('users')),
             timestamp: v.number(),
@@ -981,7 +988,7 @@ export default defineSchema({
     // ASSIGNMENT QUEUE TABLE
     assignmentQueue: defineTable({
         organizationId: v.id('organizations'),
-        departmentId: v.id('departments'),
+        departmentId: v.string(),
         conversationId: v.id('conversations'),
 
         // Queue position

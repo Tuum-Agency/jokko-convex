@@ -225,44 +225,34 @@ export const seedAssignments = mutation({
         if (!org) throw new Error("Run seedTeam first to create org");
         const orgId = org._id;
 
-        // 2. Create Departments for Assignments
+        // 2. Create Poles (Departments) for Assignments
         // Check if exists
-        let salesDept = await ctx.db.query("departments").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Ventes")).first();
-        if (!salesDept) {
-            const id = await ctx.db.insert("departments", {
+        let salesPole = await ctx.db.query("poles").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Ventes")).first();
+        if (!salesPole) {
+            const id = await ctx.db.insert("poles", {
                 organizationId: orgId,
                 name: "Ventes",
                 description: "Sales Department",
-                routingStrategy: "ROUND_ROBIN",
-                autoAssign: true,
-                priority: 1,
-                isActive: true,
-                isDefault: true,
-                activeConversations: 0,
-                queuedConversations: 0,
+                color: "#3b82f6", // Blue
+                icon: "Briefcase",
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             });
-            salesDept = await ctx.db.get(id);
+            salesPole = await ctx.db.get(id);
         }
 
-        let supportDept = await ctx.db.query("departments").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Support")).first();
-        if (!supportDept) {
-            const id = await ctx.db.insert("departments", {
+        let supportPole = await ctx.db.query("poles").withIndex("by_organization", q => q.eq("organizationId", orgId)).filter((q) => q.eq(q.field("name"), "Support")).first();
+        if (!supportPole) {
+            const id = await ctx.db.insert("poles", {
                 organizationId: orgId,
                 name: "Support",
                 description: "Customer Support",
-                routingStrategy: "LEAST_BUSY",
-                autoAssign: true,
-                priority: 2,
-                isActive: true,
-                isDefault: false,
-                activeConversations: 0,
-                queuedConversations: 0,
+                color: "#10b981", // Green
+                icon: "Headphones",
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             });
-            supportDept = await ctx.db.get(id);
+            supportPole = await ctx.db.get(id);
         }
 
         // 3. Init Agents for all Members
@@ -274,8 +264,8 @@ export const seedAssignments = mutation({
                 await ctx.db.insert("agents", {
                     organizationId: orgId,
                     memberId: m.userId,
-                    departmentIds: [salesDept!._id], // Assign to Sales by default
-                    primaryDepartmentId: salesDept!._id,
+                    departmentIds: [salesPole!._id], // Assign to Sales by default
+                    primaryDepartmentId: salesPole!._id,
                     status: "ONLINE", // Force online for demo
                     maxConcurrentChats: 5,
                     currentActiveChats: 0, // Reset for demo
@@ -292,11 +282,11 @@ export const seedAssignments = mutation({
 
         // 4. Create Dummy Conversations (Unassigned)
         const messages = [
-            "Bonjour, je voudrais des infos sur le produit X",
-            "Mon paiement a échoué",
-            "Heures d'ouverture ?",
-            "Parler à un humain svp",
-            "Urgent: Commande non reçue"
+            "Bonjour, quelles voitures sont dispos ce week-end ?",
+            "Mon paiement Wave a échoué",
+            "Je veux louer un utilitaire pour un déménagement",
+            "C'est quoi vos horaires à l'agence de Mermoz ?",
+            "SOS: Panne sur l'autoroute à péage"
         ];
 
         for (const msg of messages) {

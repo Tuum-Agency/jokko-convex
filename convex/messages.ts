@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireMembership, requirePermission } from "./lib/auth";
 import { paginationOptsValidator } from "convex/server";
 
@@ -109,9 +110,22 @@ export const send = mutation({
             lastMessageAt: Date.now(),
             preview: args.content || (args.type === "TEXT" ? args.content : `[${args.type}]`),
             updatedAt: Date.now(),
-            // unreadCount: 0, // Outbound message resets unread count? No, incoming does.
         });
+
+        // Trigger WhatsApp Send (if text)
+        if (args.type === "TEXT" && args.content) {
+            const contact = await ctx.db.get(conversation.contactId!);
+            if (contact && contact.phone) {
+                await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
+                    messageId,
+                    organizationId: conversation.organizationId,
+                    to: contact.phone,
+                    text: args.content
+                });
+            }
+        }
 
         return messageId;
     },
 });
+
