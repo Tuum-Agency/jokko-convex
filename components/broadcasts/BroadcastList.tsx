@@ -1,16 +1,20 @@
 'use client'
 
 import React, { useState } from 'react';
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MoreHorizontal, Search, Plus, RadioTower, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, Search, Plus, RadioTower, ExternalLink, Trash2, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { Id } from "@/convex/_generated/dataModel";
 import {
     Table,
     TableBody,
@@ -25,6 +29,7 @@ import {
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
     Empty,
@@ -33,13 +38,85 @@ import {
     EmptyDescription,
     EmptyMedia
 } from '@/components/ui/empty';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const BroadcastList: React.FC = () => {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    const [broadcastToDelete, setBroadcastToDelete] = useState<string | null>(null);
 
     // Using the list query we created
     const broadcasts = useQuery(api.broadcasts.list, { search: searchTerm || undefined });
+    const duplicateBroadcast = useMutation(api.broadcasts.duplicate);
+    const deleteBroadcast = useMutation(api.broadcasts.deleteBroadcast);
+
+    const handleDuplicate = async (id: Id<"broadcasts">) => {
+        try {
+            const newId = await duplicateBroadcast({ id });
+            toast.success("Campagne dupliquée");
+            router.push(`/dashboard/broadcasts/${newId}`);
+        } catch (e) {
+            toast.error("Erreur lors de la duplication");
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteBroadcast({ id: id as Id<"broadcasts"> });
+            toast.success("Campagne supprimée");
+            setBroadcastToDelete(null);
+            // Clear selection if deleted item was selected
+            if (selectedRows.has(id)) {
+                const newSelected = new Set(selectedRows);
+                newSelected.delete(id);
+                setSelectedRows(newSelected);
+            }
+        } catch (e) {
+            toast.error("Erreur lors de la suppression");
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (!confirm(`Voulez-vous vraiment supprimer ${selectedRows.size} campagnes ?`)) return;
+
+        try {
+            await Promise.all(Array.from(selectedRows).map(id => deleteBroadcast({ id: id as Id<"broadcasts"> })));
+            toast.success(`${selectedRows.size} campagnes supprimées`);
+            setSelectedRows(new Set());
+        } catch (e) {
+            toast.error("Erreur lors de la suppression groupée");
+        }
+    };
+
+    const toggleRow = (id: string) => {
+        const newSelected = new Set(selectedRows);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedRows(newSelected);
+    };
+
+    const toggleAll = () => {
+        if (!broadcasts) return;
+        if (selectedRows.size === broadcasts.length) {
+            setSelectedRows(new Set());
+        } else {
+            setSelectedRows(new Set(broadcasts.map(b => b._id)));
+        }
+    };
 
     if (broadcasts === undefined) {
         return (
@@ -99,12 +176,47 @@ export const BroadcastList: React.FC = () => {
 
     return (
         <div className="space-y-4">
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!broadcastToDelete} onOpenChange={(open) => !open && setBroadcastToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Cette action est irréversible. Cela supprimera définitivement la campagne et ses données associées.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => broadcastToDelete && handleDelete(broadcastToDelete)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Supprimer
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex items-center justify-between">
-                <SearchInput
-                    placeholder="Rechercher une campagne..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                    <SearchInput
+                        placeholder="Rechercher une campagne..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-[350px]"
+                    />
+                    {selectedRows.size > 0 && (
+                        <div className="flex items-center ml-2">
+                            <ButtonGroup>
+                                <Button variant="destructive" size="sm" onClick={handleBatchDelete}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Supprimer ({selectedRows.size})
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setSelectedRows(new Set())}>
+                                    Annuler
+                                </Button>
+                            </ButtonGroup>
+                        </div>
+                    )}
+                </div>
+
                 <Button onClick={() => router.push('/dashboard/broadcasts/new')}>
                     <Plus className="mr-2 h-4 w-4" />
                     Nouvelle Campagne
@@ -115,6 +227,12 @@ export const BroadcastList: React.FC = () => {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[50px]">
+                                <Checkbox
+                                    checked={broadcasts.length > 0 && selectedRows.size === broadcasts.length}
+                                    onCheckedChange={toggleAll}
+                                />
+                            </TableHead>
                             <TableHead className="w-[300px]">Campagne</TableHead>
                             <TableHead>Statut</TableHead>
                             <TableHead>Envoyés</TableHead>
@@ -126,9 +244,16 @@ export const BroadcastList: React.FC = () => {
                     <TableBody>
                         {broadcasts.map((broadcast) => {
                             const openRate = broadcast.deliveredCount > 0 ? Math.round((broadcast.readCount / broadcast.deliveredCount) * 100) : 0;
+                            const isSelected = selectedRows.has(broadcast._id);
 
                             return (
                                 <TableRow key={broadcast._id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/dashboard/broadcasts/${broadcast._id}`)}>
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
+                                            checked={isSelected}
+                                            onCheckedChange={() => toggleRow(broadcast._id)}
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-medium">
                                         <div className="flex flex-col">
                                             <span className="truncate max-w-[250px]">{broadcast.name}</span>
@@ -170,7 +295,13 @@ export const BroadcastList: React.FC = () => {
                                                 <DropdownMenuItem onClick={() => router.push(`/dashboard/broadcasts/${broadcast._id}`)}>
                                                     <ExternalLink className="mr-2 h-4 w-4" /> Détails
                                                 </DropdownMenuItem>
-                                                {/* Add more actions like Duplicate, Delete later */}
+                                                <DropdownMenuItem onClick={() => handleDuplicate(broadcast._id)}>
+                                                    <Copy className="mr-2 h-4 w-4" /> Dupliquer
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setBroadcastToDelete(broadcast._id)} className="text-destructive focus:text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>

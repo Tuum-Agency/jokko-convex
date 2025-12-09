@@ -36,22 +36,13 @@ export default function DashboardLayout({
         }
     }, [sessionData, user, ensureSession]);
 
-    // État de chargement initial
-    if (user === undefined || sessionData === undefined) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-
     // Protection simple : si pas d'utilisateur, on ne rend rien (le useEffect redirige)
     if (user === null) {
         return null;
     }
 
-    // En attente de l'organisation
-    if (!sessionData?.organization) {
+    // En attente de l'organisation (seulement si chargé et pas d'org)
+    if (sessionData !== undefined && !sessionData?.organization) {
         return (
             <div className="flex h-screen items-center justify-center flex-col gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -61,7 +52,7 @@ export default function DashboardLayout({
     }
 
     // Redirection vers le sous-domaine si nécessaire
-    if (typeof window !== 'undefined' && sessionData.organization.slug) {
+    if (typeof window !== 'undefined' && sessionData?.organization?.slug) {
         const hostname = window.location.hostname;
         const slug = sessionData.organization.slug;
 
@@ -87,13 +78,14 @@ export default function DashboardLayout({
 
     return (
         <DashboardLayoutClient
-            user={{
+            user={user ? {
                 name: user.name ?? 'User',
                 email: user.email ?? '',
                 avatar: user.image
-            }}
-            organizationName={sessionData.organization.name}
-            organizationSlug={sessionData.organization.slug}
+            } : undefined}
+            organizationName={sessionData?.organization?.name}
+            organizationSlug={sessionData?.organization?.slug}
+            organizationId={sessionData?.organization?._id}
         >
             {children}
         </DashboardLayoutClient>

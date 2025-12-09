@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  images: {
+    dangerouslyAllowSVG: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "befitting-hornet-738.convex.cloud",
+      },
+    ],
+  },
 };
 
 import { withSentryConfig } from "@sentry/nextjs";

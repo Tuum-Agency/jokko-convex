@@ -27,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Id } from '@/convex/_generated/dataModel';
+import { ButtonGroup } from '@/components/ui/button-group';
 
 // --- Components ---
 
@@ -166,24 +167,26 @@ export function FlowChatBuilder({ initialFlowId, initialNodes = [], initialEdges
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowPreview(!showPreview)}
-                        className={`text-gray-500 ${showPreview ? 'bg-gray-100' : ''}`}
-                    >
-                        {showPreview ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
-                        {showPreview ? "Masquer Aperçu" : "Voir Aperçu"}
-                    </Button>
-                    <Button
-                        size="sm"
-                        onClick={handleSave}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                        {initialFlowId ? "Enregistrer les modifications" : "Créer le flux"}
-                    </Button>
+                    <ButtonGroup>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowPreview(!showPreview)}
+                            className={`text-gray-500 border-r ${showPreview ? 'bg-gray-100' : ''}`}
+                        >
+                            {showPreview ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+                            {showPreview ? "Masquer Aperçu" : "Voir Aperçu"}
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={handleSave}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                            {initialFlowId ? "Enregistrer les modifications" : "Créer le flux"}
+                        </Button>
+                    </ButtonGroup>
                 </div>
             </header>
 

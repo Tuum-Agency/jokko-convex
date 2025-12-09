@@ -112,7 +112,14 @@ export const send = mutation({
             updatedAt: Date.now(),
         });
 
-        // Trigger WhatsApp Send (if text)
+        // Trigger WhatsApp Send
+        let replyToWhatsAppId: string | undefined;
+        if (args.replyToId) {
+            const parentMsg = await ctx.db.get(args.replyToId);
+            // Try different field names for WhatsApp Message ID
+            replyToWhatsAppId = (parentMsg as any)?.waMessageId || (parentMsg as any)?.whatsappId || (parentMsg as any)?.providerMessageId;
+        }
+
         if (args.type === "TEXT" && args.content) {
             const contact = await ctx.db.get(conversation.contactId!);
             if (contact && contact.phone) {
@@ -120,8 +127,34 @@ export const send = mutation({
                     messageId,
                     organizationId: conversation.organizationId,
                     to: contact.phone,
-                    text: args.content
+                    text: args.content,
+                    type: "text",
+                    replyToWhatsAppId
                 });
+            }
+        } else if (["IMAGE", "VIDEO", "AUDIO", "DOCUMENT"].includes(args.type)) {
+            const contact = await ctx.db.get(conversation.contactId!);
+            if (contact && contact.phone) {
+                let mediaUrl: string | null | undefined = args.mediaUrl;
+                if (!mediaUrl && args.mediaStorageId) {
+                    mediaUrl = await ctx.storage.getUrl(args.mediaStorageId);
+                    console.log(`[DEBUG] Resolved media URL for storageId ${args.mediaStorageId}: ${mediaUrl}`);
+                }
+
+                if (mediaUrl) {
+                    console.log(`[DEBUG] Scheduling WhatsApp message for type ${args.type} with mimeType ${args.mediaType}`);
+                    await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
+                        messageId,
+                        organizationId: conversation.organizationId,
+                        to: contact.phone,
+                        type: args.type.toLowerCase(),
+                        mediaUrl: mediaUrl as string,
+                        caption: args.content, // Caption is supported for image/video/document (handled in action)
+                        mimeType: args.mediaType,
+                        fileName: args.fileName,
+                        replyToWhatsAppId
+                    });
+                }
             }
         }
 
@@ -129,3 +162,101 @@ export const send = mutation({
     },
 });
 
+export const retry = mutation({
+    args: {
+        messageId: v.id("messages"),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message) throw new Error("Message not found");
+
+        const conversation = await ctx.db.get(message.conversationId);
+        if (!conversation) throw new Error("Conversation not found");
+
+        await requirePermission(ctx, conversation.organizationId, "messages:send");
+
+        // Reset status
+        await ctx.db.patch(args.messageId, { status: "PENDING", updatedAt: Date.now() });
+
+        // Trigger WhatsApp
+        const contact = await ctx.db.get(conversation.contactId!);
+
+        let replyToWhatsAppId: string | undefined;
+        if (message.replyToId) {
+            const parentMsg = await ctx.db.get(message.replyToId);
+            replyToWhatsAppId = (parentMsg as any)?.waMessageId || (parentMsg as any)?.whatsappId || (parentMsg as any)?.providerMessageId;
+        }
+
+        if (contact && contact.phone) {
+            if (message.type === "TEXT" && message.content) {
+                await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
+                    messageId: message._id,
+                    organizationId: message.organizationId,
+                    to: contact.phone,
+                    text: message.content,
+                    type: "text",
+                    replyToWhatsAppId
+                });
+            } else if (["IMAGE", "VIDEO", "AUDIO", "DOCUMENT"].includes(message.type)) {
+                let mediaUrl: string | null | undefined = message.mediaUrl;
+                if (!mediaUrl && message.mediaStorageId) {
+                    mediaUrl = await ctx.storage.getUrl(message.mediaStorageId);
+                }
+
+                if (mediaUrl) {
+                    await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
+                        messageId: message._id,
+                        organizationId: message.organizationId,
+                        to: contact.phone,
+                        type: message.type.toLowerCase(),
+                        mediaUrl: mediaUrl,
+                        caption: message.content,
+                        mimeType: message.mediaType,
+                        fileName: message.fileName,
+                        replyToWhatsAppId
+                    });
+                }
+            }
+        }
+    },
+});
+
+
+export const getConversationMedia = query({
+    args: {
+        conversationId: v.id("conversations"),
+    },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.conversationId);
+        if (!conversation) throw new Error("Conversation not found");
+        await requireMembership(ctx, conversation.organizationId);
+
+        const messages = await ctx.db
+            .query("messages")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+            .filter((q) =>
+                q.or(
+                    q.eq(q.field("type"), "IMAGE"),
+                    q.eq(q.field("type"), "VIDEO"),
+                    q.eq(q.field("type"), "DOCUMENT"),
+                    q.eq(q.field("type"), "AUDIO")
+                )
+            )
+            .order("desc") // Most recent first
+            .take(100); // Limit to last 100 media items for performance
+
+        const enriched = await Promise.all(messages.map(async (msg) => {
+            let mediaUrl = msg.mediaUrl;
+            if (msg.mediaStorageId) {
+                const url = await ctx.storage.getUrl(msg.mediaStorageId);
+                if (url) mediaUrl = url;
+            }
+            return {
+                ...msg,
+                mediaUrl
+            };
+        }));
+
+        return enriched;
+    }
+});

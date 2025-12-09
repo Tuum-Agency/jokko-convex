@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation'
 import { Bell, Search, X, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthActions } from '@convex-dev/auth/react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { formatDistanceToNow } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -49,7 +54,7 @@ interface DashboardHeaderProps {
 export function DashboardHeader({
     title,
     description,
-    user = { name: 'John Doe', email: 'john@example.com' },
+    user,
     organizationName = 'My Organization',
     basePath = '/dashboard',
     showSearch = true,
@@ -61,6 +66,16 @@ export function DashboardHeader({
     const { signOut } = useAuthActions()
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+
+    // Notifications
+    const realNotifications = useQuery(api.notifications.list)
+    const unreadCount = useQuery(api.notifications.unreadCount)
+    const markAsRead = useMutation(api.notifications.markAsRead)
+    const markAllAsRead = useMutation(api.notifications.markAllAsRead)
+
+    const formatTimeAgo = (date: number) => {
+        return formatDistanceToNow(date, { addSuffix: true, locale: fr })
+    }
 
     // Get user initials
     const getInitials = (name: string) => {
@@ -81,13 +96,6 @@ export function DashboardHeader({
             console.error('Logout failed:', error)
         }
     }
-
-    // Mock notifications
-    const notifications = [
-        { id: 1, title: 'New message', description: 'You have a new conversation', time: '2m ago' },
-        { id: 2, title: 'Template approved', description: 'Your template was approved', time: '1h ago' },
-        { id: 3, title: 'Broadcast sent', description: '500 messages delivered', time: '3h ago' },
-    ]
 
     return (
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl px-4 lg:px-6">
@@ -198,35 +206,65 @@ export function DashboardHeader({
                             className="relative h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                         >
                             <Bell className="h-5 w-5" aria-hidden="true" />
-                            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white" aria-hidden="true" />
+                            {(unreadCount || 0) > 0 && (
+                                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white" aria-hidden="true" />
+                            )}
                             <span className="sr-only">Nouvelles notifications</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-80 rounded-xl shadow-xl border-gray-200/80">
                         <DropdownMenuLabel className="flex items-center justify-between">
                             <span>Notifications</span>
-                            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-green-600 hover:text-green-700">
-                                Mark all as read
-                            </Button>
+                            {(unreadCount || 0) > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto p-0 text-xs text-green-600 hover:text-green-700"
+                                    onClick={() => markAllAsRead()}
+                                >
+                                    Mark all as read
+                                </Button>
+                            )}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {notifications.map((notification) => (
+                        {!realNotifications?.length && (
+                            <div className="p-4 text-center text-sm text-gray-500">
+                                Aucune notification
+                            </div>
+                        )}
+                        {realNotifications?.map((notification) => (
                             <DropdownMenuItem
-                                key={notification.id}
-                                className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                                key={notification._id}
+                                className={cn(
+                                    "flex flex-col items-start gap-1 p-3 cursor-pointer",
+                                    !notification.isRead && "bg-green-50/50"
+                                )}
+                                onClick={() => {
+                                    if (!notification.isRead) {
+                                        markAsRead({ notificationId: notification._id })
+                                    }
+                                    if (notification.link) {
+                                        router.push(notification.link)
+                                    }
+                                }}
                             >
                                 <div className="flex items-center gap-2 w-full">
-                                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                                    <span className="font-medium text-gray-900">{notification.title}</span>
-                                    <span className="ml-auto text-xs text-gray-400">{notification.time}</span>
+                                    {!notification.isRead && (
+                                        <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                                    )}
+                                    <span className={cn(
+                                        "font-medium text-gray-900 truncate",
+                                        !notification.isRead && "font-semibold"
+                                    )}>{notification.title}</span>
+                                    <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+                                        {formatTimeAgo(notification.createdAt)}
+                                    </span>
                                 </div>
-                                <span className="text-sm text-gray-500 pl-4">{notification.description}</span>
+                                <span className="text-sm text-gray-500 pl-4 break-words w-full line-clamp-2">
+                                    {notification.message}
+                                </span>
                             </DropdownMenuItem>
                         ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="justify-center text-green-600 cursor-pointer">
-                            View all notifications
-                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -239,36 +277,43 @@ export function DashboardHeader({
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
-                                aria-label={`Menu utilisateur - ${user.name}`}
+                                aria-label={user ? `Menu utilisateur - ${user.name}` : "User loading"}
                                 className="relative h-9 w-9 rounded-full p-0"
+                                disabled={!user}
                             >
-                                <Avatar className="h-9 w-9 ring-2 ring-gray-100">
-                                    <AvatarImage src={user.avatar} alt={user.name} />
-                                    <AvatarFallback className="bg-linear-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
-                                        {getInitials(user.name)}
-                                    </AvatarFallback>
-                                </Avatar>
+                                {user ? (
+                                    <Avatar className="h-9 w-9 ring-2 ring-gray-100">
+                                        <AvatarImage src={user.avatar} alt={user.name} />
+                                        <AvatarFallback className="bg-linear-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
+                                            {getInitials(user.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ) : (
+                                    <Skeleton className="h-9 w-9 rounded-full" />
+                                )}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-xl border-gray-200/80">
-                            <DropdownMenuLabel className="font-normal">
-                                <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                                    <p className="text-xs text-gray-500">{user.email}</p>
-                                </div>
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">Help</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                                onClick={handleLogout}
-                            >
-                                Sign out
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
+                        {user && (
+                            <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-xl border-gray-200/80">
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                        <p className="text-xs text-gray-500">{user.email}</p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer">Help</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                    onClick={handleLogout}
+                                >
+                                    Sign out
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        )}
                     </DropdownMenu>
                 </div>
             </div>

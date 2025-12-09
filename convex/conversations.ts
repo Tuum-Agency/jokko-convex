@@ -219,6 +219,22 @@ export const resolve = mutation({
 
         await requirePermission(ctx, conversation.organizationId, "conversations:update");
 
+        // Decrement active conversations for the assignee
+        if (conversation.assignedTo && conversation.status === "OPEN") {
+            const membership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) =>
+                    q.eq("userId", conversation.assignedTo!).eq("organizationId", conversation.organizationId)
+                )
+                .first();
+
+            if (membership && (membership.activeConversations || 0) > 0) {
+                await ctx.db.patch(membership._id, {
+                    activeConversations: (membership.activeConversations || 0) - 1,
+                });
+            }
+        }
+
         await ctx.db.patch(args.id, {
             status: "RESOLVED",
             updatedAt: Date.now()
@@ -234,6 +250,22 @@ export const reopen = mutation({
 
         await requirePermission(ctx, conversation.organizationId, "conversations:update");
 
+        // Increment active conversations for the assignee if re-opening
+        if (conversation.assignedTo && conversation.status !== "OPEN") {
+            const membership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) =>
+                    q.eq("userId", conversation.assignedTo!).eq("organizationId", conversation.organizationId)
+                )
+                .first();
+
+            if (membership) {
+                await ctx.db.patch(membership._id, {
+                    activeConversations: (membership.activeConversations || 0) + 1,
+                });
+            }
+        }
+
         await ctx.db.patch(args.id, { status: "OPEN" });
     },
 });
@@ -245,6 +277,22 @@ export const archive = mutation({
         if (!conversation) throw new Error("Conversation failed");
 
         await requirePermission(ctx, conversation.organizationId, "conversations:update"); // close/delete logic
+
+        // Decrement active conversations for the assignee
+        if (conversation.assignedTo && conversation.status === "OPEN") {
+            const membership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) =>
+                    q.eq("userId", conversation.assignedTo!).eq("organizationId", conversation.organizationId)
+                )
+                .first();
+
+            if (membership && (membership.activeConversations || 0) > 0) {
+                await ctx.db.patch(membership._id, {
+                    activeConversations: (membership.activeConversations || 0) - 1,
+                });
+            }
+        }
 
         await ctx.db.patch(args.id, { status: "ARCHIVED" });
     },
@@ -317,5 +365,124 @@ export const getSidebarStats = query({
             unassigned: unassignedCount,
             allUnread: allUnreadCount
         };
+    },
+});
+// ... (previous stats query)
+
+// ============================================
+// Deletion
+// ============================================
+
+export const remove = mutation({
+    args: { id: v.id("conversations") },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.id);
+        if (!conversation) return; // Already deleted?
+
+        await requirePermission(ctx, conversation.organizationId, "conversations:update"); // Use update or specific delete permission?
+
+        // 1. Delete all messages
+        const messages = await ctx.db
+            .query("messages")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.id))
+            .collect();
+
+        for (const msg of messages) {
+            await ctx.db.delete(msg._id);
+        }
+
+        // 2. Delete conversation
+        await ctx.db.delete(args.id);
+    },
+});
+
+export const clearHistory = mutation({
+    args: {
+        contactId: v.id("contacts"),
+        organizationId: v.id("organizations"),
+        excludeIds: v.optional(v.array(v.id("conversations")))
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", args.organizationId)
+            )
+            .first();
+
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Insufficient permissions. Only Admins and Owners can clear history.");
+        }
+
+        // Fetch conversations for this contact
+        const conversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .filter(q => q.eq(q.field("contactId"), args.contactId))
+            .collect();
+
+        // Filter out excluded (e.g. current open conversation)
+        const toDelete = conversations.filter(c => !args.excludeIds?.includes(c._id));
+
+        for (const c of toDelete) {
+            // Delete messages
+            const messages = await ctx.db
+                .query("messages")
+                .withIndex("by_conversation", (q) => q.eq("conversationId", c._id))
+                .collect();
+
+            for (const msg of messages) {
+                await ctx.db.delete(msg._id);
+            }
+
+            // Delete conversation
+            await ctx.db.delete(c._id);
+        }
+    },
+});
+
+export const getOrCreate = mutation({
+    args: {
+        contactId: v.id("contacts"),
+    },
+    handler: async (ctx, args) => {
+        const contact = await ctx.db.get(args.contactId);
+        if (!contact) throw new Error("Contact not found");
+
+        await requireMembership(ctx, contact.organizationId);
+
+        // Check for existing open conversation
+        const existing = await ctx.db
+            .query("conversations")
+            .withIndex("by_organization", (q) => q.eq("organizationId", contact.organizationId))
+            .filter((q) =>
+                q.and(
+                    q.eq(q.field("contactId"), args.contactId),
+                    q.neq(q.field("status"), "RESOLVED"),
+                    q.neq(q.field("status"), "ARCHIVED")
+                )
+            )
+            .first();
+
+        if (existing) {
+            return existing._id;
+        }
+
+        // Create new conversation if no active one found
+        const conversationId = await ctx.db.insert("conversations", {
+            organizationId: contact.organizationId,
+            contactId: args.contactId,
+            channel: "WHATSAPP",
+            status: "OPEN",
+            unreadCount: 0,
+            lastMessageAt: Date.now(),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        return conversationId;
     },
 });

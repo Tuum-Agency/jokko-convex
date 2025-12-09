@@ -1,6 +1,6 @@
 
 import { v } from "convex/values";
-import { query, mutation, QueryCtx } from "./_generated/server";
+import { query, mutation, QueryCtx, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
@@ -144,12 +144,39 @@ export const get = query({
             (contact.tags || []).map(id => ctx.db.get(id))
         );
 
+        // Enrich notes
+        let enrichedNotes: any[] = [];
+        if (contact.notes) {
+            if (Array.isArray(contact.notes)) {
+                enrichedNotes = await Promise.all(contact.notes.map(async (n: any) => {
+                    const authorId = n.authorId as Id<"users">;
+                    const author = authorId ? await ctx.db.get(authorId) : null;
+                    // Prefer name, fallback to email, then "Agent"
+                    const authorName = author?.name || author?.email || "Agent";
+                    return {
+                        ...n,
+                        authorName
+                    };
+                }));
+                // Sort by date desc
+                enrichedNotes.sort((a, b) => b.createdAt - a.createdAt);
+            } else {
+                // Legacy string note
+                enrichedNotes = [{
+                    content: contact.notes,
+                    authorName: null,
+                    createdAt: contact.updatedAt
+                }];
+            }
+        }
+
         return {
             ...contact,
             id: contact._id, // Client expects 'id'
             // Map tags to strings as expected by UI for now, or objects?
             // UI uses string[] in ContactDetails interface: `tags: string[]`
-            tags: tags.filter(t => t).map(t => t!.name)
+            tags: tags.filter(t => t).map(t => t!.name),
+            notes: enrichedNotes // Return structured array
         };
     }
 });
@@ -228,7 +255,7 @@ export const create = mutation({
             address: args.address,
             city: args.city,
             country: args.country,
-            notes: args.notes,
+            notes: args.notes, // Storing initial note as string is fine (handled by get)
             tags: tagIds,
             searchName: getSearchName(args),
             countryCode: detectCountryCode(args.phone),
@@ -253,7 +280,8 @@ export const update = mutation({
         address: v.optional(v.string()),
         city: v.optional(v.string()),
         country: v.optional(v.string()),
-        notes: v.optional(v.string()),
+        notes: v.optional(v.string()), // Legacy string override
+        addNote: v.optional(v.string()), // New structured append
         tags: v.array(v.string()),
     },
     handler: async (ctx, args) => {
@@ -282,20 +310,52 @@ export const update = mutation({
             }
         }
 
-        const { id, ...updates } = args;
+        const { id, addNote, notes, ...updates } = args;
 
         // Recalculate searchName if needed
-        // We need existing data to fully reconstruct it if some fields are missing in updates? 
-        // Usually updates include all form fields. 
-        // Or we merge.
         const current = await ctx.db.get(id);
         if (!current) throw new Error("Not found");
+
+        // Handle Notes
+        let finalNotes: any = current.notes;
+
+        if (addNote) {
+            // Append mode
+            let currentList: any[] = [];
+            if (finalNotes) {
+                if (Array.isArray(finalNotes)) {
+                    currentList = [...finalNotes];
+                } else {
+                    // Convert legacy string to list
+                    currentList = [{
+                        content: finalNotes as string,
+                        // No author known for legacy
+                        createdAt: current.updatedAt
+                    }];
+                }
+            }
+
+            currentList.push({
+                content: addNote,
+                authorId: userId,
+                createdAt: Date.now()
+            });
+            finalNotes = currentList;
+        } else if (notes !== undefined) {
+            // Overwrite mode (legacy or simple edit)
+            // If we want to support full structured update from client, we'd need more complex args.
+            // For now, if client sends 'notes' string, we save it as string (revert to legacy) OR as single item list?
+            // Let's safe it as string to respect strict type if passed, OR standardizes?
+            // Schema allows string. Let's allowing string overwrite.
+            finalNotes = notes;
+        }
 
         const merged = { ...current, ...updates };
         const searchName = getSearchName(merged);
 
         await ctx.db.patch(id, {
             ...updates,
+            notes: finalNotes,
             tags: tagIds,
             searchName,
             countryCode: updates.phone ? detectCountryCode(updates.phone) : (current.countryCode || (current.phone ? detectCountryCode(current.phone) : undefined)),
@@ -458,5 +518,131 @@ export const getAvailableCountryCodes = query({
         });
 
         return Array.from(prefixes).sort();
+    }
+});
+
+export const updateNote = mutation({
+    args: {
+        contactId: v.id("contacts"),
+        noteTimestamp: v.number(),
+        newContent: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const contact = await ctx.db.get(args.contactId);
+        if (!contact) throw new Error("Contact not found");
+
+        const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
+        if (session?.currentOrganizationId !== contact.organizationId) throw new Error("Unauthorized");
+
+        if (!contact.notes || !Array.isArray(contact.notes)) throw new Error("No notes found");
+
+        const notes = [...contact.notes];
+        const noteIndex = notes.findIndex((n: any) => n.createdAt === args.noteTimestamp);
+
+        if (noteIndex === -1) throw new Error("Note not found");
+
+        const note = notes[noteIndex];
+
+        if (note.authorId !== userId) {
+            throw new Error("You can only edit your own notes");
+        }
+
+        notes[noteIndex] = {
+            ...note,
+            content: args.newContent,
+        };
+
+        await ctx.db.patch(args.contactId, { notes: notes });
+    }
+});
+
+export const removeNote = mutation({
+    args: {
+        contactId: v.id("contacts"),
+        noteTimestamp: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const contact = await ctx.db.get(args.contactId);
+        if (!contact) throw new Error("Contact not found");
+
+        const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
+        if (session?.currentOrganizationId !== contact.organizationId) throw new Error("Unauthorized");
+        const orgId = session.currentOrganizationId;
+
+        if (!contact.notes || !Array.isArray(contact.notes)) return;
+
+        const notes = [...contact.notes];
+        const noteIndex = notes.findIndex((n: any) => n.createdAt === args.noteTimestamp);
+
+        if (noteIndex === -1) return;
+
+        const note = notes[noteIndex];
+
+        let canDelete = false;
+
+        if (note.authorId === userId) {
+            canDelete = true;
+        } else {
+            const membership = await ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", orgId))
+                .first();
+
+            if (membership && (membership.role === "ADMIN" || membership.role === "OWNER")) {
+                canDelete = true;
+            }
+        }
+
+        if (!canDelete) {
+            throw new Error("Insufficient permissions to delete this note");
+        }
+
+        notes.splice(noteIndex, 1);
+
+        await ctx.db.patch(args.contactId, { notes: notes });
+    }
+});
+
+export const clearAllNotes = mutation({
+    args: {
+        contactId: v.id("contacts"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const contact = await ctx.db.get(args.contactId);
+        if (!contact) throw new Error("Contact not found");
+
+        const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
+        if (session?.currentOrganizationId !== contact.organizationId) throw new Error("Unauthorized");
+        const orgId = session.currentOrganizationId;
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", orgId))
+            .first();
+
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Insufficient permissions. Only Admins and Owners can clear all notes.");
+        }
+
+        await ctx.db.patch(args.contactId, { notes: [] });
+    }
+});
+
+export const listAllForOrg = internalQuery({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", q => q.eq("organizationId", args.organizationId))
+            .collect();
     }
 });

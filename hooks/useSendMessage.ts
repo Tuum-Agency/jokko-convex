@@ -36,29 +36,42 @@ export function useSendMessage(conversationId: string) {
         }
     };
 
-    const sendMedia = async ({ file, type = 'image', caption, replyToMessageId }: { file: File, type: string, caption?: string, replyToMessageId?: string, replyTo?: any }) => {
+    const sendMedia = async ({ file, storageId, type = 'image', caption, replyToMessageId, mimeType, fileName, fileSize }: { file?: File, storageId?: string, type: string, caption?: string, replyToMessageId?: string, replyTo?: any, mimeType?: string, fileName?: string, fileSize?: number }) => {
         setIsSending(true);
         try {
-            // 1. Generate Upload URL
-            const postUrl = await generateUploadUrlMutation();
+            let finalStorageId = storageId;
+            let finalMimeType = mimeType || file?.type;
+            let finalFileName = fileName || file?.name;
+            let finalFileSize = fileSize || file?.size;
 
-            // 2. Upload File
-            const result = await fetch(postUrl, {
-                method: "POST",
-                headers: { "Content-Type": file.type },
-                body: file,
-            });
-            const { storageId } = await result.json();
+            if (!finalStorageId && file) {
+                // 1. Generate Upload URL
+                const postUrl = await generateUploadUrlMutation();
+
+                // 2. Upload File
+                const result = await fetch(postUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": file.type },
+                    body: file,
+                });
+                const { storageId: uploadedId } = await result.json();
+                finalStorageId = uploadedId;
+                finalMimeType = file.type;
+                finalFileName = file.name;
+                finalFileSize = file.size;
+            } else if (!finalStorageId && !file) {
+                throw new Error("Either file or storageId is required");
+            }
 
             // 3. Send Message with Storage ID
             await sendMessageMutation({
                 conversationId: conversationId as Id<"conversations">,
                 content: caption,
                 type: type.toUpperCase(), // IMAGE, VIDEO, etc.
-                mediaStorageId: storageId,
-                mediaType: file.type,
-                fileName: file.name,
-                fileSize: file.size,
+                mediaStorageId: finalStorageId as Id<"_storage">,
+                mediaType: finalMimeType,
+                fileName: finalFileName,
+                fileSize: finalFileSize,
                 replyToId: replyToMessageId as Id<"messages"> | undefined,
                 isForwarded: false
             });

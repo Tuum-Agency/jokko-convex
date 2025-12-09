@@ -204,7 +204,14 @@ export default defineSchema({
         jobTitle: v.optional(v.string()),
 
         // Metadata
-        notes: v.optional(v.string()),
+        notes: v.optional(v.union(
+            v.string(),
+            v.array(v.object({
+                content: v.string(),
+                authorId: v.optional(v.id("users")),
+                createdAt: v.number()
+            }))
+        )),
         tags: v.optional(v.array(v.id("tags"))),
         isWhatsApp: v.optional(v.boolean()),
 
@@ -560,7 +567,9 @@ export default defineSchema({
     shortcuts: defineTable({
         organizationId: v.id("organizations"),
         shortcut: v.string(), // Trigger command (e.g., "/intro")
-        text: v.string(), // Full text content
+        text: v.optional(v.string()), // Full text content or caption
+        type: v.optional(v.string()), // "TEXT", "IMAGE", "VIDEO", "DOCUMENT"
+        mediaStorageId: v.optional(v.id("_storage")), // For media shortcuts
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -667,6 +676,9 @@ export default defineSchema({
 
         // External ID (WhatsApp Message ID)
         externalId: v.optional(v.string()),
+
+        // Broadcast Link (Campaigns)
+        broadcastId: v.optional(v.id("broadcasts")),
 
         createdAt: v.number(),
         updatedAt: v.number(),
@@ -1168,4 +1180,21 @@ export default defineSchema({
         .index('by_department', ['departmentId'])
         .index('by_department_and_date', ['departmentId', 'date'])
         .index('by_organization_and_date', ['organizationId', 'date']),
+    // ============================================
+    // NOTIFICATIONS
+    // ============================================
+    notifications: defineTable({
+        organizationId: v.id("organizations"),
+        userId: v.id("users"), // Whom the notification is for
+        type: v.string(), // "ASSIGNMENT", "SYSTEM", "MENTION", etc.
+        title: v.string(),
+        message: v.string(),
+        link: v.optional(v.string()), // e.g. /dashboard/conversations/123
+        isRead: v.boolean(),
+        metadata: v.optional(v.any()), // flexible payload
+        createdAt: v.number(),
+    })
+        .index("by_user", ["userId"])
+        .index("by_user_read", ["userId", "isRead"])
+        .index("by_org", ["organizationId"]),
 });

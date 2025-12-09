@@ -35,24 +35,31 @@ export const deleteUser = mutation({
     }
 });
 
-export const clearAllConversations = mutation({
+export const repairStats = mutation({
     args: {},
     handler: async (ctx) => {
-        const conversations = await ctx.db.query("conversations").collect();
-        for (const c of conversations) {
-            await ctx.db.delete(c._id);
+        const memberships = await ctx.db.query("memberships").collect();
+        let updates = 0;
+
+        for (const m of memberships) {
+            // Count actual open conversations assigned to this user
+            const count = await ctx.db
+                .query("conversations")
+                .withIndex("by_assigned", (q) => q.eq("assignedTo", m.userId))
+                .filter(q => q.eq(q.field("status"), "OPEN"))
+                .collect();
+
+            const realCount = count.length;
+
+            if (m.activeConversations !== realCount) {
+                await ctx.db.patch(m._id, {
+                    activeConversations: realCount
+                });
+                updates++;
+                console.log(`Updated ${m.userId}: ${m.activeConversations} -> ${realCount}`);
+            }
         }
 
-        const messages = await ctx.db.query("messages").collect();
-        for (const m of messages) {
-            await ctx.db.delete(m._id);
-        }
-
-        const assignments = await ctx.db.query("assignments").collect();
-        for (const a of assignments) {
-            await ctx.db.delete(a._id);
-        }
-
-        return `Deleted ${conversations.length} conversations, ${messages.length} messages, ${assignments.length} assignments.`;
+        return `Repaired stats for ${updates} agents.`;
     }
 });

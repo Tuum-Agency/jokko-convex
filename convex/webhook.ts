@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 // Gérer un message entrant
 export const handleIncomingMessage = mutation({
@@ -98,7 +99,7 @@ export const handleIncomingMessage = mutation({
             content = `[${type}]`;
         }
 
-        await ctx.db.insert("messages", {
+        const newMessageId = await ctx.db.insert("messages", {
             organizationId: organization._id,
             conversationId: conversation._id,
             contactId: contact._id,
@@ -134,6 +135,74 @@ export const handleIncomingMessage = mutation({
             messageText: content,
             isFirstMessage: isFirstMessage,
         });
+
+        // 7. BROADCAST REPLY TRACKING
+        // Check if this message is a reply to a broadcast
+        try {
+            let attributedBroadcastId: any = null;
+
+            // A. Explicit Reply (Context)
+            if (message.context && message.context.id) {
+                const originalMsg = await ctx.db
+                    .query("messages")
+                    .filter(q => q.eq(q.field("externalId"), message.context.id))
+                    .first();
+
+                if (originalMsg && originalMsg.broadcastId) {
+                    attributedBroadcastId = originalMsg.broadcastId;
+                }
+            }
+
+            // B. Implicit Attribution (Time window) if not explicit
+            if (!attributedBroadcastId) {
+                // Find the latest outbound message THAT IS A BROADCAST within this conversation
+                const lastBroadcastMsg = await ctx.db
+                    .query("messages")
+                    .withIndex("by_conversation", q => q.eq("conversationId", conversation!._id))
+                    .order("desc")
+                    .filter(q => q.and(
+                        q.eq(q.field("direction"), "OUTBOUND"),
+                        q.neq(q.field("broadcastId"), undefined)
+                    ))
+                    .first();
+
+                if (lastBroadcastMsg && lastBroadcastMsg.broadcastId) {
+                    const ONE_DAY = 24 * 60 * 60 * 1000;
+                    // Only attribute if within 24 hours of the broadcast message
+                    if (Date.now() - lastBroadcastMsg.createdAt < ONE_DAY) {
+                        attributedBroadcastId = lastBroadcastMsg.broadcastId;
+                    }
+                }
+            }
+
+            // If we found a broadcast to attribute to
+            if (attributedBroadcastId) {
+                // 1. Link this inbound message to the broadcast
+                await ctx.db.patch(newMessageId, { broadcastId: attributedBroadcastId });
+
+                // 2. Increment stats (Unique reply per conversation)
+                // Check if we already counted a reply for this broadcast in this conversation
+                const existingReply = await ctx.db
+                    .query("messages")
+                    .withIndex("by_conversation", q => q.eq("conversationId", conversation!._id))
+                    .filter(q => q.and(
+                        q.eq(q.field("broadcastId"), attributedBroadcastId),
+                        q.neq(q.field("_id"), newMessageId) // Exclude current
+                    ))
+                    .first();
+
+                if (!existingReply) {
+                    const broadcast = await ctx.db.get(attributedBroadcastId as Id<"broadcasts">);
+                    if (broadcast) {
+                        await ctx.db.patch(broadcast._id, {
+                            repliedCount: (broadcast.repliedCount || 0) + 1
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error tracking broadcast reply:", e);
+        }
 
         console.log(`[WHATSAPP] Processed message from ${from}`);
     }
@@ -171,6 +240,21 @@ export const handleStatusUpdate = mutation({
             status: internalStatus,
             updatedAt: Date.now(),
         });
+
+        // BROADCAST STATS UPDATE
+        if (message.broadcastId && internalStatus !== message.status) {
+            const broadcast = await ctx.db.get(message.broadcastId);
+            if (broadcast) {
+                const updates: any = {};
+                if (internalStatus === 'DELIVERED') updates.deliveredCount = (broadcast.deliveredCount || 0) + 1;
+                if (internalStatus === 'READ') updates.readCount = (broadcast.readCount || 0) + 1;
+                if (internalStatus === 'FAILED') updates.failedCount = (broadcast.failedCount || 0) + 1;
+
+                if (Object.keys(updates).length > 0) {
+                    await ctx.db.patch(message.broadcastId, updates);
+                }
+            }
+        }
 
         console.log(`[WHATSAPP] Updated status to ${internalStatus} for message ${message._id}`);
     }

@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { PhoneInput } from './PhoneInput';
+import { detectCountry } from '@/lib/contacts/validation';
 
 // Helper to wrap input with icon
 function InputWithIcon({ leftIcon, className, ...props }: any) {
@@ -59,6 +60,7 @@ const formSchema = z.object({
     city: z.string().optional(),
     country: z.string().optional(),
     notes: z.string().optional(),
+
     // tags handled separately in state, or part of form?
     // reference form handles tags in state `const [tags, setTags]`.
 });
@@ -89,17 +91,33 @@ export function ContactForm({
     const [tags, setTags] = useState<string[]>(initialTags);
     const [tagInput, setTagInput] = useState('');
 
+    // Handle initial notes
+    const existingNotes = Array.isArray(initialData?.notes) ? initialData.notes : [];
+    const initialNoteValue = typeof initialData?.notes === 'string' ? initialData.notes : '';
+
+    // Logic to split the name if firstName and lastName are missing but name exists.
+    let initialFirstName = initialData?.firstName || '';
+    let initialLastName = initialData?.lastName || '';
+
+    if (!initialFirstName && !initialLastName && initialData?.name) {
+        const parts = initialData.name.trim().split(' ');
+        if (parts.length > 0) {
+            initialFirstName = parts[0];
+            initialLastName = parts.slice(1).join(' '); // Remainder as last name
+        }
+    }
+
     const defaultValues = {
         phone: initialData?.phone || '',
-        firstName: initialData?.firstName || '',
-        lastName: initialData?.lastName || '',
+        firstName: initialFirstName,
+        lastName: initialLastName,
         email: initialData?.email || '',
         company: initialData?.company || '',
         jobTitle: initialData?.jobTitle || '',
         address: initialData?.address || '',
         city: initialData?.city || '',
         country: initialData?.country || '',
-        notes: initialData?.notes || '',
+        notes: mode === 'create' ? initialNoteValue : '', // Empty for edit mode (add new note)
     };
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -123,10 +141,20 @@ export function ContactForm({
     }
 
     const handleSubmit = async (values: z.infer<typeof formSchema>) => {
-        await onSubmit({
+        const payload: any = {
             ...values,
             tags
-        });
+        };
+
+        if (mode === 'edit') {
+            // For edit mode, 'notes' field in form is actually for adding a new note
+            if (values.notes) {
+                payload.addNote = values.notes;
+            }
+            delete payload.notes; // Prevent overwriting entire notes history
+        }
+
+        await onSubmit(payload);
     };
 
     return (
@@ -143,6 +171,7 @@ export function ContactForm({
                                     <FormLabel>Téléphone *</FormLabel>
                                     <FormControl>
                                         <PhoneInput
+                                            indicator={detectCountry(field.value)}
                                             value={field.value}
                                             onChange={(val) => field.onChange(val)}
                                             onBlur={field.onBlur}
@@ -207,7 +236,6 @@ export function ContactForm({
                                             type="email"
                                             placeholder="amadou@example.com"
                                             leftIcon={<Mail className="h-4 w-4" />}
-                                            // error={!!fieldState.error} // Input doesn't have error prop in shadcn default
                                             disabled={isLoading}
                                             {...field}
                                         />
@@ -335,32 +363,47 @@ export function ContactForm({
                                 onKeyDown={handleAddTag}
                                 disabled={isLoading}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Appuyez sur Entrée ou virgule pour ajouter un tag
-                            </p>
                         </div>
 
                         {/* Notes */}
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4" />
-                                        Notes
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="Notes sur le contact..."
-                                            className="min-h-[100px]"
-                                            disabled={isLoading}
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                </FormItem>
+                        <div className="space-y-2">
+                            <FormLabel className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Notes
+                            </FormLabel>
+
+                            {/* Existing Notes Display */}
+                            {existingNotes.length > 0 && (
+                                <div className="space-y-2 mb-2 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded border">
+                                    {existingNotes.map((note: any, i: number) => (
+                                        <div key={i} className="text-xs border-b border-gray-100 last:border-0 pb-1 mb-1">
+                                            <div className="flex justify-between text-gray-400">
+                                                <span>{note.authorName || 'Agent'}</span>
+                                                <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-gray-700">{note.content}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
-                        />
+
+                            <FormField
+                                control={form.control}
+                                name="notes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Textarea
+                                                placeholder={mode === 'create' ? "Notes sur le contact..." : "Ajouter une nouvelle note..."}
+                                                className="min-h-[100px]"
+                                                disabled={isLoading}
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
 
                     </CardContent>
 

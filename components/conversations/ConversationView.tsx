@@ -27,6 +27,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -61,6 +62,7 @@ import { MessageInput } from './MessageInput'
 import { ForwardMessageModal } from './ForwardMessageModal'
 import { AssignmentBadge } from './AssignmentBadge'
 import { AssignmentDropdown } from './AssignmentDropdown'
+import { ButtonGroup } from '@/components/ui/button-group'
 // import { CallButton } from '@/components/calls/call-button' // Fonctionnalite d'appel audio desactivee temporairement
 import { useMessages, type Message } from '@/hooks/useMessages'
 import { useConversations } from '@/hooks/useConversations'
@@ -145,6 +147,7 @@ function ConversationHeader({
     showInfoButton?: boolean
     onAssignmentChange?: () => void
 }) {
+    const router = useRouter()
     const {
         archiveConversation,
         resolveConversation,
@@ -167,6 +170,11 @@ function ConversationHeader({
         : null
 
     const { isTyping, typingUsers } = useTypingIndicator(conversation.id)
+
+    const handleResolve = async () => {
+        await resolveConversation(conversation.id)
+        router.push('/dashboard/conversations')
+    }
 
     return (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/80 bg-white">
@@ -218,29 +226,35 @@ function ConversationHeader({
 
             {/* Actions */}
             <div className="flex items-center gap-1">
-                {/* Assignment dropdown */}
+                {/* Button Group for Assignment and Call */}
                 {currentMember && (
-                    <AssignmentDropdown
-                        conversationId={conversation.id}
-                        currentAssignee={assignedTo}
-                        currentUserMemberId={currentMember.id}
-                        currentUserRole={currentMember.role}
-                        onAssignmentChange={onAssignmentChange}
-                    />
-                )}
+                    <ButtonGroup>
+                        <AssignmentDropdown
+                            conversationId={conversation.id}
+                            currentAssignee={assignedTo}
+                            currentUserMemberId={currentMember.id}
+                            currentUserRole={currentMember.role}
+                            onAssignmentChange={onAssignmentChange}
+                        />
 
-                {/* Appel audio - Bientot disponible */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium cursor-default">
-                            <Phone className="h-4 w-4" />
-                            <span>Bientot</span>
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Les appels audio seront bientot disponibles</p>
-                    </TooltipContent>
-                </Tooltip>
+                        {/* Appel audio - Bientot disponible */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5 text-gray-500 border-gray-200 bg-gray-50/50 cursor-not-allowed hover:bg-gray-50/50 hover:text-gray-500"
+                                >
+                                    <Phone className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Bientot</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Les appels audio seront bientot disponibles</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </ButtonGroup>
+                )}
 
                 {/* Info toggle */}
                 {showInfoButton && onToggleInfo && (
@@ -269,7 +283,7 @@ function ConversationHeader({
                     <DropdownMenuContent align="end" className="w-48">
                         {conversation.status === 'OPEN' ? (
                             <DropdownMenuItem
-                                onClick={() => resolveConversation(conversation.id)}
+                                onClick={handleResolve}
                                 disabled={isResolving}
                             >
                                 <CheckCircle className="mr-2 h-4 w-4" />

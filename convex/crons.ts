@@ -19,4 +19,7 @@ const crons = cronJobs();
 // Check presence timeouts every minute
 crons.interval("check-presence-timeouts", { minutes: 1 }, internal.presence.checkTimeouts);
 
+// Process scheduled broadcasts every minute
+crons.interval("process-scheduled-broadcasts", { minutes: 1 }, internal.broadcasts.processScheduled);
+
 export default crons;

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -26,6 +26,7 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
     Sheet,
@@ -109,13 +110,18 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({
     basePath = '/dashboard',
-    user = { name: 'John Doe', email: 'john@example.com' },
+    user,
     organizationName = 'My Organization',
 }: MobileSidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
     const { signOut } = useAuthActions()
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     // Check if a nav item is active
     const isActive = (href: string) => {
@@ -144,6 +150,20 @@ export function MobileSidebar({
         } catch (error) {
             console.error('Logout failed:', error)
         }
+    }
+
+    if (!isMounted) {
+        return (
+            <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Ouvrir le menu"
+                className="lg:hidden h-10 w-10 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+                <span className="sr-only">Ouvrir le menu</span>
+            </Button>
+        )
     }
 
     return (
@@ -264,27 +284,39 @@ export function MobileSidebar({
                 {/* User Profile */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-100 bg-white">
                     <div className="flex items-center gap-3 rounded-xl p-2 hover:bg-gray-50 transition-colors">
-                        <Avatar className="h-10 w-10 ring-2 ring-white shadow-md">
-                            <AvatarImage src={user.avatar} alt={user.name} />
-                            <AvatarFallback className="bg-gradient-to-br from-green-500 to-green-600 text-white text-sm font-semibold">
-                                {getInitials(user.name)}
-                            </AvatarFallback>
-                        </Avatar>
+                        {user ? (
+                            <>
+                                <Avatar className="h-10 w-10 ring-2 ring-white shadow-md">
+                                    <AvatarImage src={user.avatar} alt={user.name} />
+                                    <AvatarFallback className="bg-gradient-to-br from-green-500 to-green-600 text-white text-sm font-semibold">
+                                        {getInitials(user.name)}
+                                    </AvatarFallback>
+                                </Avatar>
 
-                        <div className="flex-1 min-w-0">
-                            <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-                            <p className="truncate text-xs text-gray-500">{organizationName}</p>
-                        </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+                                    <p className="truncate text-xs text-gray-500">{organizationName}</p>
+                                </div>
 
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Se déconnecter"
-                            className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={handleLogout}
-                        >
-                            <LogOut className="h-4 w-4" aria-hidden="true" />
-                        </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Se déconnecter"
+                                    className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                    onClick={handleLogout}
+                                >
+                                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Skeleton className="h-10 w-10 rounded-full" />
+                                <div className="flex-1 space-y-2">
+                                    <Skeleton className="h-4 w-32" />
+                                    <Skeleton className="h-3 w-20" />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </SheetContent>

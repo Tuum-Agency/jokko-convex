@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { usePaginatedQuery, useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
@@ -18,8 +19,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
 export function ContactsPageClient() {
+    const router = useRouter();
     const [search, setSearch] = useState('');
     const [tagFilter, setTagFilter] = useState<string | null>(null);
 
@@ -69,6 +70,7 @@ export function ContactsPageClient() {
     const createContact = useMutation(api.contacts.create);
     const updateContact = useMutation(api.contacts.update);
     const deleteContact = useMutation(api.contacts.remove);
+    const getOrCreateConversation = useMutation(api.conversations.getOrCreate);
 
     const handleLoadMore = () => {
         loadMore(30);
@@ -76,9 +78,6 @@ export function ContactsPageClient() {
 
     const handleCreateSubmit = async (data: any) => {
         try {
-            // Transform "tag string" to array of strings if it comes from the form as string
-            // The form sends array of strings or comma separated string? 
-            // My previous form implementation sent `tags` as array of strings in `handleSubmit`.
             await createContact(data);
             setIsCreateDialogOpen(false);
             // Success
@@ -120,6 +119,16 @@ export function ContactsPageClient() {
         } catch (error: any) {
             console.error(error);
             alert(`Erreur: ${error.message}`);
+        }
+    };
+
+    const handleMessage = async (contact: Contact) => {
+        try {
+            const conversationId = await getOrCreateConversation({ contactId: contact.id as Id<"contacts"> });
+            router.push(`/dashboard/conversations/${conversationId}`);
+        } catch (error) {
+            console.error("Failed to start conversation:", error);
+            alert("Impossible de démarrer la conversation.");
         }
     };
 
@@ -171,7 +180,7 @@ export function ContactsPageClient() {
                 onExport={handleExport}
                 onEdit={(c) => setEditingContact(c)}
                 onDelete={handleDeleteClick}
-                onMessage={(contact) => console.log('Message', contact)}
+                onMessage={handleMessage}
             />
 
             <ContactFormDialog

@@ -84,6 +84,13 @@ export const create = mutation({
             onboardingStep: "WHATSAPP_CONNECT", // Next step
             ownerId: userId,
             plan: "FREE",
+            settings: {
+                assignment: {
+                    autoAssignEnabled: true,
+                    maxConcurrentChats: 5,
+                    excludeOfflineAgents: true
+                }
+            },
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });

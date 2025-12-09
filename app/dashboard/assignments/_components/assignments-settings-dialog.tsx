@@ -72,7 +72,7 @@ export function AssignmentSettingsDialog({ open, onOpenChange }: AssignmentSetti
                     <div className="flex items-center justify-between space-x-2">
                         <Label htmlFor="auto-assign" className="flex flex-col space-y-1">
                             <span>Assignation automatique</span>
-                            <span className="font-normal text-xs text-muted-foreground">Distribuer automatiquement les nouveaux messages</span>
+                            <span className="font-normal text-xs text-muted-foreground">Activé par défaut. Si désactivé, vous devrez assigner manuellement.</span>
                         </Label>
                         <Switch id="auto-assign" checked={autoAssignEnabled} onCheckedChange={setAutoAssignEnabled} />
                     </div>

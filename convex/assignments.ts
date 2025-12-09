@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
+import { internal, api } from "./_generated/api";
+import OpenAI from "openai";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { buildConversationFilter, canViewConversation, VisibilityContext } from "./lib/visibility";
 import { Id } from "./_generated/dataModel";
@@ -193,6 +195,12 @@ export const getConversationsQueue = query({
                 }
             }
 
+            let assigneeName = undefined;
+            if (c.assignedTo) {
+                const assignee = await ctx.db.get(c.assignedTo);
+                assigneeName = assignee?.name || "Agent inconnu";
+            }
+
             return {
                 id: c._id,
                 message: c.preview || "Nouveau message",
@@ -201,7 +209,9 @@ export const getConversationsQueue = query({
                 phone: contactPhone,
                 priority: priority,
                 statusColor: c.assignedTo ? "bg-green-500" : "bg-gray-300",
-                date: "message" // Icon type
+                date: "message", // Icon type
+                assignedTo: c.assignedTo,
+                assigneeName: assigneeName
             };
         }));
 
@@ -372,6 +382,18 @@ export const autoAssign = mutation({
                 history: []
             });
 
+            // Notify Agent
+            await ctx.db.insert("notifications", {
+                organizationId,
+                userId: member.userId,
+                type: "ASSIGNMENT",
+                title: "Nouvelle conversation",
+                message: "Une nouvelle conversation vous a été assignée automatiquement.",
+                link: `/dashboard/conversations/${conv._id}`,
+                isRead: false,
+                createdAt: Date.now(),
+            });
+
             // Update local member state for next iteration
             member.activeConversations = (member.activeConversations || 0) + 1;
             member.lastAssignedAt = Date.now();
@@ -474,6 +496,21 @@ export const assign = mutation({
             history: [],
             internalNotes: args.note
         });
+
+        // Notify Agent (if not assigning to self, or just always notify?)
+        // If assignerId === args.memberId, maybe skip?
+        if (assignerId !== args.memberId) {
+            await ctx.db.insert("notifications", {
+                organizationId,
+                userId: args.memberId,
+                type: "ASSIGNMENT",
+                title: "Conversation assignée",
+                message: "Une conversation vous a été assignée manuellement.",
+                link: `/dashboard/conversations/${args.conversationId}`,
+                isRead: false,
+                createdAt: Date.now(),
+            });
+        }
 
         // Update New Member Stats (Membership table)
         // If it was already assigned to SAME person, we might not want to increment? 
@@ -585,3 +622,320 @@ export const updateAssignmentSettings = mutation({
     }
 });
 
+export const getRoutingContext = internalQuery({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        const org = await ctx.db.get(args.organizationId);
+        if (!org) return null;
+
+        const settings = org.settings?.assignment;
+        if (!settings?.autoAssignEnabled) return { enabled: false };
+
+        // Fetch agents
+        const agents = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        // Map to simpler structure for AI
+        const agentList = await Promise.all(agents.map(async (m) => {
+            const user = await ctx.db.get(m.userId);
+            return {
+                memberId: m.userId,
+                name: user?.name || "Unknown",
+                status: m.status,
+                poleId: m.poleId,
+                activeConversations: m.activeConversations || 0,
+                maxConversations: m.maxConversations || 5,
+                isOnline: (m.status === 'ONLINE') || ((Date.now() - (m.lastSeenAt || 0)) < 5 * 60 * 1000)
+            };
+        }));
+
+        // Fetch Poles (Departments)
+        const poles = await ctx.db
+            .query("poles")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        return {
+            enabled: true,
+            settings,
+            agents: agentList,
+            poles: poles.map(p => ({ id: p._id, name: p.name }))
+        };
+    }
+});
+
+export const sendAutoReply = internalMutation({
+    args: {
+        conversationId: v.id("conversations"),
+        text: v.string()
+    },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.conversationId);
+        if (!conversation) throw new Error("Conversation not found");
+
+        const contact = await ctx.db.get(conversation.contactId!);
+        if (!contact || !contact.phone) throw new Error("Contact invalid");
+
+        const messageId = await ctx.db.insert("messages", {
+            organizationId: conversation.organizationId,
+            conversationId: args.conversationId,
+            contactId: conversation.contactId,
+            type: "TEXT",
+            content: args.text,
+            direction: "OUTBOUND",
+            status: "PENDING",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        await ctx.db.patch(args.conversationId, {
+            lastMessageAt: Date.now(),
+            preview: args.text,
+            updatedAt: Date.now(),
+        });
+
+        return {
+            messageId,
+            phone: contact.phone,
+            organizationId: conversation.organizationId
+        };
+    }
+});
+
+export const assignToBestAvailable = internalMutation({
+    args: {
+        conversationId: v.id("conversations"),
+        organizationId: v.id("organizations"),
+        excludeOfflineAgents: v.boolean(),
+        poleId: v.optional(v.id("poles"))
+    },
+    handler: async (ctx, args) => {
+        const { conversationId, organizationId, excludeOfflineAgents } = args;
+
+        const conversation = await ctx.db.get(conversationId);
+        if (!conversation) return { success: false, reason: "Conversation not found" };
+
+        if (conversation.assignedTo) {
+            return { success: true, status: "ALREADY_ASSIGNED" };
+        }
+
+        // Get Members
+        let members = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect();
+
+        // Filter by Pole/Department if specified
+        if (args.poleId) {
+            members = members.filter(m => m.poleId === args.poleId);
+        }
+
+        // Filter
+        if (excludeOfflineAgents) {
+            members = members.filter(m => {
+                const isActive = (Date.now() - (m.lastSeenAt || 0)) < 5 * 60 * 1000;
+                return m.status === 'ONLINE' || isActive;
+            });
+        }
+
+        if (members.length === 0) return { success: false, reason: "NO_ONLINE_AGENTS" };
+
+        const availableMembers = members.filter(m => {
+            const current = m.activeConversations || 0;
+            const max = m.maxConversations || 5;
+            return current < max;
+        });
+
+        if (availableMembers.length === 0) return { success: false, reason: "No capacity" };
+
+        // Sort: Least loaded first, then Round Robin (lastAssignedAt)
+        // Adjusting logic: Standard is often "Least Busy" or "Round Robin".
+        // Previous logic was Round Robin based on Time.
+        // Let's stick to Time (Round Robin) to distribute equally among available set.
+        availableMembers.sort((a, b) => {
+            const timeA = a.lastAssignedAt || 0;
+            const timeB = b.lastAssignedAt || 0;
+            return timeA - timeB;
+        });
+
+        const selected = availableMembers[0];
+
+        // Assign using existing mutation logic (reusing internal logic or duplicating for safety)
+        // We'll do direct DB updates here as it is an internal mutation
+        await ctx.db.patch(conversationId, {
+            assignedTo: selected.userId,
+            departmentId: selected.poleId ? String(selected.poleId) : undefined,
+            assignedAt: Date.now()
+        });
+
+        await ctx.db.patch(selected._id, {
+            activeConversations: (selected.activeConversations || 0) + 1,
+            lastAssignedAt: Date.now()
+        });
+
+        // Record
+        await ctx.db.insert("assignments", {
+            organizationId,
+            conversationId,
+            assignedBy: "SYSTEM",
+            status: "ACTIVE",
+            assignedAt: Date.now(),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            slaBreached: false,
+            history: []
+        });
+
+        // Notify
+        await ctx.db.insert("notifications", {
+            organizationId,
+            userId: selected.userId,
+            type: "ASSIGNMENT",
+            title: "Nouvelle conversation",
+            message: "Une nouvelle conversation vous a été assignée automatiquement.",
+            link: `/dashboard/conversations/${conversationId}`,
+            isRead: false,
+            createdAt: Date.now(),
+        });
+
+        return { success: true, agentId: selected.userId };
+    }
+});
+
+export const analyzeAndRoute = action({
+    args: {
+        conversationId: v.id("conversations"),
+        organizationId: v.id("organizations"),
+        messageText: v.string()
+    },
+    handler: async (ctx, args) => {
+        const { conversationId, organizationId, messageText } = args;
+
+        // 1. Get Context
+        const context = await ctx.runQuery(internal.assignments.getRoutingContext, { organizationId });
+
+        if (!context || !context.enabled || !context.agents || !context.settings) {
+            console.log("Auto-assign disabled or invalid context");
+            return;
+        }
+
+        const { agents, settings, poles } = context;
+
+        // 2. AI Analysis
+        const apiKey = process.env.OPENAI_API_KEY;
+        let specificAgentId = null;
+        let specificPoleId = null;
+
+        if (apiKey) {
+            try {
+                const openai = new OpenAI({ apiKey });
+                const prompt = `
+                Analyze the following incoming message from a customer and determine if they are explicitly asking to speak with:
+                1. A specific agent from the AGENT LIST.
+                2. A specific department/service/pole from the POLE LIST.
+                
+                If you match an agent or a pole, draft a polite, professional, and short reply (in French) to the customer confirming that you are transferring them to the right person/service.
+                Example: "Je vous mets immédiatement en relation avec le service Commercial." or "Un instant, je transfère votre demande à Paul."
+
+                Message: "${messageText}"
+                
+                AGENT LIST:
+                ${JSON.stringify(agents.map(a => ({ id: a.memberId, name: a.name })))}
+
+                POLE LIST:
+                ${JSON.stringify(poles)}
+                
+                Return a JSON object:
+                {
+                    "targetAgentId": "string | null", // The ID of the agent if matched by name
+                    "targetPoleId": "string | null", // The ID of the pole/department if matched
+                    "reason": "string",
+                    "replyMessage": "string | null" // The polite confirmation message to send to the user
+                }
+                `;
+
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: prompt }],
+                    response_format: { type: "json_object" }
+                });
+
+                const content = response.choices[0].message.content;
+                let replyMessage = null;
+
+                if (content) {
+                    const result = JSON.parse(content);
+                    replyMessage = result.replyMessage;
+
+                    if (result.targetAgentId) {
+                        // Validate existence
+                        if (agents.find(a => a.memberId === result.targetAgentId)) {
+                            specificAgentId = result.targetAgentId;
+                            console.log(`[AI Routing] Matched agent ${result.targetAgentId}`);
+                        }
+                    } else if (result.targetPoleId) {
+                        if (poles.find((p: any) => p.id === result.targetPoleId)) {
+                            specificPoleId = result.targetPoleId;
+                            console.log(`[AI Routing] Matched pole ${result.targetPoleId}`);
+                        }
+                    }
+                }
+
+                // Send the confirmation/handoff message if applicable
+                if ((specificAgentId || specificPoleId) && replyMessage) {
+                    const msgInfo = await ctx.runMutation(internal.assignments.sendAutoReply, {
+                        conversationId,
+                        text: replyMessage
+                    });
+
+                    await ctx.runAction(internal.whatsapp_actions.sendMessage, {
+                        messageId: msgInfo.messageId,
+                        organizationId: msgInfo.organizationId,
+                        to: msgInfo.phone,
+                        text: replyMessage
+                    });
+                }
+            } catch (e) {
+                console.error("AI Routing failed", e);
+            }
+        }
+
+        // 3. Execute Assignment
+        if (specificAgentId) {
+            // Assign to specific person
+            await ctx.runMutation(api.assignments.assign, {
+                conversationId,
+                memberId: specificAgentId as any,
+                note: "Auto-assigned by AI based on customer request"
+            });
+        } else {
+            // Standard Auto Assign (with pole filter if detected)
+            const result: any = await ctx.runMutation(internal.assignments.assignToBestAvailable, {
+                conversationId,
+                organizationId,
+                excludeOfflineAgents: settings.excludeOfflineAgents ?? true,
+                poleId: specificPoleId as any
+            });
+
+            if (!result.success && result.reason === "NO_ONLINE_AGENTS") {
+                console.log("[Auto-Assign] No online agents. Sending auto-reply.");
+
+                const replyText = "Tous nos agents sont actuellement indisponibles. Votre demande a bien été enregistrée et sera traitée dès qu'un agent sera disponible. Merci de votre patience.";
+
+                const msgInfo = await ctx.runMutation(internal.assignments.sendAutoReply, {
+                    conversationId,
+                    text: replyText
+                });
+
+                await ctx.runAction(internal.whatsapp_actions.sendMessage, {
+                    messageId: msgInfo.messageId,
+                    organizationId: msgInfo.organizationId,
+                    to: msgInfo.phone,
+                    text: replyText
+                });
+            }
+        }
+    }
+});

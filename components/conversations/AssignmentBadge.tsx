@@ -88,16 +88,6 @@ export function AssignmentBadge({
                             className
                         )}
                     >
-                        {showAvatar ? (
-                            <Avatar className={cn('h-4 w-4', size === 'sm' && 'h-3 w-3')}>
-                                <AvatarImage src={assignedTo.avatar || undefined} />
-                                <AvatarFallback className="text-[8px] bg-green-200 text-green-800">
-                                    {initials}
-                                </AvatarFallback>
-                            </Avatar>
-                        ) : (
-                            <User className={cn('h-3 w-3', size === 'sm' && 'h-2.5 w-2.5')} />
-                        )}
                         <span className="max-w-[100px] truncate">{displayName}</span>
                     </Badge>
                 </TooltipTrigger>

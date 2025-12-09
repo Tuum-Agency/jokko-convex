@@ -28,6 +28,7 @@ import { CustomNodeMessage } from '../../components/nodes/CustomNodeMessage';
 import { CustomNodeStart } from '../../components/nodes/CustomNodeStart';
 import { CustomNodeInteractive } from '../../components/nodes/CustomNodeInteractive';
 import { CustomNodeAction } from '../../components/nodes/CustomNodeAction';
+import { ButtonGroup } from '@/components/ui/button-group';
 
 const nodeTypes = {
     message: CustomNodeMessage,
@@ -151,20 +152,20 @@ function FlowEditorContent({ flowId }: FlowEditorProps) {
                         <p className="text-xs text-gray-500">{flow.isActive ? 'Actif' : 'Brouillon'}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <ButtonGroup>
                     <Button
                         variant="outline"
                         onClick={() => router.push(`/dashboard/flows/${flowId}/chat`)}
-                        className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                        className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     >
                         <Sparkles className="h-4 w-4" />
                         Modifier avec l'IA
                     </Button>
-                    <Button onClick={handleSave} className="gap-2 bg-green-600 hover:bg-green-700">
+                    <Button onClick={handleSave} className="gap-2 bg-green-600 hover:bg-green-700 text-white border border-green-600 hover:border-green-700">
                         <Save className="h-4 w-4" />
                         Sauvegarder
                     </Button>
-                </div>
+                </ButtonGroup>
             </div>
 
             {/* Editor Body */}

@@ -150,7 +150,7 @@ export function ConversationLayout({
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                         transition={{ duration: 0.2 }}
-                        className="w-80 shrink-0 border-l border-gray-200/80 bg-white overflow-hidden"
+                        className="w-80 shrink-0 border-l border-gray-200/80 bg-white overflow-hidden h-full flex flex-col"
                     >
                         <ContactInfo
                             conversationId={conversationId}

@@ -8,10 +8,12 @@ import {
     MessageSquare,
     ArrowUpRight,
     ArrowDownRight,
-    UserPlus
+    UserPlus,
+    Loader2
 } from 'lucide-react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,6 +39,7 @@ import {
 } from '@/components/ui/empty'
 import { useState, useEffect } from 'react'
 import { Id } from '@/convex/_generated/dataModel'
+import { toast } from 'sonner'
 
 export default function AssignmentsClient() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -56,6 +59,8 @@ export default function AssignmentsClient() {
     const agentsData = useQuery(api.assignments.getAgentsList)
     const autoAssign = useMutation(api.assignments.autoAssign)
     const assignMutation = useMutation(api.assignments.assign)
+    const settings = useQuery(api.assignments.getAssignmentSettings)
+    const updateSettings = useMutation(api.assignments.updateAssignmentSettings)
 
     // Group agents by department
     const agentsByDept = (agentsData || []).reduce((acc: any, agent: any) => {
@@ -109,6 +114,128 @@ export default function AssignmentsClient() {
         },
     ]
 
+    const unassignedConversations = conversationsData?.filter((c: any) => !c.assignedTo) || []
+    const assignedConversations = conversationsData?.filter((c: any) => c.assignedTo) || []
+
+    const ConversationList = ({ conversations, isAssigned }: { conversations: any[], isAssigned: boolean }) => (
+        <Card className="border-gray-200/80 shadow-sm">
+            <CardContent className="p-0">
+                <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+                    {conversations.length === 0 && (
+                        <div className="p-8 flex items-center justify-center">
+                            <Empty>
+                                <EmptyHeader>
+                                    <EmptyMedia variant="icon"><Mail className="h-6 w-6" /></EmptyMedia>
+                                    <EmptyTitle>Aucune conversation</EmptyTitle>
+                                </EmptyHeader>
+                                <EmptyContent>
+                                    <EmptyDescription>
+                                        {isAssigned
+                                            ? "Aucune conversation assignée pour le moment."
+                                            : "Il n'y a actuellement aucune conversation en attente d'assignation."}
+                                    </EmptyDescription>
+                                </EmptyContent>
+                            </Empty>
+                        </div>
+                    )}
+                    {conversations.map((conv: any) => (
+                        <div key={conv.id} className="p-4 sm:p-6 hover:bg-gray-50/80 transition-colors group cursor-pointer">
+                            <div className="flex items-start gap-4">
+                                {/* Icon/Date */}
+                                <div className="shrink-0 mt-1">
+                                    <div className="flex items-center justify-center h-10 w-10 text-gray-400 bg-gray-50 rounded-xl border border-gray-100">
+                                        <MessageSquare className="h-5 w-5" />
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <Badge
+                                            variant="secondary"
+                                            className={cn(
+                                                "font-medium capitalize px-2 py-0.5 rounded-lg",
+                                                conv.priority === 'urgent' ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-100 text-gray-600 border-gray-200"
+                                            )}
+                                        >
+                                            {conv.priority}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">{conv.time}</span>
+                                        {isAssigned && conv.assigneeName && (
+                                            <Badge variant="outline" className="ml-auto border-blue-200 bg-blue-50 text-blue-700 text-xs gap-1">
+                                                <Users className="h-3 w-3" />
+                                                {conv.assigneeName}
+                                            </Badge>
+                                        )}
+                                    </div>
+
+                                    <p className="text-gray-900 font-semibold mb-2 truncate">
+                                        {conv.message}
+                                    </p>
+
+                                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                                        <div className={cn("h-2 w-2 rounded-full", conv.statusColor)} />
+                                        <span className="font-medium text-gray-700">{conv.business}</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span>{conv.phone}</span>
+                                    </div>
+                                </div>
+
+                                {/* Action Button */}
+                                <div className="shrink-0 flex items-center">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                            <Button variant="ghost" size="sm" className="h-8 text-gray-500 hover:text-gray-900">
+                                                {isAssigned ? "Réassigner" : "Assigner"}
+                                                <UserPlus className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-[240px] max-h-[300px] overflow-y-auto">
+                                            {Object.entries(agentsByDept).map(([dept, agents]: [string, any], index) => {
+                                                const validAgents = agents.filter((a: any) => a.memberId !== conv.assignedTo);
+                                                if (validAgents.length === 0) return null;
+
+                                                return (
+                                                    <div key={dept}>
+                                                        {index > 0 && <DropdownMenuSeparator />}
+                                                        <DropdownMenuLabel className="text-xs font-bold text-gray-500 uppercase tracking-wider">{dept}</DropdownMenuLabel>
+                                                        {validAgents.map((agent: any) => (
+                                                            <DropdownMenuItem
+                                                                key={agent.id}
+                                                                className="cursor-pointer"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    assignMutation({
+                                                                        conversationId: conv.id as Id<"conversations">,
+                                                                        memberId: agent.memberId
+                                                                    })
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-2 w-full">
+                                                                    <div className={cn("h-2 w-2 rounded-full shrink-0", agent.online ? "bg-green-500" : "bg-gray-300")} />
+                                                                    <span className="truncate">{agent.fullName}</span>
+                                                                    {agent.load >= agent.maxLoad && (
+                                                                        <span className="ml-auto text-xs text-red-500 font-medium whitespace-nowrap">(Full)</span>
+                                                                    )}
+                                                                </div>
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                            {(!agentsData || agentsData.length === 0) && (
+                                                <div className="p-2 text-xs text-gray-500 text-center">Aucun agent disponible</div>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    )
+
     return (
         <div className="w-full h-full p-6 space-y-6">
             {/* Header */}
@@ -120,10 +247,28 @@ export default function AssignmentsClient() {
                     </p>
                 </div>
                 <Button
-                    className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                    onClick={() => autoAssign()}
+                    variant={settings?.autoAssignEnabled ? "default" : "secondary"}
+                    className={cn(
+                        "shadow-sm transition-all",
+                        settings?.autoAssignEnabled
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    )}
+                    onClick={() => setIsSettingsOpen(true)}
                 >
-                    Auto-assign
+                    {settings === undefined ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : settings?.autoAssignEnabled ? (
+                        <>
+                            <div className="h-2 w-2 rounded-full bg-white mr-2 animate-pulse" />
+                            Auto-assign: ON
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-2 w-2 rounded-full bg-gray-400 mr-2" />
+                            Auto-assign: OFF
+                        </>
+                    )}
                 </Button>
             </div>
 
@@ -165,109 +310,20 @@ export default function AssignmentsClient() {
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Conversations List */}
-                <Card className="lg:col-span-2 border-gray-200/80 shadow-sm">
-                    <CardContent className="p-0">
-                        <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
-                            {(!conversationsData || conversationsData.length === 0) && (
-                                <div className="p-8 flex items-center justify-center">
-                                    <Empty>
-                                        <EmptyHeader>
-                                            <EmptyMedia variant="icon"><Mail className="h-6 w-6" /></EmptyMedia>
-                                            <EmptyTitle>Aucune conversation</EmptyTitle>
-                                        </EmptyHeader>
-                                        <EmptyContent>
-                                            <EmptyDescription>
-                                                Il n'y a actuellement aucune conversation en attente d'assignation.
-                                            </EmptyDescription>
-                                        </EmptyContent>
-                                    </Empty>
-                                </div>
-                            )}
-                            {conversationsData?.map((conv: any) => (
-                                <div key={conv.id} className="p-4 sm:p-6 hover:bg-gray-50/80 transition-colors group cursor-pointer">
-                                    <div className="flex items-start gap-4">
-                                        {/* Icon/Date */}
-                                        <div className="shrink-0 mt-1">
-                                            <div className="flex items-center justify-center h-10 w-10 text-gray-400 bg-gray-50 rounded-xl border border-gray-100">
-                                                <MessageSquare className="h-5 w-5" />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={cn(
-                                                        "font-medium capitalize px-2 py-0.5 rounded-lg",
-                                                        conv.priority === 'urgent' ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-100 text-gray-600 border-gray-200"
-                                                    )}
-                                                >
-                                                    {conv.priority}
-                                                </Badge>
-                                                <span className="text-xs text-muted-foreground">{conv.time}</span>
-                                            </div>
-
-                                            <p className="text-gray-900 font-semibold mb-2 truncate">
-                                                {conv.message}
-                                            </p>
-
-                                            <div className="flex items-center gap-3 text-sm text-gray-500">
-                                                <div className={cn("h-2 w-2 rounded-full", conv.statusColor)} />
-                                                <span className="font-medium text-gray-700">{conv.business}</span>
-                                                <span className="text-gray-300">•</span>
-                                                <span>{conv.phone}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Button */}
-                                        <div className="shrink-0 flex items-center">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                                    <Button variant="ghost" size="sm" className="h-8 text-gray-500 hover:text-gray-900">
-                                                        Assigner
-                                                        <UserPlus className="ml-2 h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-[240px] max-h-[300px] overflow-y-auto">
-                                                    {Object.entries(agentsByDept).map(([dept, agents]: [string, any], index) => (
-                                                        <div key={dept}>
-                                                            {index > 0 && <DropdownMenuSeparator />}
-                                                            <DropdownMenuLabel className="text-xs font-bold text-gray-500 uppercase tracking-wider">{dept}</DropdownMenuLabel>
-                                                            {agents.map((agent: any) => (
-                                                                <DropdownMenuItem
-                                                                    key={agent.id}
-                                                                    className="cursor-pointer"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation()
-                                                                        assignMutation({
-                                                                            conversationId: conv.id as Id<"conversations">,
-                                                                            memberId: agent.memberId
-                                                                        })
-                                                                    }}
-                                                                >
-                                                                    <div className="flex items-center gap-2 w-full">
-                                                                        <div className={cn("h-2 w-2 rounded-full shrink-0", agent.online ? "bg-green-500" : "bg-gray-300")} />
-                                                                        <span className="truncate">{agent.fullName}</span>
-                                                                        {agent.load >= agent.maxLoad && (
-                                                                            <span className="ml-auto text-xs text-red-500 font-medium whitespace-nowrap">(Full)</span>
-                                                                        )}
-                                                                    </div>
-                                                                </DropdownMenuItem>
-                                                            ))}
-                                                        </div>
-                                                    ))}
-                                                    {(!agentsData || agentsData.length === 0) && (
-                                                        <div className="p-2 text-xs text-gray-500 text-center">Aucun agent disponible</div>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="lg:col-span-2">
+                    <Tabs defaultValue="unassigned" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-4">
+                            <TabsTrigger value="unassigned">Non assignées ({unassignedConversations.length})</TabsTrigger>
+                            <TabsTrigger value="assigned">Assignées ({assignedConversations.length})</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="unassigned">
+                            <ConversationList conversations={unassignedConversations} isAssigned={false} />
+                        </TabsContent>
+                        <TabsContent value="assigned">
+                            <ConversationList conversations={assignedConversations} isAssigned={true} />
+                        </TabsContent>
+                    </Tabs>
+                </div>
 
                 {/* Right Column: Agents Status */}
                 <div className="space-y-6">
@@ -344,6 +400,6 @@ export default function AssignmentsClient() {
                 open={isSettingsOpen}
                 onOpenChange={setIsSettingsOpen}
             />
-        </div>
+        </div >
     )
 }

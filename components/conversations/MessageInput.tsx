@@ -39,7 +39,13 @@ import {
     Square,
     Trash2,
     Reply,
+    Zap, // Icon for shortcuts
 } from 'lucide-react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
+// @ts-ignore
+import MicRecorder from 'mic-recorder-to-mp3'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -58,6 +64,7 @@ import { useSendMessage } from '@/hooks/useSendMessage'
 import { useTypingIndicator } from '@/hooks/useRealtime'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/hooks/useMessages'
+import { toast } from 'sonner'
 
 // ============================================
 // TYPES
@@ -72,7 +79,8 @@ interface MessageInputProps {
 }
 
 interface Attachment {
-    file: File
+    file?: File
+    storageId?: string
     preview?: string
     type: 'image' | 'video' | 'document'
 }
@@ -109,16 +117,20 @@ export function MessageInput({
     const fileInputRef = useRef<HTMLInputElement>(null)
     const emojiPickerRef = useRef<HTMLDivElement>(null)
 
+    // Shortcuts state
+    const [showShortcuts, setShowShortcuts] = useState(false)
+    const [shortcutQuery, setShortcutQuery] = useState('')
+    const shortcuts = useQuery(api.shortcuts.suggest, showShortcuts ? { search: shortcutQuery } : "skip")
+
     // Audio recording state
     const [isRecording, setIsRecording] = useState(false)
     const [recordingDuration, setRecordingDuration] = useState(0)
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-    const audioChunksRef = useRef<Blob[]>([])
+    const recorderRef = useRef<any>(null)
     const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
-    const streamRef = useRef<MediaStream | null>(null)
 
     const { sendMessage, sendMedia, isSending } = useSendMessage(conversationId)
     const { sendTyping } = useTypingIndicator(conversationId)
+    const getDownloadUrl = useMutation(api.files.getDownloadUrl)
 
     // Cleanup on unmount
     useEffect(() => {
@@ -126,8 +138,8 @@ export function MessageInput({
             if (recordingTimerRef.current) {
                 clearInterval(recordingTimerRef.current)
             }
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop())
+            if (recorderRef.current) {
+                recorderRef.current.stop()
             }
         }
     }, [])
@@ -164,6 +176,73 @@ export function MessageInput({
         textareaRef.current?.focus()
     }
 
+    // Handle shortcut selection
+    const handleShortcutSelect = async (shortcut: { shortcut: string, text?: string, type?: string, mediaStorageId?: Id<"_storage"> }) => {
+        const cursorPosition = textareaRef.current?.selectionStart || message.length
+
+        // We know shortcutQuery ends at cursorPosition
+        const textBeforeCursor = message.slice(0, cursorPosition)
+
+        if (textBeforeCursor.endsWith(shortcutQuery)) {
+            const triggerStart = cursorPosition - shortcutQuery.length
+
+            // If it's a media shortcut
+            if (shortcut.type && shortcut.type !== 'TEXT' && shortcut.mediaStorageId) {
+                // Remove the trigger text
+                const newMessage =
+                    message.slice(0, triggerStart) +
+                    message.slice(cursorPosition)
+
+                setMessage(newMessage)
+
+                // Fetch preview URL
+                try {
+                    const url = await getDownloadUrl({ storageId: shortcut.mediaStorageId })
+                    if (url) {
+                        setAttachment({
+                            storageId: shortcut.mediaStorageId,
+                            type: shortcut.type.toLowerCase() as any,
+                            preview: url,
+                            // file is undefined
+                        })
+                        // Set caption if present
+                        if (shortcut.text) {
+                            setMessage(shortcut.text)
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load shortcut media", e)
+                    toast.error("Erreur lors du chargement du média")
+                }
+
+                setShowShortcuts(false)
+                setShortcutQuery('')
+                return
+            }
+
+            // Text shortcut
+            const insertText = shortcut.text || ""
+            const newMessage =
+                message.slice(0, triggerStart) +
+                insertText +
+                message.slice(cursorPosition)
+
+            setMessage(newMessage)
+            setShowShortcuts(false)
+            setShortcutQuery('')
+
+            // Adjust height and focus
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus()
+                    // Re-calculate height
+                    textareaRef.current.style.height = 'auto'
+                    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
+                }
+            }, 0)
+        }
+    }
+
     // Auto-resize textarea
     const adjustHeight = useCallback(() => {
         const textarea = textareaRef.current
@@ -178,11 +257,16 @@ export function MessageInput({
         const file = e.target.files?.[0]
         if (!file) return
 
-        const type = file.type.startsWith('image/')
-            ? 'image'
-            : file.type.startsWith('video/')
-                ? 'video'
-                : 'document'
+        // WhatsApp Cloud API Supported Types
+        const supportedImages = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+
+        let type: 'image' | 'video' | 'document' = 'document';
+        if (supportedImages.includes(file.type)) {
+            type = 'image';
+        } else if (file.type.startsWith('video/')) {
+            // Try to send all videos as video type first, backend will fallback if supported check fails
+            type = 'video';
+        }
 
         // Check file size against limits
         const maxSize = MAX_FILE_SIZES[type]
@@ -235,40 +319,10 @@ export function MessageInput({
     // Start audio recording
     const startRecording = async () => {
         try {
-            // Check if mediaDevices is available (requires HTTPS or localhost)
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert(
-                    'L\'enregistrement audio necessite une connexion securisee (HTTPS).\n\n' +
-                    'Pour tester localement, utilisez localhost:3001 au lieu de lvh.me:3001'
-                )
-                return
-            }
+            const recorder = new MicRecorder({ bitRate: 128 })
+            await recorder.start()
+            recorderRef.current = recorder
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            streamRef.current = stream
-
-            // Determine best supported audio format
-            let mimeType = 'audio/webm'
-            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                mimeType = 'audio/webm;codecs=opus'
-            } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-                mimeType = 'audio/ogg;codecs=opus'
-            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                mimeType = 'audio/mp4'
-            }
-
-            const mediaRecorder = new MediaRecorder(stream, { mimeType })
-
-            mediaRecorderRef.current = mediaRecorder
-            audioChunksRef.current = []
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data)
-                }
-            }
-
-            mediaRecorder.start(100) // Collect data every 100ms
             setIsRecording(true)
             setRecordingDuration(0)
 
@@ -278,49 +332,39 @@ export function MessageInput({
             }, 1000)
         } catch (error) {
             console.error('[MessageInput] Failed to start recording:', error)
-            if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                alert('Acces au microphone refuse. Veuillez autoriser l\'acces dans les parametres du navigateur.')
-            } else if (error instanceof DOMException && error.name === 'NotFoundError') {
-                alert('Aucun microphone detecte. Verifiez que votre microphone est connecte.')
-            } else {
-                alert('Impossible d\'acceder au microphone. Verifiez les permissions.')
-            }
+            alert('Impossible d\'acceder au microphone. Verifiez les permissions.')
         }
     }
 
     // Stop recording and send
     const stopRecordingAndSend = () => {
-        if (!mediaRecorderRef.current || !isRecording) return
+        if (!recorderRef.current || !isRecording) return
 
-        const recorder = mediaRecorderRef.current
-        const mimeType = recorder.mimeType || 'audio/webm'
-        const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm'
+        recorderRef.current
+            .stop()
+            .getMp3()
+            .then(([buffer, blob]: [any, Blob]) => {
+                const audioFile = new File(buffer, `audio_${Date.now()}.mp3`, {
+                    type: 'audio/mpeg',
+                })
 
-        recorder.onstop = () => {
-            const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
+                sendMedia({
+                    file: audioFile,
+                    type: 'audio',
+                })
 
-            // Create a File from the Blob
-            const audioFile = new File([audioBlob], `audio_${Date.now()}.${extension}`, {
-                type: mimeType,
+                cleanupRecording()
             })
-
-            // Send the audio
-            sendMedia({
-                file: audioFile,
-                type: 'audio',
+            .catch((e: any) => {
+                console.error('[MessageInput] Failed to get MP3:', e)
+                cleanupRecording()
             })
-
-            // Cleanup
-            cleanupRecording()
-        }
-
-        recorder.stop()
     }
 
     // Cancel recording
     const cancelRecording = () => {
-        if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stop()
+        if (recorderRef.current) {
+            recorderRef.current.stop()
         }
         cleanupRecording()
     }
@@ -331,12 +375,7 @@ export function MessageInput({
             clearInterval(recordingTimerRef.current)
             recordingTimerRef.current = null
         }
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop())
-            streamRef.current = null
-        }
-        mediaRecorderRef.current = null
-        audioChunksRef.current = []
+        recorderRef.current = null
         setIsRecording(false)
         setRecordingDuration(0)
     }
@@ -352,22 +391,38 @@ export function MessageInput({
             ? { id: replyTo.id, content: replyTo.content, type: replyTo.type }
             : undefined
 
-        if (attachment) {
-            sendMedia({
-                file: attachment.file,
-                type: attachment.type,
-                caption: trimmedMessage || undefined,
-                replyToMessageId: replyTo?.id,
-                replyTo: replyToInfo,
-            })
-            removeAttachment()
-        } else if (trimmedMessage) {
-            sendMessage({
-                text: trimmedMessage,
-                replyToMessageId: replyTo?.id,
-                replyTo: replyToInfo,
-            })
-        } else {
+        try {
+            if (attachment) {
+                const sendPromise = sendMedia({
+                    file: attachment.file, // optional now
+                    storageId: attachment.storageId,
+                    type: attachment.type,
+                    caption: trimmedMessage || undefined,
+                    replyToMessageId: replyTo?.id,
+                    replyTo: replyToInfo,
+                })
+
+                toast.promise(sendPromise, {
+                    loading: attachment.type === 'video' ? 'Envoi de la vidéo en cours (veuillez patienter)...' : 'Envoi du fichier en cours...',
+                    success: 'Envoyé avec succès !',
+                    error: (err) => `Échec de l'envoi: ${err.message}`
+                })
+
+                await sendPromise
+                removeAttachment()
+            } else if (trimmedMessage) {
+                await sendMessage({
+                    text: trimmedMessage,
+                    replyToMessageId: replyTo?.id,
+                    replyTo: replyToInfo,
+                })
+            } else {
+                return
+            }
+        } catch (error) {
+            console.error("Error sending message:", error)
+            const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
+            toast.error(`Erreur lors de l'envoi: ${errorMessage}`)
             return
         }
 
@@ -391,9 +446,27 @@ export function MessageInput({
 
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setMessage(e.target.value)
+        const newValue = e.target.value
+        setMessage(newValue)
         adjustHeight()
         sendTyping()
+
+        // Shortcut detection
+        const cursorPosition = e.target.selectionStart
+        const textBeforeCursor = newValue.slice(0, cursorPosition)
+
+        // Match a slash that is either at the start or preceded by a space, followed by non-space chars
+        // Regex: (?:^|\s)(\/[\w-]*)$
+        const match = textBeforeCursor.match(/(?:^|\s)(\/[\w-]*)$/)
+
+        if (match) {
+            const query = match[1] // e.g. "/hel"
+            setShortcutQuery(query)
+            setShowShortcuts(true)
+        } else {
+            setShowShortcuts(false)
+            setShortcutQuery('')
+        }
     }
 
     const canSend = (message.trim() || attachment) && !isSending && !disabled
@@ -474,7 +547,73 @@ export function MessageInput({
     }
 
     return (
-        <div className="border-t border-gray-200/80 bg-white p-4">
+        <div className="border-t border-gray-200/80 bg-white p-4 relative">
+            {/* Shortcuts Popup */}
+            <AnimatePresence>
+                {showShortcuts && shortcuts && shortcuts.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute bottom-full left-4 mb-2 z-50 w-72 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden"
+                    >
+                        <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-amber-500" />
+                            <span className="text-xs font-medium text-gray-500">Raccourcis rapides</span>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto p-1">
+                            {(() => {
+                                if (!shortcuts) return null;
+
+                                const groups = {
+                                    TEXT: { label: '📝 Messages', items: [] as typeof shortcuts },
+                                    IMAGE: { label: '📷 Images', items: [] as typeof shortcuts },
+                                    VIDEO: { label: '🎥 Vidéos', items: [] as typeof shortcuts },
+                                    DOCUMENT: { label: '📄 Documents', items: [] as typeof shortcuts },
+                                }; // Type assertion to handle generic type
+
+                                shortcuts.forEach(s => {
+                                    const type = (s.type || 'TEXT') as keyof typeof groups;
+                                    if (groups[type]) {
+                                        groups[type].items.push(s);
+                                    } else {
+                                        // Fallback for unknown types if any
+                                        if (!groups['TEXT']) groups['TEXT'] = { label: '📝 Messages', items: [] };
+                                        groups['TEXT'].items.push(s);
+                                    }
+                                });
+
+                                return Object.entries(groups).map(([type, group]) => {
+                                    if (group.items.length === 0) return null;
+
+                                    return (
+                                        <div key={type} className="mb-2 last:mb-0">
+                                            <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur-sm z-10">
+                                                {group.label}
+                                            </div>
+                                            {group.items.map((s) => (
+                                                <button
+                                                    key={s._id}
+                                                    onClick={() => handleShortcutSelect(s)}
+                                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-50 text-sm flex flex-col gap-0.5 transition-colors group"
+                                                >
+                                                    <span className="font-medium text-gray-900 group-hover:text-green-600">
+                                                        {s.shortcut}
+                                                    </span>
+                                                    <span className="text-gray-500 line-clamp-2 text-xs">
+                                                        {s.text || <span className="italic opacity-50">Sans texte</span>}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Reply Preview */}
             <AnimatePresence>
                 {replyTo && (
@@ -538,10 +677,10 @@ export function MessageInput({
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                    {attachment.file.name}
+                                    {attachment.file ? attachment.file.name : "Média"}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                    {(attachment.file.size / 1024 / 1024).toFixed(2)} MB
+                                    {attachment.file ? (attachment.file.size / 1024 / 1024).toFixed(2) + " MB" : ""}
                                 </p>
                             </div>
                             <Button
@@ -641,11 +780,8 @@ export function MessageInput({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => {
-                                // All WhatsApp supported document types
-                                fileInputRef.current?.setAttribute(
-                                    'accept',
-                                    '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,application/pdf,application/msword,application/vnd.ms-powerpoint,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain'
-                                )
+                                // Allow all types for document fallback
+                                fileInputRef.current?.setAttribute('accept', '*/*')
                                 fileInputRef.current?.click()
                             }}
                         >

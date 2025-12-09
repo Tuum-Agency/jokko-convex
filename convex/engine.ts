@@ -1,7 +1,7 @@
 
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 type Node = {
@@ -18,6 +18,8 @@ type Edge = {
     source: string;
     target: string;
 };
+
+// ...
 
 export const processMessage = internalMutation({
     args: {
@@ -37,46 +39,48 @@ export const processMessage = internalMutation({
             .filter((q) => q.eq(q.field("isActive"), true))
             .collect();
 
-        if (flows.length === 0) return;
+        let flowExecuted = false;
 
         // 2. Match Flows
-        for (const flow of flows) {
-            let shouldRun = false;
+        if (flows.length > 0) {
+            for (const flow of flows) {
+                let shouldRun = false;
 
-            // Case A: NEW_CONVERSATION / FIRST_MESSAGE
-            // We treat "AI_GENERATED" as potentially a welcome flow if it has no specific trigger config,
-            // or if we decide so. But strictly speaking, we should look for explicit types.
-            // For this user who just "created an automation", if they used the AI, it's AI_GENERATED.
-            // Let's assume AI_GENERATED flows shouldn't run unless we know their intent.
-            // However, typically "Welcome" flows are what users want.
-
-            // To be safe and helpful: 
-            // If triggerType is "NEW_CONVERSATION" OR (triggerType is generic and it's the first message)
-            if (flow.triggerType === "NEW_CONVERSATION" && args.isFirstMessage) {
-                shouldRun = true;
-            } else if (flow.triggerType === "KEYWORD" && flow.triggerConfig) {
-                try {
-                    const config = JSON.parse(flow.triggerConfig);
-                    if (config.keywords && Array.isArray(config.keywords)) {
-                        const lowerText = args.messageText.toLowerCase();
-                        if (config.keywords.some((k: string) => lowerText.includes(k.toLowerCase()))) {
-                            shouldRun = true;
+                if (flow.triggerType === "NEW_CONVERSATION" && args.isFirstMessage) {
+                    shouldRun = true;
+                } else if (flow.triggerType === "KEYWORD" && flow.triggerConfig) {
+                    try {
+                        const config = JSON.parse(flow.triggerConfig);
+                        if (config.keywords && Array.isArray(config.keywords)) {
+                            const lowerText = args.messageText.toLowerCase();
+                            if (config.keywords.some((k: string) => lowerText.includes(k.toLowerCase()))) {
+                                shouldRun = true;
+                            }
                         }
+                    } catch (e) {
+                        console.error("Failed to parse trigger config", e);
                     }
-                } catch (e) {
-                    console.error("Failed to parse trigger config", e);
+                } else if (flow.triggerType === "AI_GENERATED" && args.isFirstMessage) {
+                    shouldRun = true;
                 }
-            } else if (flow.triggerType === "AI_GENERATED" && args.isFirstMessage) {
-                // Fallback: If AI generated it, and it's the first message, let's assume it's a welcome flow for now.
-                // This is a heuristic to make the user's "it doesn't work" turn into "it works".
-                // We can refine this later or add a specific setting.
-                shouldRun = true;
-            }
 
-            if (shouldRun) {
-                console.log(`[ENGINE] Executing Flow: ${flow.name} (${flow._id})`);
-                await executeFlow(ctx, flow, args);
+                if (shouldRun) {
+                    console.log(`[ENGINE] Executing Flow: ${flow.name} (${flow._id})`);
+                    await executeFlow(ctx, flow, args);
+                    flowExecuted = true;
+                    break;
+                }
             }
+        }
+
+        // 3. Auto-Assignment / Routing (if no flow handled it)
+        if (!flowExecuted) {
+            console.log("[ENGINE] No flow matched. Triggering Auto-Assignment/Routing.");
+            await ctx.scheduler.runAfter(0, api.assignments.analyzeAndRoute, {
+                conversationId: args.conversationId,
+                organizationId: args.organizationId,
+                messageText: args.messageText
+            });
         }
     },
 });

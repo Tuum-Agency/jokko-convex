@@ -48,12 +48,10 @@ export function useMessages({ conversationId, organizationId }: UseMessagesProps
     const isFetchingNextPage = status === "LoadingMore";
     const hasNextPage = status === "CanLoadMore";
 
-    // TODO: Implement resend mutation
-    // const resend = useMutation(api.messages.resend);
+    const retryMutation = useMutation(api.messages.retry);
     const resendMessage = useCallback(async (messageId: string) => {
-        // Implement resend logic
-        console.log("Resend not implemented yet", messageId);
-    }, []);
+        await retryMutation({ messageId: messageId as Id<"messages"> });
+    }, [retryMutation]);
 
     const messages = useMemo(() => {
         if (!results) return [];

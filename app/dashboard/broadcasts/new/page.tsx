@@ -13,6 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Id } from '@/convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { Switch } from '@/components/ui/switch';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export default function NewBroadcastPage() {
     const router = useRouter();
@@ -28,6 +35,11 @@ export default function NewBroadcastPage() {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Scheduling
+    const [isScheduled, setIsScheduled] = useState(false);
+    const [date, setDate] = useState<Date>();
+    const [time, setTime] = useState<string>("09:00");
 
     const toggleTag = (tagId: string) => {
         setSelectedTags(prev =>
@@ -56,9 +68,14 @@ export default function NewBroadcastPage() {
                 templateId: templateId as Id<"templates">,
                 audienceConfig: {
                     type: audienceType,
-                    tags: audienceType === 'TAGS' ? selectedTags as Id<"tags">[] : undefined,
                     countries: audienceType === 'COUNTRIES' ? selectedCountries : undefined
-                }
+                },
+                scheduledAt: isScheduled && date ? (() => {
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const scheduledDate = new Date(date);
+                    scheduledDate.setHours(hours, minutes, 0, 0);
+                    return scheduledDate.getTime();
+                })() : undefined
             });
             router.push(`/dashboard/broadcasts/${id}`);
         } catch (error) {
@@ -223,6 +240,58 @@ export default function NewBroadcastPage() {
                                     Créer un modèle
                                 </Button>
                             </div>
+                        </div>
+
+                        <div className="space-y-4 border rounded-md p-4 bg-muted/20">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label>Programmer l'envoi</Label>
+                                    <p className="text-sm text-muted-foreground">Activez pour planifier l'envoi à une date ultérieure.</p>
+                                </div>
+                                <Switch
+                                    checked={isScheduled}
+                                    onCheckedChange={setIsScheduled}
+                                />
+                            </div>
+
+                            {isScheduled && (
+                                <div className="flex gap-4 items-end animate-in fade-in slide-in-from-top-2">
+                                    <div className="flex-1 space-y-2">
+                                        <Label>Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal",
+                                                        !date && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={date}
+                                                    onSelect={setDate}
+                                                    initialFocus
+                                                    disabled={(date: Date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="w-[120px] space-y-2">
+                                        <Label>Heure</Label>
+                                        <Input
+                                            type="time"
+                                            value={time}
+                                            onChange={(e) => setTime(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="pt-4 flex justify-end">

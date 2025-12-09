@@ -44,7 +44,9 @@ export const list = query({
 export const create = mutation({
     args: {
         shortcut: v.string(),
-        text: v.string(),
+        text: v.optional(v.string()),
+        type: v.optional(v.string()),
+        mediaStorageId: v.optional(v.id("_storage")),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -79,6 +81,8 @@ export const create = mutation({
             organizationId,
             shortcut,
             text: args.text,
+            type: args.type || "TEXT",
+            mediaStorageId: args.mediaStorageId,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
@@ -90,7 +94,9 @@ export const update = mutation({
     args: {
         id: v.id("shortcuts"),
         shortcut: v.string(),
-        text: v.string(),
+        text: v.optional(v.string()),
+        type: v.optional(v.string()),
+        mediaStorageId: v.optional(v.id("_storage")),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -123,11 +129,15 @@ export const update = mutation({
             if (busy) throw new Error(`Le raccourci "${shortcut}" existe déjà.`);
         }
 
-        await ctx.db.patch(args.id, {
+        const updates: any = {
             shortcut,
-            text: args.text,
             updatedAt: Date.now(),
-        });
+        };
+        if (args.text !== undefined) updates.text = args.text;
+        if (args.type !== undefined) updates.type = args.type;
+        if (args.mediaStorageId !== undefined) updates.mediaStorageId = args.mediaStorageId;
+
+        await ctx.db.patch(args.id, updates);
     },
 });
 
@@ -153,5 +163,48 @@ export const deleteShortcut = mutation({
         }
 
         await ctx.db.delete(args.id);
+    },
+});
+
+// Suggest shortcuts (Prefix search for autocomplete)
+export const suggest = query({
+    args: {
+        search: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) return [];
+        const organizationId = session.currentOrganizationId;
+
+        // Prefix search using range scan
+        const search = args.search.trim();
+
+        // If search is just "/" or empty, we return everything (or maybe not? standard behavior for / command)
+        // If it is just "/", we can just list.
+
+        let q = ctx.db
+            .query("shortcuts")
+            .withIndex("by_org_shortcut", (q) =>
+                q.eq("organizationId", organizationId)
+            );
+
+        if (search.length > 0 && search !== "/") {
+            q = ctx.db
+                .query("shortcuts")
+                .withIndex("by_org_shortcut", (q) =>
+                    q.eq("organizationId", organizationId)
+                        .gte("shortcut", search)
+                        .lt("shortcut", search + "\uffff")
+                );
+        }
+
+        return await q.take(20);
     },
 });

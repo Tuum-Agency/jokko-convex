@@ -5,6 +5,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { ContactForm } from './ContactForm';
 
@@ -27,11 +28,16 @@ export function ContactFormDialog({
 }: ContactFormDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] h-[90vh] sm:h-auto overflow-y-auto">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>
                         {mode === 'create' ? 'Nouveau contact' : 'Modifier le contact'}
                     </DialogTitle>
+                    <DialogDescription>
+                        {mode === 'create'
+                            ? "Ajoutez les informations pour créer un nouveau contact."
+                            : "Modifiez les informations existantes de ce contact."}
+                    </DialogDescription>
                 </DialogHeader>
                 <ContactForm
                     mode={mode}

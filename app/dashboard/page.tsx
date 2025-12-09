@@ -60,7 +60,82 @@ function StatsCard({
 export default function DashboardPage() {
     const user = useQuery(api.users.me);
 
-    // Mock stats data
+    // Loading Skeleton state
+    if (user === undefined) {
+        return (
+            <div className="space-y-6">
+                {/* Page Header Skeleton */}
+                <div>
+                    <Skeleton className="h-8 w-64 mb-2" />
+                    <Skeleton className="h-4 w-96" />
+                </div>
+
+                {/* Stats Grid Skeleton */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Card key={i} className="bg-white border-gray-200/80 shadow-sm">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-9 w-9 rounded-xl" />
+                            </CardHeader>
+                            <CardContent>
+                                <Skeleton className="h-8 w-16 mb-2" />
+                                <div className="flex items-center gap-2">
+                                    <Skeleton className="h-3 w-12" />
+                                    <Skeleton className="h-3 w-32" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                {/* Main Content Grid Skeleton */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Recent Conversations Skeleton */}
+                    <Card className="bg-white border-gray-200/80 shadow-sm">
+                        <CardHeader>
+                            <Skeleton className="h-6 w-48 mb-2" />
+                            <Skeleton className="h-4 w-72" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="flex items-center gap-4 p-3">
+                                        <Skeleton className="h-10 w-10 rounded-full" />
+                                        <div className="flex-1 space-y-2">
+                                            <Skeleton className="h-4 w-32" />
+                                            <Skeleton className="h-3 w-24" />
+                                        </div>
+                                        <Skeleton className="h-2 w-2 rounded-full" />
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Quick Actions Skeleton */}
+                    <Card className="bg-white border-gray-200/80 shadow-sm">
+                        <CardHeader>
+                            <Skeleton className="h-6 w-32 mb-2" />
+                            <Skeleton className="h-4 w-48" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100/50">
+                                        <Skeleton className="h-10 w-10 rounded-xl" />
+                                        <Skeleton className="h-3 w-24" />
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        )
+    }
+
+    // Mock stats data (only shown when user is loaded)
     const stats = [
         {
             title: 'Total Conversations',
@@ -100,8 +175,8 @@ export default function DashboardPage() {
         <div className="space-y-6">
             {/* Page Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    Bienvenue, {user ? user.name : <Skeleton className="h-8 w-40 inline-block" />}!
+                <h1 className="text-2xl font-bold text-gray-900">
+                    Bienvenue, {user?.name || 'User'}!
                 </h1>
                 <p className="text-gray-500 mt-1">
                     Voici un apercu de votre activite sur votre organisation.

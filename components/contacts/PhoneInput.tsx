@@ -1,8 +1,6 @@
 'use client'
-
-import { useState, forwardRef } from 'react'
+import { useState, forwardRef, useEffect } from 'react'
 import { Check, X } from 'lucide-react'
-
 import {
     Select,
     SelectContent,
@@ -12,13 +10,11 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-
 import {
     validatePhone,
     formatAsYouType,
     detectCountry,
     getNationalNumber,
-    formatPhoneDisplay,
     SUPPORTED_COUNTRIES,
     type PhoneValidationResult,
     type CountryCode,
@@ -26,6 +22,7 @@ import {
 
 interface PhoneInputProps {
     value?: string
+    indicator?: CountryCode | null
     onChange?: (value: string, validation: PhoneValidationResult) => void
     onBlur?: () => void
     defaultCountry?: CountryCode
@@ -38,25 +35,9 @@ interface PhoneInputProps {
     name?: string
 }
 
-function parseInitialValue(value: string, defaultCountry: CountryCode) {
-    if (!value) {
-        return { country: defaultCountry, nationalNumber: '', validation: null }
-    }
-    const country = detectCountry(value) || defaultCountry;
-    const countryObj = SUPPORTED_COUNTRIES.find(c => c.code === country);
-    const dialCode = countryObj?.dialCode || '';
-
-    let nationalNumber = value;
-    if (value.startsWith(dialCode)) {
-        nationalNumber = value.substring(dialCode.length);
-    }
-
-    return {
-        country,
-        nationalNumber,
-        validation: validatePhone(value, { defaultCountry: country })
-    }
-}
+// Separate internal state for Country and National Number
+// When `value` props changes (external update), we parse it.
+// When User types, we format it and rebuild `value`.
 
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
     function PhoneInput(
@@ -72,81 +53,133 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             className,
             id,
             name,
+            indicator,
         },
         ref
     ) {
-        const initialParsed = parseInitialValue(value, defaultCountry)
+        const [country, setCountry] = useState<CountryCode>(defaultCountry)
+        const [displayValue, setDisplayValue] = useState('')
+        const [validation, setValidation] = useState<PhoneValidationResult | null>(null)
+        const [indicatorNumber, setIndicatorNumber] = useState<CountryCode | null | undefined>(null)
 
-        const [country, setCountry] = useState<CountryCode>(initialParsed.country)
-        const [inputValue, setInputValue] = useState(initialParsed.nationalNumber)
-        const [validation, setValidation] = useState<PhoneValidationResult | null>(
-            initialParsed.validation
-        )
+        // Initialize from prop value if present
+        useEffect(() => {
+            if (value) {
+                setIndicatorNumber(indicator);
+                // If indicator explicit (from outside detection), use it. Or auto-detect.
+                const detected = indicatorNumber || detectCountry(value);
+                console.log('PhoneInput value:', value, 'Detected:', detected, "indicatorNumber", indicatorNumber);
 
-        const currentCountry = SUPPORTED_COUNTRIES.find((c) => c.code === country)
+                let nextCountry = detected || defaultCountry;
+
+                // Sticky logic: If detection is null (e.g. ambiguity), but we have a currently selected country
+                // that matches the prefix of the value, preserve it to prevent jumping to defaultCountry.
+                if (!detected) {
+                    const currentDialCode = SUPPORTED_COUNTRIES.find(c => c.code === country)?.dialCode;
+                    if (currentDialCode) {
+                        const cleanVal = value.replace(/[^\d+]/g, '');
+                        const normalizedCtx = cleanVal.startsWith('+') ? cleanVal : '+' + cleanVal;
+                        if (normalizedCtx.startsWith(currentDialCode)) {
+                            // The number still matches the currently selected country, keep it.
+                            nextCountry = country;
+                        }
+                    }
+                }
+
+                setCountry(nextCountry);
+
+                // Strip prefix to get national digits
+                const countryObj = SUPPORTED_COUNTRIES.find(c => c.code === nextCountry);
+                let national = value;
+
+                if (countryObj) {
+                    // Normalize value for stripping
+                    const cleanVal = value.replace(/[^\d+]/g, '');
+                    const cleanDial = countryObj.dialCode.replace('+', '');
+
+                    // Check against +DialCode
+                    if (cleanVal.startsWith(countryObj.dialCode)) {
+                        national = cleanVal.substring(countryObj.dialCode.length);
+                    }
+                    // Check against DialCode (no plus)
+                    else if (cleanVal.startsWith(cleanDial)) {
+                        national = cleanVal.substring(cleanDial.length);
+                    }
+                    // Check against +DialCode (stripping + manual check)
+                    else if (('+' + cleanVal).startsWith(countryObj.dialCode)) {
+                        // This case handles e.g. "33..." -> "+33..." matches "+33"
+                        // We need to strip "33" from "33..."
+                        national = cleanVal.substring(cleanDial.length);
+                    }
+                }
+
+                // Format for display
+                const formatted = formatAsYouType(national, nextCountry);
+                setDisplayValue(formatted);
+
+                // Validate initial
+                setValidation(validatePhone(value, { defaultCountry }));
+            } else {
+                setCountry(defaultCountry);
+                setDisplayValue('');
+            }
+        }, [value, defaultCountry]); // Careful with dependency loop if onChange updates value fast
+
+        // We need to break the loop: if user types, we update internal displayValue, AND call onChange.
+        // Parent updates `value`. `useEffect` triggers.
+        // If `useEffect` logic rebuilds exact same displayValue, no render loop.
+        // To be safe, we can check if `value` matches our reconstructed current state?
+        // Actually, easiest way is to trust `value` prop as source of truth for country/initial, but drive input from local state for smooth typing.
+        // But if we separate, we might desync.
+        // Let's stick to: useEffect updates local state ONLY if the derived value from prop is different from current local state?
+        // Or just let it sync. React handles same-value state updates efficiently.
+
+        const currentCountryObj = SUPPORTED_COUNTRIES.find((c) => c.code === country);
 
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const raw = e.target.value
-            setInputValue(raw)
+            const raw = e.target.value;
 
-            // Construct full number
-            // If raw already has +, assume user is pasting full number?
-            // For now, adhere to: prefix + raw
-            // But if raw starts with +, we might need to re-detect country?
-            // Let's keep it simple: assume user types national number.
+            // Limit to allowed chars (digits, maybe space)
+            // But user might type arbitrary stuff, formatAsYouType handles clean up
+            const formatted = formatAsYouType(raw, country);
+            setDisplayValue(formatted);
 
-            // Remove leading 0 if present? 
-            // Often standard is to keep it or remove it depends on country.
-            // E.164 usually strips leading zero.
-            // Let's NOT transform input value visibly, but transform output value.
+            // Reconstruct full E.164
+            const cleanDigits = formatted.replace(/\D/g, '');
+            const prefix = currentCountryObj?.dialCode || '';
+            const fullNumber = prefix + cleanDigits;
 
-            let cleanNumber = raw.replace(/\D/g, ''); // just digits
-            if (raw.startsWith('+')) {
-                // Special case: user pasted international number?
-                // We should probably allow this but for now let's just stick to apppending prefix to raw input
-            }
+            const res = validatePhone(fullNumber, { defaultCountry: country });
+            setValidation(res);
 
-            const prefix = currentCountry?.dialCode || '';
-            const fullNumber = prefix + raw;
-
-            if (raw) {
-                const result = validatePhone(fullNumber, { defaultCountry: country })
-                setValidation(result)
-                onChange?.(fullNumber, result)
-            } else {
-                setValidation(null)
-                onChange?.('', {
-                    valid: false,
-                    normalized: null,
-                    country,
-                    countryCode: prefix,
-                    nationalNumber: '',
-                    displayFormat: null
-                })
-            }
-        }
+            onChange?.(fullNumber, res);
+        };
 
         const handleCountryChange = (code: string) => {
-            const newCountry = code as CountryCode
-            setCountry(newCountry)
+            const newCountry = code as CountryCode;
+            setCountry(newCountry);
 
-            // Re-validate with new prefix
-            const countryObj = SUPPORTED_COUNTRIES.find(c => c.code === newCountry);
-            const prefix = countryObj?.dialCode || '';
-            const fullNumber = prefix + inputValue;
+            // Reformat existing digits with new country format
+            const cleanDigits = displayValue.replace(/\D/g, '');
+            const newFormatted = formatAsYouType(cleanDigits, newCountry);
+            setDisplayValue(newFormatted);
 
-            const result = validatePhone(fullNumber, { defaultCountry: newCountry })
-            setValidation(result)
-            onChange?.(fullNumber, result)
-        }
+            const newCountryObj = SUPPORTED_COUNTRIES.find(c => c.code === newCountry);
+            const prefix = newCountryObj?.dialCode || '';
+            const fullNumber = prefix + cleanDigits;
 
-        const showValid = showValidation && inputValue && validation?.valid
-        const showInvalid = showValidation && inputValue && validation?.valid === false
+            const res = validatePhone(fullNumber, { defaultCountry: newCountry });
+            setValidation(res);
+
+            onChange?.(fullNumber, res);
+        };
+
+        const showValid = showValidation && displayValue && validation?.valid
+        const showInvalid = showValidation && displayValue && validation?.valid === false
         const hasError = !!error || showInvalid
 
         return (
             <div className={cn('space-y-1', className)}>
-                {/* Visual wrapper to look like InputGroup */}
                 <div className={cn(
                     "flex h-12 w-full rounded-xl border border-gray-200 bg-gray-50 focus-within:ring-2 focus-within:ring-green-500/20 focus-within:border-green-500 overflow-hidden",
                     hasError && "border-destructive ring-destructive/20"
@@ -157,8 +190,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
                             <SelectTrigger className="h-full border-0 bg-transparent px-3 rounded-none shadow-none focus:ring-0 gap-2 w-[100px]">
                                 <SelectValue>
                                     <span className="flex items-center gap-1">
-                                        <span className="text-lg leading-none">{currentCountry?.flag}</span>
-                                        <span className="text-xs text-muted-foreground">{currentCountry?.dialCode}</span>
+                                        <span className="text-lg leading-none">{currentCountryObj?.flag}</span>
+                                        <span className="text-xs text-muted-foreground">{currentCountryObj?.dialCode}</span>
                                     </span>
                                 </SelectValue>
                             </SelectTrigger>
@@ -182,7 +215,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
                         id={id}
                         name={name}
                         type="tel"
-                        value={inputValue}
+                        value={displayValue}
                         onChange={handleInputChange}
                         onBlur={onBlur}
                         placeholder={placeholder}
@@ -191,7 +224,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
                     />
 
                     {/* Validation Status */}
-                    {showValidation && inputValue && (
+                    {showValidation && displayValue && (
                         <div className="flex items-center px-3">
                             {showValid ? (
                                 <Check className="h-4 w-4 text-green-500" />

@@ -35,6 +35,7 @@ import { AssignToMemberModal } from './AssignToMemberModal'
 import { useAssignment } from '@/hooks/useAssignment'
 import type { Role } from '@/lib/team/roles'
 import type { Assignee } from './AssignmentBadge'
+import { cn } from '@/lib/utils'
 
 // ============================================
 // TYPES
@@ -46,11 +47,8 @@ interface AssignmentDropdownProps {
     currentUserMemberId: string
     currentUserRole: Role
     onAssignmentChange?: () => void
+    className?: string
 }
-
-// ============================================
-// COMPONENT
-// ============================================
 
 export function AssignmentDropdown({
     conversationId,
@@ -58,6 +56,7 @@ export function AssignmentDropdown({
     currentUserMemberId,
     currentUserRole,
     onAssignmentChange,
+    className,
 }: AssignmentDropdownProps) {
     const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -86,6 +85,26 @@ export function AssignmentDropdown({
         toast.success('Cette conversation est maintenant disponible')
     }
 
+    // New Logic: If agent and unassigned, show direct "M'assigner" button
+    if (currentUserRole === 'agent' && !currentAssignee) {
+        return (
+            <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={handleAssignToMe}
+                className={cn("gap-1.5 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700", className)}
+            >
+                {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <UserPlus className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">M'assigner</span>
+            </Button>
+        )
+    }
+
     return (
         <>
             <DropdownMenu>
@@ -94,14 +113,16 @@ export function AssignmentDropdown({
                         variant="outline"
                         size="sm"
                         disabled={isLoading}
-                        className="gap-1.5 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                        className={cn("gap-1.5 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700", className)}
                     >
                         {isLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                             <UserPlus className="h-4 w-4" />
                         )}
-                        <span className="hidden sm:inline">Assigner</span>
+                        <span className="hidden sm:inline">
+                            {currentAssignee ? 'Reassigner' : 'Assigner'}
+                        </span>
                     </Button>
                 </DropdownMenuTrigger>
 
