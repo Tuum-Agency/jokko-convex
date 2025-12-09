@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as analytics from "../analytics.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as broadcasts from "../broadcasts.js";
@@ -64,6 +65,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  analytics: typeof analytics;
   assignments: typeof assignments;
   auth: typeof auth;
   broadcasts: typeof broadcasts;
