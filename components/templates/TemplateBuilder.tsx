@@ -31,7 +31,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
     onCancel
 }) => {
     const config = TEMPLATE_TYPE_CONFIGS[type];
-    const { formData, loading, isPublishing, handleChange, submit, publish } = useTemplateBuilder({
+    const { formData, loading, isPublishing, handleChange, submit, publish, validationResult } = useTemplateBuilder({
         type,
         initialData,
         onSuccess,
@@ -58,6 +58,37 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
                                         ? "Ce template est validé et ne peut plus être modifié."
                                         : "Ce template est en attente de validation par WhatsApp. Vous ne pouvez pas le modifier pour le moment."}
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Validation Warnings/Errors */}
+                {!isReadOnly && validationResult.errors.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                        <div className="flex">
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">Erreurs bloquantes</h3>
+                                <div className="mt-2 text-sm text-red-700">
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        {validationResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {!isReadOnly && validationResult.warnings.length > 0 && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                        <div className="flex">
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">Attention (Risque de rejet)</h3>
+                                <div className="mt-2 text-sm text-yellow-700">
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        {validationResult.warnings.map((warn, i) => <li key={i}>{warn}</li>)}
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>

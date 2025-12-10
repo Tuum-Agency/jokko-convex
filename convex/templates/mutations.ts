@@ -1,6 +1,6 @@
 
 import { v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { validateTemplate } from "../lib/templateValidation";
 
@@ -42,7 +42,7 @@ export const create = mutation({
         // Validate
         const validation = validateTemplate(args);
         if (!validation.valid) {
-            throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+            throw new Error(`Validation failed: ${validation.errors.join(", ")} `);
         }
 
         const templateId = await ctx.db.insert("templates", {
@@ -137,7 +137,7 @@ export const update = mutation({
         const merged = { ...template, ...args };
         const validation = validateTemplate(merged);
         if (!validation.valid) {
-            throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+            throw new Error(`Validation failed: ${validation.errors.join(", ")} `);
         }
 
         await ctx.db.patch(args.id, {
@@ -177,6 +177,7 @@ export const updateStatus = mutation({
     args: {
         id: v.id("templates"),
         status: v.string(), // "PENDING", "APPROVED", "REJECTED"
+        metaTemplateId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         // This is called by internal action so we might skip rigorous auth check 
@@ -201,10 +202,15 @@ export const updateStatus = mutation({
             throw new Error("Unauthorized");
         }
 
-        await ctx.db.patch(args.id, {
+        const patch: any = {
             status: args.status,
             updatedAt: Date.now(),
-        });
+        };
+        if (args.metaTemplateId) {
+            patch.metaTemplateId = args.metaTemplateId;
+        }
+
+        await ctx.db.patch(args.id, patch);
     },
 });
 
@@ -265,5 +271,30 @@ export const seedStandard = mutation({
         });
 
         return { message: "Standard templates seeded", inserted: 1 };
+    },
+});
+
+export const updateStatusByMetaId = internalMutation({
+    args: {
+        metaId: v.string(),
+        status: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const template = await ctx.db
+            .query("templates")
+            .withIndex("by_metaTemplateId", (q) => q.eq("metaTemplateId", args.metaId))
+            .first();
+
+        if (!template) {
+            console.log(`[TEMPLATE_WEBHOOK] Template with metaId ${args.metaId} not found.`);
+            return;
+        }
+
+        await ctx.db.patch(template._id, {
+            status: args.status,
+            updatedAt: Date.now(),
+        });
+
+        console.log(`[TEMPLATE_WEBHOOK] Updated template ${template.name} (${template._id}) to ${args.status} `);
     },
 });

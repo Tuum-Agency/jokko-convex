@@ -13,6 +13,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const user = useQuery(api.users.me);
+    const role = useQuery(api.users.currentUserRole);
     const sessionData = useQuery(api.sessions.current);
     const ensureSession = useMutation(api.sessions.ensure);
     const router = useRouter();
@@ -81,7 +82,8 @@ export default function DashboardLayout({
             user={user ? {
                 name: user.name ?? 'User',
                 email: user.email ?? '',
-                avatar: user.image
+                avatar: user.image,
+                role: role ?? 'Member'
             } : undefined}
             organizationName={sessionData?.organization?.name}
             organizationSlug={sessionData?.organization?.slug}

@@ -20,6 +20,8 @@ import {
     HelpCircle,
 } from 'lucide-react'
 import { useAuthActions } from '@convex-dev/auth/react'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -84,12 +86,12 @@ const mainNavigation = [
 
 const bottomNavigation = [
     {
-        name: 'Billing',
+        name: 'Facturation',
         href: '/billing',
         icon: CreditCard,
     },
     {
-        name: 'Settings',
+        name: 'Paramètres',
         href: '/settings',
         icon: Settings,
     },
@@ -118,10 +120,27 @@ export function MobileSidebar({
     const [isOpen, setIsOpen] = useState(false)
     const { signOut } = useAuthActions()
     const [isMounted, setIsMounted] = useState(false)
+    const role = useQuery(api.users.currentUserRole)
 
     useEffect(() => {
         setIsMounted(true)
     }, [])
+
+    const restrictedForAgents = ['Assignments', 'Templates', 'Broadcast', 'Broadcasts', 'Analytics', 'Automatisation', 'Team'];
+
+    const filteredNavigation = mainNavigation.filter(item => {
+        if (role === 'AGENT') {
+            return !restrictedForAgents.includes(item.name);
+        }
+        return true;
+    });
+
+    const filteredBottomNavigation = bottomNavigation.filter(item => {
+        if (role === 'AGENT') {
+            return item.name !== 'Facturation';
+        }
+        return true;
+    });
 
     // Check if a nav item is active
     const isActive = (href: string) => {
@@ -192,7 +211,7 @@ export function MobileSidebar({
                 <ScrollArea className="flex-1 h-[calc(100vh-180px)]">
                     <nav className="p-3 space-y-1">
                         <StaggerContainer staggerDelay={0.05} delayChildren={0.1} trigger="mount">
-                            {mainNavigation.map((item) => {
+                            {filteredNavigation.map((item) => {
                                 const active = isActive(item.href)
                                 const Icon = item.icon
 
@@ -242,7 +261,7 @@ export function MobileSidebar({
 
                     {/* Bottom Navigation */}
                     <div className="p-3 space-y-1">
-                        {bottomNavigation.map((item) => {
+                        {filteredBottomNavigation.map((item) => {
                             const active = isActive(item.href)
                             const Icon = item.icon
 
@@ -270,14 +289,14 @@ export function MobileSidebar({
                             )
                         })}
 
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start gap-3 px-3 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl h-auto"
+                        <Link
+                            href={`${basePath}/help`}
+                            onClick={() => setIsOpen(false)}
+                            className="group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200"
                         >
-                            <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                            <span>Help & Support</span>
-                        </Button>
+                            <HelpCircle className="h-5 w-5 text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors duration-200" aria-hidden="true" />
+                            <span>Aide & Support</span>
+                        </Link>
                     </div>
                 </ScrollArea>
 

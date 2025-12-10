@@ -99,70 +99,153 @@ async function executeFlow(ctx: any, flow: any, input: { conversationId: Id<"con
 
     if (!nodes.length) return;
 
-    // FIND START NODE
-    // A start node is one that is not a target of any edge.
-    const targetIds = new Set(edges.map(e => e.target));
-    const startNodes = nodes.filter(n => !targetIds.has(n.id));
+    // 1. Find Start Node
+    let currentNode = nodes.find(n => n.type === 'start');
 
-    // If multiple start nodes, pick the first one (top/left usually).
-    // Or just pick the first valid 'message' node.
-    const startNode = startNodes.find(n => n.type === 'message') || nodes.find(n => n.type === 'message');
+    // Fallback: If no start node, find a node with no incoming edges (root)
+    if (!currentNode) {
+        const targetIds = new Set(edges.map(e => e.target));
+        currentNode = nodes.find(n => !targetIds.has(n.id));
+    }
 
-    if (!startNode) {
-        console.log("No message node found to start.");
+    if (!currentNode) {
+        // Fallback 2: Previous logic (find first message)
+        currentNode = nodes.find(n => n.type === 'message');
+    }
+
+    if (!currentNode) {
+        console.log("No valid start node found.");
         return;
     }
 
-    // EXECUTE START NODE
-    if (startNode.type === 'message') {
-        const content = startNode.data.content;
-        const interactive = (startNode.data as any).interactive; // Force cast or update type above
+    console.log(`[ENGINE] Starting flow execution at node: ${currentNode.id} (${currentNode.type})`);
 
-        if (content || interactive) {
-            // Get Contact Phone
-            const contact = await ctx.db.get(input.contactId);
-            if (!contact) {
-                console.error("Contact not found for automation reply");
-                return;
-            }
-
-            const messageId = await ctx.db.insert("messages", {
-                organizationId: input.organizationId,
-                conversationId: input.conversationId,
-                contactId: input.contactId, // receiver
-                // senderId: undefined (System/Bot)
-
-                type: interactive ? "INTERACTIVE" : "TEXT",
-                content: content || (interactive ? `[${interactive.type.toUpperCase()}]` : ""),
-                direction: "OUTBOUND",
-                status: "PENDING",
-
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            });
-
-            // Update conversation
-            await ctx.db.patch(input.conversationId, {
-                lastMessageAt: Date.now(),
-                preview: interactive ? `[Interactive]` : `You: ${content}`,
-                updatedAt: Date.now(),
-            });
-
-            console.log(`[ENGINE] Sent message (DB): ${content || 'Interactive'}`);
-
-            // Trigger Real Send
-            await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
-                messageId: messageId,
-                organizationId: input.organizationId,
-                to: contact.phone,
-                text: content, // Required if text
-                type: interactive ? "interactive" : "text",
-                interactive: interactive
-            });
-        }
+    // Contact verification once
+    const contact = await ctx.db.get(input.contactId);
+    if (!contact) {
+        console.error("Contact not found for automation reply");
+        return;
     }
 
-    // TODO: Follow edges to next nodes (Delay, etc.)
-    // This requires a "Flow Session" state machine which is complex.
-    // For now, we only execute the FIRST node (Immediate Reply).
+    // 2. Traversal Loop
+    const MAX_STEPS = 20;
+    let step = 0;
+
+    while (currentNode && step < MAX_STEPS) {
+        step++;
+        console.log(`[ENGINE] Step ${step}: Processing node ${currentNode.id} (${currentNode.type})`);
+
+        // EXECUTE NODE LOGIC based on type
+        if (currentNode.type === 'message') {
+            const content = currentNode.data.content;
+            if (content) {
+                const messageId = await ctx.db.insert("messages", {
+                    organizationId: input.organizationId,
+                    conversationId: input.conversationId,
+                    contactId: input.contactId,
+                    type: "TEXT",
+                    content: content,
+                    direction: "OUTBOUND",
+                    status: "PENDING",
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+
+                await ctx.db.patch(input.conversationId, {
+                    lastMessageAt: Date.now(),
+                    preview: `You: ${content}`,
+                    updatedAt: Date.now(),
+                });
+
+                // Schedule send with slight delay to preserve order if multiple
+                await ctx.scheduler.runAfter(step * 1000, internal.whatsapp_actions.sendMessage, {
+                    messageId: messageId,
+                    organizationId: input.organizationId,
+                    to: contact.phone,
+                    text: content,
+                    type: "text",
+                });
+            }
+        } else if (currentNode.type === 'interactive') {
+            const data = currentNode.data as any;
+            const content = data.content || "Faites un choix";
+            const interactiveType = data.interactiveType || "button"; // 'list' or 'button'
+            const options = data.options || [];
+
+            let interactivePayload: any = null;
+
+            if (interactiveType === 'button') {
+                interactivePayload = {
+                    type: "button",
+                    body: { text: content },
+                    action: {
+                        buttons: options.map((opt: any) => ({
+                            type: "reply",
+                            reply: {
+                                id: opt.id || opt.title,
+                                title: opt.title || opt.label || "Option"
+                            }
+                        }))
+                    }
+                };
+            } else if (interactiveType === 'list') {
+                interactivePayload = {
+                    type: "list",
+                    body: { text: content },
+                    action: {
+                        button: "Menu",
+                        sections: [
+                            {
+                                title: "Options",
+                                rows: options.map((opt: any) => ({
+                                    id: opt.id || opt.title,
+                                    title: opt.title || opt.label || "Option",
+                                    description: opt.description || ""
+                                }))
+                            }
+                        ]
+                    }
+                };
+            }
+
+            if (interactivePayload) {
+                const messageId = await ctx.db.insert("messages", {
+                    organizationId: input.organizationId,
+                    conversationId: input.conversationId,
+                    contactId: input.contactId,
+                    type: "INTERACTIVE",
+                    content: `[${interactiveType.toUpperCase()}] ${content}`,
+                    interactive: interactivePayload,
+                    direction: "OUTBOUND",
+                    status: "PENDING",
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+
+                await ctx.db.patch(input.conversationId, {
+                    lastMessageAt: Date.now(),
+                    preview: `[Interactive]`,
+                    updatedAt: Date.now(),
+                });
+
+                await ctx.scheduler.runAfter(step * 1000, internal.whatsapp_actions.sendMessage, {
+                    messageId: messageId,
+                    organizationId: input.organizationId,
+                    to: contact.phone,
+                    type: "interactive",
+                    interactive: interactivePayload
+                });
+            }
+        }
+
+        // FIND NEXT NODE
+        const outboundEdges = edges.filter(e => e.source === currentNode?.id);
+        if (outboundEdges.length === 0) {
+            break;
+        }
+
+        // For now, take the first edge (linear flow)
+        const nextEdge = outboundEdges[0];
+        currentNode = nodes.find(n => n.id === nextEdge.target);
+    }
 }

@@ -40,6 +40,7 @@ import {
     Ban,
     Trash2,
     CheckCircle,
+    Unlock,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,16 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
 import { ForwardMessageModal } from './ForwardMessageModal'
@@ -92,6 +103,7 @@ interface ConversationDetails {
         phone: string
         avatarUrl: string | null
         lastContactedAt: string | null
+        isBlocked?: boolean
     }
     status: string
     windowExpiresAt: string | null
@@ -152,6 +164,7 @@ function ConversationHeader({
         archiveConversation,
         resolveConversation,
         reopenResolvedConversation,
+        blockContact,
         isResolving,
     } = useConversations()
 
@@ -171,9 +184,24 @@ function ConversationHeader({
 
     const { isTyping, typingUsers } = useTypingIndicator(conversation.id)
 
+    const [showBlockConfirm, setShowBlockConfirm] = useState(false)
+
     const handleResolve = async () => {
         await resolveConversation(conversation.id)
         router.push('/dashboard/conversations')
+    }
+
+    const handleBlockClick = () => {
+        if (contact.isBlocked) {
+            blockContact(contact.id)
+        } else {
+            setShowBlockConfirm(true)
+        }
+    }
+
+    const confirmBlock = async () => {
+        await blockContact(contact.id)
+        setShowBlockConfirm(false)
     }
 
     return (
@@ -303,13 +331,45 @@ function ConversationHeader({
                             Archiver
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                            <Ban className="mr-2 h-4 w-4" />
-                            Bloquer
+                        <DropdownMenuItem
+                            onClick={handleBlockClick}
+                            className={contact.isBlocked ? "" : "text-red-600"}
+                        >
+                            {contact.isBlocked ? (
+                                <>
+                                    <Unlock className="mr-2 h-4 w-4" />
+                                    Debloquer
+                                </>
+                            ) : (
+                                <>
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Bloquer
+                                </>
+                            )}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
+
+            <AlertDialog open={showBlockConfirm} onOpenChange={setShowBlockConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Bloquer ce contact ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Ce contact ne pourra plus interagir avec votre assistant virtuel ni envoyer de messages.
+                            Cette action est réversible.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <ButtonGroup className="justify-center sm:justify-end w-full sm:w-auto">
+                            <AlertDialogCancel className="mt-0">Annuler</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmBlock} className="bg-red-600 hover:bg-red-700">
+                                Bloquer
+                            </AlertDialogAction>
+                        </ButtonGroup>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
@@ -486,6 +546,7 @@ export function ConversationView({
                 lastContactedAt: conversationData.contact?.lastContactedAt
                     ? new Date(conversationData.contact.lastContactedAt).toISOString()
                     : null,
+                isBlocked: conversationData.contact?.isBlocked,
             },
             status: conversationData.status || 'OPEN',
             windowExpiresAt: conversationData.windowExpiresAt
@@ -585,6 +646,18 @@ export function ConversationView({
                 onAssignmentChange={handleAssignmentChange}
             />
 
+            {/* Blocked Banner */}
+            {conversation.contact?.isBlocked && (
+                <div className="bg-red-50 px-4 py-2 border-b border-red-100 flex items-center justify-center animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 text-red-600">
+                        <Ban className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                            Ce contact est bloqué. Vous ne pouvez pas recevoir de messages ou y répondre.
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 min-h-0 overflow-hidden">
                 <MessagesList
@@ -603,6 +676,7 @@ export function ConversationView({
                 conversationId={conversationId}
                 replyTo={replyToMessage}
                 onCancelReply={() => setReplyToMessage(null)}
+                disabled={!!conversation.contact?.isBlocked}
             />
 
             {/* Forward Modal */}

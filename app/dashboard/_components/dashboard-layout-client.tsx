@@ -12,6 +12,7 @@ interface DashboardLayoutClientProps {
         name: string
         email: string
         avatar?: string
+        role?: string
     }
     organizationName?: string
     organizationSlug?: string

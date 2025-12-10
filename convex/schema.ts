@@ -96,6 +96,49 @@ export default defineSchema({
 
 
     // ============================================
+    // Tickets (Support)
+    // ============================================
+    tickets: defineTable({
+        userId: v.optional(v.id("users")), // User who created the ticket (if logged in)
+        organizationId: v.optional(v.id("organizations")), // Org context
+
+        subject: v.string(),
+        message: v.string(),
+        type: v.union(
+            v.literal("BUG"),
+            v.literal("FEATURE"),
+            v.literal("BILLING"),
+            v.literal("OTHER")
+        ),
+        priority: v.optional(v.union(
+            v.literal("LOW"),
+            v.literal("MEDIUM"),
+            v.literal("HIGH"),
+            v.literal("URGENT")
+        )),
+        status: v.union(
+            v.literal("OPEN"),
+            v.literal("IN_PROGRESS"),
+            v.literal("RESOLVED"),
+            v.literal("CLOSED")
+        ),
+
+        // Contact info if not relying on userId/orgId only
+        contactEmail: v.optional(v.string()),
+        contactPhone: v.optional(v.string()),
+
+        // Attachments?
+        attachmentStorageId: v.optional(v.id("_storage")),
+
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_user", ["userId"])
+        .index("by_organization", ["organizationId"])
+        .index("by_status", ["status"]),
+
+
+    // ============================================
     // Poles (Services / Departments)
     // ============================================
     poles: defineTable({
@@ -214,6 +257,7 @@ export default defineSchema({
         )),
         tags: v.optional(v.array(v.id("tags"))),
         isWhatsApp: v.optional(v.boolean()),
+        isBlocked: v.optional(v.boolean()), // Blocked status
 
         // Search & Sort
         searchName: v.string(), // Concatenated field for search (name + phone + email)
@@ -653,7 +697,8 @@ export default defineSchema({
 
         // Content
         type: v.string(), // "TEXT", "IMAGE", "VIDEO", "AUDIO", "DOCUMENT", "LOCATION", "STICKER", "REACTION", "SYSTEM"
-        content: v.optional(v.string()),
+        content: v.optional(v.string()), // Fallback string representation
+        interactive: v.optional(v.any()), // Structured interactive data (buttons, lists)
         mediaUrl: v.optional(v.string()), // URL if media
         mediaType: v.optional(v.string()), // MIME type
         fileName: v.optional(v.string()), // For documents

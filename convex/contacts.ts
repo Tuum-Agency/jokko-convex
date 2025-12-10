@@ -637,6 +637,28 @@ export const clearAllNotes = mutation({
     }
 });
 
+export const toggleBlock = mutation({
+    args: { id: v.id("contacts") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const contact = await ctx.db.get(args.id);
+        if (!contact) throw new Error("Contact not found");
+
+        const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
+        if (session?.currentOrganizationId !== contact.organizationId) throw new Error("Unauthorized");
+
+        const isBlocked = !contact.isBlocked;
+        await ctx.db.patch(args.id, {
+            isBlocked,
+            updatedAt: Date.now()
+        });
+
+        return isBlocked;
+    }
+});
+
 export const listAllForOrg = internalQuery({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {

@@ -16,6 +16,34 @@ export const me = query({
 });
 
 /**
+ * Get current user role in the active organization
+ */
+export const currentUserRole = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) return null;
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", session.currentOrganizationId!)
+            )
+            .first();
+
+        return membership?.role;
+    },
+});
+
+
+/**
  * Get user by ID
  */
 export const get = query({
@@ -117,9 +145,13 @@ export const whoAmI = query({
 });
 // ... (existing code)
 
+// ... existing code ...
+
 export const updatePresence = mutation({
     args: {},
     handler: async (ctx) => {
+        // ... presence logic ...
+        // (Keep existing code)
         const userId = await getAuthUserId(ctx);
         if (!userId) return null;
 
@@ -148,5 +180,82 @@ export const updatePresence = mutation({
             }
             await ctx.db.patch(membership._id, updates);
         }
+    },
+});
+
+/**
+ * Generate upload URL for avatar
+ */
+export const generateUploadUrl = mutation(async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+});
+
+/**
+ * Update user profile
+ */
+export const updateProfile = mutation({
+    args: {
+        name: v.optional(v.string()),
+        email: v.optional(v.string()), // Email updates might require verification flow
+        phone: v.optional(v.string()),
+        imageStorageId: v.optional(v.id("_storage")),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const updates: any = {
+            updatedAt: Date.now(),
+        };
+
+        if (args.name !== undefined) updates.name = args.name;
+        if (args.phone !== undefined) updates.phone = args.phone; // Assuming phone field exists in schema or we add it
+
+        // Handle image update from storage ID
+        if (args.imageStorageId) {
+            updates.image = await ctx.storage.getUrl(args.imageStorageId);
+        }
+
+        await ctx.db.patch(userId, updates);
+    },
+});
+
+/**
+ * Delete account
+ */
+export const deleteAccount = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        // Soft delete or hard delete?
+        // Typically complex due to relationships.
+        // For now, let's mark as deactivated or delete user entry?
+        // Schema doesn't show 'isActive' on users.
+        // Let's just delete the user record for now, but in prod we'd scrub data.
+
+        // 1. Delete user sessions
+        const sessions = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+
+        for (const session of sessions) {
+            await ctx.db.delete(session._id);
+        }
+
+        // 2. Delete memberships
+        const memberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+
+        for (const membership of memberships) {
+            await ctx.db.delete(membership._id);
+        }
+
+        // 3. Delete user
+        await ctx.db.delete(userId);
     },
 });

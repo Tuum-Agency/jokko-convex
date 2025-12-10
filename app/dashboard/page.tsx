@@ -9,9 +9,12 @@ import {
     ArrowUpRight,
     ArrowDownRight,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from '@/components/ui/skeleton'
+import Link from 'next/link'
+
 
 function StatsCard({
     title,
@@ -20,6 +23,8 @@ function StatsCard({
     icon: Icon,
     trend,
     trendValue,
+    iconColor,
+    iconBg,
 }: {
     title: string
     value: string
@@ -27,13 +32,15 @@ function StatsCard({
     icon: React.ElementType
     trend?: 'up' | 'down'
     trendValue?: string
+    iconColor?: string
+    iconBg?: string
 }) {
     return (
         <Card className="bg-white border-gray-200/80 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
-                <div className="h-9 w-9 rounded-xl bg-green-50 flex items-center justify-center" aria-hidden="true">
-                    <Icon className="h-5 w-5 text-green-600" />
+                <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center", iconBg || "bg-green-50")} aria-hidden="true">
+                    <Icon className={cn("h-5 w-5", iconColor || "text-green-600")} />
                 </div>
             </CardHeader>
             <CardContent>
@@ -59,9 +66,10 @@ function StatsCard({
 
 export default function DashboardPage() {
     const user = useQuery(api.users.me);
+    const dashboardData = useQuery(api.analytics.getAppDashboardStats);
 
     // Loading Skeleton state
-    if (user === undefined) {
+    if (user === undefined || dashboardData === undefined) {
         return (
             <div className="space-y-6">
                 {/* Page Header Skeleton */}
@@ -135,41 +143,20 @@ export default function DashboardPage() {
         )
     }
 
-    // Mock stats data (only shown when user is loaded)
-    const stats = [
-        {
-            title: 'Total Conversations',
-            value: '2,543',
-            description: 'depuis le mois dernier',
-            icon: MessageSquare,
-            trend: 'up' as const,
-            trendValue: '+12.5%',
-        },
-        {
-            title: 'Active Contacts',
-            value: '1,234',
-            description: 'contacts actifs',
-            icon: Users,
-            trend: 'up' as const,
-            trendValue: '+8.2%',
-        },
-        {
-            title: 'Messages Sent',
-            value: '45,678',
-            description: 'ce mois-ci',
-            icon: Send,
-            trend: 'up' as const,
-            trendValue: '+23.1%',
-        },
-        {
-            title: 'Response Rate',
-            value: '94.5%',
-            description: 'taux de reponse',
-            icon: TrendingUp,
-            trend: 'down' as const,
-            trendValue: '-2.3%',
-        },
-    ]
+    if (!dashboardData) return null; // Should not happen if undefined check passed, but handy for types
+
+    const { stats, recentConversations } = dashboardData;
+
+    // Map icons to stats (order must match backend response array)
+    // Backend returns: [Total Convs, Active Contacts, Messages Sent, Response Rate]
+    const statsWithIcons = stats.map((stat, index) => {
+        let icon = MessageSquare;
+        if (index === 1) icon = Users;
+        if (index === 2) icon = Send;
+        if (index === 3) icon = TrendingUp;
+
+        return { ...stat, icon };
+    });
 
     return (
         <div className="space-y-6">
@@ -179,13 +166,13 @@ export default function DashboardPage() {
                     Bienvenue, {user?.name || 'User'}!
                 </h1>
                 <p className="text-gray-500 mt-1">
-                    Voici un apercu de votre activite sur votre organisation.
+                    Voici un aperçu de votre activité sur votre organisation.
                 </p>
             </div>
 
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => (
+                {statsWithIcons.map((stat) => (
                     <StatsCard key={stat.title} {...stat} />
                 ))}
             </div>
@@ -196,32 +183,46 @@ export default function DashboardPage() {
                 <Card className="bg-white border-gray-200/80 shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold text-gray-900">
-                            Conversations recentes
+                            Conversations récentes
                         </CardTitle>
                         <CardDescription>
-                            Les dernieres conversations de votre equipe
+                            Les dernières conversations de votre équipe
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {[1, 2, 3, 4].map((i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                            {recentConversations.length === 0 && (
+                                <p className="text-sm text-gray-500 text-center py-4">Aucune conversation récente.</p>
+                            )}
+                            {recentConversations.map((conv, i) => (
+                                <Link
+                                    key={conv.id}
+                                    href={`/dashboard/conversations/${conv.id}`}
+                                    className="block"
                                 >
-                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-semibold">
-                                        {String.fromCharCode(64 + i)}
+                                    <div
+                                        className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                                    >
+                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-semibold shadow-sm">
+                                            {conv.contactName.substring(0, 1).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                {conv.contactName}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {conv.lastMessageTime
+                                                    ? new Date(conv.lastMessageTime).toLocaleString('fr-FR', {
+                                                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                                    })
+                                                    : 'Jamais'}
+                                            </p>
+                                        </div>
+                                        {conv.unread && (
+                                            <div className="h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+                                        )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 truncate">
-                                            Contact {i}
-                                        </p>
-                                        <p className="text-xs text-gray-500 truncate">
-                                            Dernier message il y a {i * 5} minutes
-                                        </p>
-                                    </div>
-                                    <div className="h-2 w-2 rounded-full bg-green-500" />
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     </CardContent>
@@ -234,28 +235,29 @@ export default function DashboardPage() {
                             Actions rapides
                         </CardTitle>
                         <CardDescription>
-                            Acces rapide aux fonctionnalites principales
+                            Accès rapide aux fonctionnalités principales
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-3">
                             {[
-                                { icon: MessageSquare, label: 'Nouvelle conversation', color: 'bg-blue-50 text-blue-600' },
-                                { icon: Users, label: 'Ajouter un contact', color: 'bg-green-50 text-green-600' },
-                                { icon: Send, label: 'Envoyer un broadcast', color: 'bg-purple-50 text-purple-600' },
-                                { icon: TrendingUp, label: 'Voir les analytics', color: 'bg-orange-50 text-orange-600' },
+                                { icon: MessageSquare, label: 'Nouvelle conversation', color: 'bg-blue-50 text-blue-600', link: '/dashboard/conversations' },
+                                { icon: Users, label: 'Ajouter un contact', color: 'bg-green-50 text-green-600', link: '/dashboard/contacts' },
+                                { icon: Send, label: 'Envoyer un broadcast', color: 'bg-purple-50 text-purple-600', link: '/dashboard/broadcasts' },
+                                { icon: TrendingUp, label: 'Voir les analytics', color: 'bg-orange-50 text-orange-600', link: '/dashboard/analytics' },
                             ].map((action) => (
-                                <button
+                                <Link
                                     key={action.label}
-                                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                                    href={action.link}
+                                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group cursor-pointer"
                                 >
-                                    <div className={`h-10 w-10 rounded-xl ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform`} aria-hidden="true">
+                                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform", action.color)} aria-hidden="true">
                                         <action.icon className="h-5 w-5" />
                                     </div>
                                     <span className="text-xs font-medium text-gray-600 text-center">
                                         {action.label}
                                     </span>
-                                </button>
+                                </Link>
                             ))}
                         </div>
                     </CardContent>

@@ -107,3 +107,23 @@ export const listAll = query({
         return templates;
     },
 });
+
+export const listForSync = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) return [];
+
+        return await ctx.db
+            .query("templates")
+            .withIndex("by_organization", q => q.eq("organizationId", session.currentOrganizationId!))
+            .collect();
+    },
+});

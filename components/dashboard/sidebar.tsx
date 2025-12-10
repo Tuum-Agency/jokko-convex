@@ -86,12 +86,12 @@ const mainNavigation = [
 
 const bottomNavigation = [
     {
-        name: 'Billing',
+        name: 'Facturation',
         href: '/billing',
         icon: CreditCard,
     },
     {
-        name: 'Settings',
+        name: 'Paramètres',
         href: '/settings',
         icon: Settings,
     },
@@ -113,8 +113,25 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname()
     const stats = useQuery(api.conversations.getSidebarStats)
+    const role = useQuery(api.users.currentUserRole)
 
-    const navItems = mainNavigation.map(item => {
+    const restrictedForAgents = ['Assignments', 'Templates', 'Broadcasts', 'Analytics', 'Automatisation', 'Team'];
+
+    const filteredNavigation = mainNavigation.filter(item => {
+        if (role === 'AGENT') {
+            return !restrictedForAgents.includes(item.name);
+        }
+        return true;
+    });
+
+    const filteredBottomNavigation = bottomNavigation.filter(item => {
+        if (role === 'AGENT') {
+            return item.name !== 'Facturation';
+        }
+        return true;
+    });
+
+    const navItems = filteredNavigation.map(item => {
         const itemWithBadge = { ...item, badge: undefined as number | undefined }
         if (item.name === 'Conversations') {
             itemWithBadge.badge = stats?.unread || undefined
@@ -284,7 +301,7 @@ export function Sidebar({
 
                     {/* Bottom Navigation */}
                     <div className="px-3 py-3 space-y-1">
-                        {bottomNavigation.map((item) => {
+                        {filteredBottomNavigation.map((item) => {
                             const active = isActive(item.href)
                             const Icon = item.icon
 
@@ -336,26 +353,30 @@ export function Sidebar({
                         {isCollapsed ? (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        aria-label="Aide et support"
-                                        className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
-                                    >
-                                        <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                                    </Button>
+                                    <Link href={`${basePath}/help`}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            aria-label="Aide et support"
+                                            className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
+                                        >
+                                            <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                        </Button>
+                                    </Link>
                                 </TooltipTrigger>
-                                <TooltipContent side="right">Help & Support</TooltipContent>
+                                <TooltipContent side="right">Aide & Support</TooltipContent>
                             </Tooltip>
                         ) : (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
-                            >
-                                <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                                <span>Help & Support</span>
-                            </Button>
+                            <Link href={`${basePath}/help`}>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
+                                >
+                                    <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                    <span>Aide & Support</span>
+                                </Button>
+                            </Link>
                         )}
                     </div>
                 </div>

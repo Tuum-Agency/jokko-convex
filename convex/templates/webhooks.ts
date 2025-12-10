@@ -1,5 +1,5 @@
 import { httpAction } from "../_generated/server";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 
 export const handleWebhook = httpAction(async (ctx, request) => {
     const { method } = request;
@@ -38,11 +38,11 @@ export const handleWebhook = httpAction(async (ctx, request) => {
             // Ideally our templates table stores `metaTemplateId`.
             // For now, assuming we can find it or this is just a placeholder implementation.
 
-            // To be fully implemented:
-            // await ctx.runMutation(api.templates.mutations.updateStatusByMetaId, { 
-            //    metaId: messageTemplateId, 
-            //    status: event 
-            // });
+            // Update the template status in our DB
+            await ctx.runMutation(internal.templates.mutations.updateStatusByMetaId, {
+                metaId: messageTemplateId,
+                status: event
+            });
         }
 
         return new Response("OK", { status: 200 });

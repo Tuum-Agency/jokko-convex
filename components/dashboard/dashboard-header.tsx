@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, Search, X, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -36,6 +36,7 @@ interface DashboardHeaderProps {
         name: string
         email: string
         avatar?: string
+        role?: string
     }
     /** Organization name */
     organizationName?: string
@@ -64,8 +65,22 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
     const router = useRouter()
     const { signOut } = useAuthActions()
+    // Search
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [debouncedQuery, setDebouncedQuery] = useState('')
+    const searchResults = useQuery(api.search.searchGlobal, { query: debouncedQuery })
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    const handleSearchResultClick = (link: string) => {
+        router.push(link)
+        setSearchOpen(false)
+        setSearchQuery('')
+    }
 
     // Notifications
     const realNotifications = useQuery(api.notifications.list)
@@ -99,9 +114,8 @@ export function DashboardHeader({
 
     return (
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl px-4 lg:px-6">
-            {/* Left side - Expand button + Mobile menu + Title */}
+            {/* ... Left side ... */}
             <div className="flex items-center gap-2">
-                {/* Expand sidebar button - Desktop only */}
                 {isSidebarCollapsed && onExpandSidebar && (
                     <Button
                         variant="ghost"
@@ -136,12 +150,12 @@ export function DashboardHeader({
             <div className="flex items-center gap-2">
                 {/* Search - Desktop */}
                 {showSearch && (
-                    <div className="hidden md:block">
+                    <div className="hidden md:block relative">
                         <AnimatePresence>
                             {searchOpen ? (
                                 <motion.div
                                     initial={{ width: 0, opacity: 0 }}
-                                    animate={{ width: 250, opacity: 1 }}
+                                    animate={{ width: 300, opacity: 1 }}
                                     exit={{ width: 0, opacity: 0 }}
                                     transition={{ duration: 0.2 }}
                                     className="relative"
@@ -149,7 +163,7 @@ export function DashboardHeader({
                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                                     <Input
                                         type="search"
-                                        placeholder="Rechercher..."
+                                        placeholder="Rechercher contact, page..."
                                         aria-label="Rechercher"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -168,6 +182,64 @@ export function DashboardHeader({
                                     >
                                         <X className="h-4 w-4" aria-hidden="true" />
                                     </Button>
+
+                                    {/* Search Results Dropdown */}
+                                    {searchQuery && (
+                                        <div className="absolute top-10 left-0 w-full bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                            {!searchResults ? (
+                                                <div className="p-4 text-center text-sm text-gray-500">
+                                                    Recherche en cours...
+                                                </div>
+                                            ) : (searchResults.contacts.length === 0 && searchResults.pages.length === 0) ? (
+                                                <div className="p-4 text-center text-sm text-gray-500">
+                                                    Aucun résultat trouvé pour "{searchQuery}"
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-[300px] overflow-y-auto">
+                                                    {searchResults.pages.length > 0 && (
+                                                        <div className="p-2">
+                                                            <div className="text-xs font-semibold text-gray-400 px-2 py-1 uppercase">Pages</div>
+                                                            {searchResults.pages.map((page) => (
+                                                                <button
+                                                                    key={page.id}
+                                                                    className="w-full flex items-center gap-2 px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg text-left"
+                                                                    onClick={() => handleSearchResultClick(page.link)}
+                                                                >
+                                                                    <div className="p-1.5 bg-gray-100 rounded-md">
+                                                                        {/* Icons are dynamic strings, ideally we map them but for now empty or simple dot */}
+                                                                        <div className="h-3 w-3 bg-gray-400 rounded-full" />
+                                                                    </div>
+                                                                    {page.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {searchResults.contacts.length > 0 && (
+                                                        <div className="p-2 border-t border-gray-100">
+                                                            <div className="text-xs font-semibold text-gray-400 px-2 py-1 uppercase">Contacts</div>
+                                                            {searchResults.contacts.map((contact) => (
+                                                                <button
+                                                                    key={contact.id}
+                                                                    className="w-full flex items-center gap-2 px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg text-left"
+                                                                    onClick={() => handleSearchResultClick(contact.link)}
+                                                                >
+                                                                    <Avatar className="h-7 w-7">
+                                                                        <AvatarFallback className="text-xs">
+                                                                            {getInitials(contact.name)}
+                                                                        </AvatarFallback>
+                                                                    </Avatar>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{contact.name}</span>
+                                                                        <span className="text-xs text-gray-400">Contact</span>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </motion.div>
                             ) : (
                                 <Button
@@ -186,11 +258,16 @@ export function DashboardHeader({
 
                 {/* Search - Mobile */}
                 {showSearch && (
+                    // Keeping mobile simple for now or need to tackle visibility on mobile
                     <Button
                         variant="ghost"
                         size="icon"
                         aria-label="Rechercher"
                         className="md:hidden h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                        onClick={() => {
+                            // Mobile search could navigate to search page or open overlay
+                            // For fast response, let's keep it desktop focused or open simple input if space
+                        }}
                     >
                         <Search className="h-5 w-5" aria-hidden="true" />
                     </Button>
@@ -222,49 +299,58 @@ export function DashboardHeader({
                                     className="h-auto p-0 text-xs text-green-600 hover:text-green-700"
                                     onClick={() => markAllAsRead()}
                                 >
-                                    Mark all as read
+                                    Tout marquer lu
                                 </Button>
                             )}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {!realNotifications?.length && (
-                            <div className="p-4 text-center text-sm text-gray-500">
-                                Aucune notification
-                            </div>
-                        )}
-                        {realNotifications?.map((notification) => (
-                            <DropdownMenuItem
-                                key={notification._id}
-                                className={cn(
-                                    "flex flex-col items-start gap-1 p-3 cursor-pointer",
-                                    !notification.isRead && "bg-green-50/50"
-                                )}
-                                onClick={() => {
-                                    if (!notification.isRead) {
-                                        markAsRead({ notificationId: notification._id })
-                                    }
-                                    if (notification.link) {
-                                        router.push(notification.link)
-                                    }
-                                }}
-                            >
-                                <div className="flex items-center gap-2 w-full">
-                                    {!notification.isRead && (
-                                        <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                                    )}
-                                    <span className={cn(
-                                        "font-medium text-gray-900 truncate",
-                                        !notification.isRead && "font-semibold"
-                                    )}>{notification.title}</span>
-                                    <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
-                                        {formatTimeAgo(notification.createdAt)}
-                                    </span>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            {!realNotifications?.length && (
+                                <div className="p-4 text-center text-sm text-gray-500">
+                                    Aucune notification
                                 </div>
-                                <span className="text-sm text-gray-500 pl-4 break-words w-full line-clamp-2">
-                                    {notification.message}
-                                </span>
-                            </DropdownMenuItem>
-                        ))}
+                            )}
+                            {realNotifications?.map((notification) => (
+                                <DropdownMenuItem
+                                    key={notification._id}
+                                    className={cn(
+                                        "flex flex-col items-start gap-1 p-3 cursor-pointer",
+                                        !notification.isRead && "bg-green-50/50"
+                                    )}
+                                    onClick={() => {
+                                        if (!notification.isRead) {
+                                            markAsRead({ notificationId: notification._id })
+                                        }
+                                        if (notification.link) {
+                                            router.push(notification.link)
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2 w-full">
+                                        {!notification.isRead && (
+                                            <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                                        )}
+                                        <span className={cn(
+                                            "font-medium text-gray-900 truncate",
+                                            !notification.isRead && "font-semibold"
+                                        )}>{notification.title}</span>
+                                        <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+                                            {formatTimeAgo(notification.createdAt)}
+                                        </span>
+                                    </div>
+                                    <span className="text-sm text-gray-500 pl-4 break-words w-full line-clamp-2">
+                                        {notification.message}
+                                    </span>
+                                </DropdownMenuItem>
+                            ))}
+                        </div>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            className="cursor-pointer text-center text-blue-600 justify-center font-medium"
+                            onClick={() => router.push('/dashboard/notifications')}
+                        >
+                            Voir toutes les notifications
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -299,18 +385,26 @@ export function DashboardHeader({
                                     <div className="flex flex-col space-y-1">
                                         <p className="text-sm font-medium text-gray-900">{user.name}</p>
                                         <p className="text-xs text-gray-500">{user.email}</p>
+                                        {user.role && (
+                                            <p className="text-[10px] items-center text-green-600 font-medium uppercase tracking-wider bg-green-50 w-fit px-1.5 py-0.5 rounded-sm">
+                                                {user.role}
+                                            </p>
+                                        )}
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer">Help</DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/settings?tab=profile')}>
+                                    Profil
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/settings')}>
+                                    Paramètres
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
                                     onClick={handleLogout}
                                 >
-                                    Sign out
+                                    Se déconnecter
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         )}

@@ -43,6 +43,12 @@ export const handleIncomingMessage = mutation({
 
         if (!contact) throw new Error("Failed to get contact");
 
+        // BLOCK CHECK
+        if (contact.isBlocked) {
+            console.log(`[WHATSAPP] Ignoring message from blocked contact: ${from}`);
+            return;
+        }
+
         // 3. Trouver ou créer la conversation
         // Utilisation de filter car pas d'index direct composite (ou utilisation index by_organization)
         let conversation = await ctx.db
@@ -92,11 +98,28 @@ export const handleIncomingMessage = mutation({
         } else if (message.type === "image") {
             type = "IMAGE";
             content = message.image.caption || "";
-            mediaUrl = message.image.id; // Stocker l'ID temporairement
+            mediaUrl = message.image.id;
             mediaType = message.image.mime_type;
+        } else if (["interactive", "button", "simple_button"].includes(message.type.toLowerCase())) {
+            type = "INTERACTIVE";
+            const interactive = message.interactive || message.button || {};
+            console.log("Interactive Payload:", JSON.stringify(interactive));
+
+            if (interactive.type === "button_reply" || message.type === "button") {
+                const reply = interactive.button_reply || interactive;
+                content = reply.title || reply.id || "Bouton";
+            } else if (interactive.type === "list_reply") {
+                const reply = interactive.list_reply || interactive;
+                content = reply.title || reply.id || "Liste";
+            } else if (interactive.type === "nfm_reply") {
+                content = interactive.nfm_reply.body || "Réponse Flow";
+            } else {
+                content = interactive.active_title || interactive.body || `[Interaction: ${interactive.type || message.type}]`;
+            }
         } else {
             type = message.type.toUpperCase();
-            content = `[${type}]`;
+            // Fallback: If unknown type, dump the json to help debug
+            content = `[${type}] ${JSON.stringify(message).slice(0, 100)}`;
         }
 
         const newMessageId = await ctx.db.insert("messages", {

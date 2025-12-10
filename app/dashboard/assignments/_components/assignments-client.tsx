@@ -9,8 +9,10 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     UserPlus,
-    Loader2
+    Loader2,
+    AlertCircle
 } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -44,6 +46,7 @@ import { toast } from 'sonner'
 export default function AssignmentsClient() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     const updatePresence = useMutation(api.users.updatePresence)
+    const role = useQuery(api.users.currentUserRole);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -61,6 +64,40 @@ export default function AssignmentsClient() {
     const assignMutation = useMutation(api.assignments.assign)
     const settings = useQuery(api.assignments.getAssignmentSettings)
     const updateSettings = useMutation(api.assignments.updateAssignmentSettings)
+
+    if (role === undefined) {
+        return (
+            <div className="w-full h-full p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+                    </div>
+                </div>
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+            </div>
+        );
+    }
+
+    if (role === 'AGENT') {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertDescription>
+                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
+
+
+
+
 
     // Group agents by department
     const agentsByDept = (agentsData || []).reduce((acc: any, agent: any) => {

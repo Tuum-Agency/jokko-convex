@@ -40,6 +40,8 @@ import {
     RotateCcw,
     MapPin,
     Loader2,
+    Bot,
+    Unlock,
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -201,6 +203,69 @@ export function MessageBubble({
             }
 
             return mediaContent
+        }
+
+        // Interactive Message
+        if (message.type === 'INTERACTIVE') {
+            const interactive = message.interactive
+            if (interactive) {
+                const { header, body, footer, action } = interactive
+
+                return (
+                    <div className="space-y-2">
+                        {/* Header */}
+                        {header?.type === 'text' && (
+                            <p className="font-bold text-sm">{header.text}</p>
+                        )}
+
+                        {/* Body */}
+                        {body?.text && (
+                            <p className="whitespace-pre-wrap">{body.text}</p>
+                        )}
+
+                        {/* Footer */}
+                        {footer?.text && (
+                            <p className="text-xs text-gray-500">{footer.text}</p>
+                        )}
+
+                        {/* Actions - Buttons */}
+                        {action?.buttons && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {action.buttons.map((btn: any, i: number) => (
+                                    <div key={i} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-indigo-600 font-medium shadow-xs">
+                                        {btn.reply?.title || 'Button'}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Actions - List */}
+                        {action?.sections && (
+                            <div className="mt-2 text-sm text-gray-900 border border-gray-100 rounded-lg overflow-hidden bg-white/50">
+                                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 font-medium text-gray-500 text-xs flex items-center justify-between">
+                                    <span>LISTE D'OPTIONS</span>
+                                    {action.button && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">{action.button}</span>}
+                                </div>
+                                <div className="p-2 space-y-3">
+                                    {action.sections.map((section: any, i: number) => (
+                                        <div key={i}>
+                                            {section.title && <p className="text-xs font-semibold text-gray-500 mb-1 uppercase">{section.title}</p>}
+                                            <ul className="space-y-1">
+                                                {section.rows?.map((row: any, j: number) => (
+                                                    <li key={j} className="flex flex-col px-2 py-1 bg-white rounded border border-gray-100">
+                                                        <span className="font-medium">{row.title}</span>
+                                                        {row.description && <span className="text-xs text-gray-500">{row.description}</span>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
         }
 
         // Text message with emoji detection for large emoji display
@@ -371,7 +436,15 @@ export function MessageBubble({
                     )}
 
                     {/* Content */}
-                    <div className="text-sm text-gray-900">{renderContent()}</div>
+                    <div className="text-sm text-gray-900">
+                        {isOutbound && !message.senderId && (
+                            <div className="flex items-center gap-1.5 mb-1 text-xs text-indigo-600 font-medium pb-1 border-b border-indigo-100">
+                                <Bot className="h-3 w-3" />
+                                <span>Automation</span>
+                            </div>
+                        )}
+                        {renderContent()}
+                    </div>
 
                     {/* Time and status */}
                     <div className={cn(

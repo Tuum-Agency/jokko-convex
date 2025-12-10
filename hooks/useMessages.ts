@@ -6,7 +6,7 @@ import { useMemo, useCallback } from "react";
 export interface Message {
     id: string
     content: string | null
-    type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'LOCATION' | 'STICKER' | 'REACTION' | 'SYSTEM'
+    type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'LOCATION' | 'STICKER' | 'REACTION' | 'SYSTEM' | 'INTERACTIVE'
     timestamp: number
     direction: 'INBOUND' | 'OUTBOUND'
     status: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED'
@@ -30,6 +30,7 @@ export interface Message {
     longitude?: number
     locationName?: string
     locationAddress?: string
+    interactive?: any
 }
 
 interface UseMessagesProps {
@@ -88,7 +89,8 @@ export function useMessages({ conversationId, organizationId }: UseMessagesProps
             longitude: msg.longitude,
             locationName: msg.locationName,
             locationAddress: msg.locationAddress,
-        })).reverse(); // Reverse to have oldest first (chronological) 
+            interactive: msg.interactive,
+        })).reverse();
     }, [results]);
 
     return {

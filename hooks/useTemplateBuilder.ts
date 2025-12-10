@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { TemplateType, TemplateTypeConfig } from '@/convex/lib/templateTypes';
+import { validateTemplate } from '@/convex/lib/templateValidation';
 
 interface UseTemplateBuilderProps {
     type: TemplateType;
@@ -38,6 +39,27 @@ export const useTemplateBuilder = ({
             buttons: c.buttons
         })) || [],       // For CAROUSEL
     });
+
+    const validationResult = useMemo(() => {
+        // Construct the hypothetical payload for validation
+        // We reuse the logic from submit() roughly
+        const payload: any = {
+            name: formData.name,
+            language: formData.language,
+            category: formData.category,
+            type: type,
+            header: formData.header,
+            body: formData.body,
+            footer: formData.footer,
+            buttons: formData.buttons,
+        };
+        // Add specific fields if needed for validation (LIST...)
+        if (type === 'LIST') {
+            payload.listConfig = { sections: formData.sections };
+        }
+
+        return validateTemplate(payload);
+    }, [formData, type]);
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -118,6 +140,18 @@ export const useTemplateBuilder = ({
 
     const publish = async () => {
         if (!initialData?._id) return;
+
+        // Final Validation Check before publish
+        if (!validationResult.valid) {
+            alert("Veuillez corriger les erreurs avant d'envoyer à WhatsApp.");
+            return;
+        }
+
+        if (validationResult.warnings.length > 0) {
+            const confirm = window.confirm("Ce template contient des avertissements. Voulez-vous vraiment l'envoyer ? Il risque d'être rejeté.");
+            if (!confirm) return;
+        }
+
         setIsPublishing(true);
         try {
             await submitToMetaAction({ templateId: initialData._id });
@@ -136,6 +170,7 @@ export const useTemplateBuilder = ({
         isPublishing,
         handleChange,
         submit,
-        publish
+        publish,
+        validationResult
     };
 };

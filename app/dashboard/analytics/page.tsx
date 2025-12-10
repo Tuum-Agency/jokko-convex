@@ -28,12 +28,39 @@ import {
     Clock,
     Activity,
     ArrowUpRight,
-    Download
+    Download,
+    AlertCircle
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import Papa from "papaparse";
 
 export default function AnalyticsPage() {
+    const role = useQuery(api.users.currentUserRole);
     const stats = useQuery(api.analytics.getDashboardStats, {});
+
+    if (role === undefined) {
+        return (
+            <div className="p-8 space-y-4">
+                <Skeleton className="h-12 w-48" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        );
+    }
+
+    if (role === 'AGENT') {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertDescription>
+                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
 
     if (!stats) {
         return (
@@ -108,7 +135,9 @@ export default function AnalyticsPage() {
                         <CardTitle className="text-sm font-medium">
                             Messages Totaux
                         </CardTitle>
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-blue-50">
+                            <MessageSquare className="h-5 w-5 text-blue-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{global.totalMessages}</div>
@@ -127,7 +156,9 @@ export default function AnalyticsPage() {
                         <CardTitle className="text-sm font-medium">
                             Conversations Actives
                         </CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground" />
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-emerald-50">
+                            <Activity className="h-5 w-5 text-emerald-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{global.openConversations}</div>
@@ -142,7 +173,9 @@ export default function AnalyticsPage() {
                         <CardTitle className="text-sm font-medium">
                             Agents Actifs
                         </CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-violet-50">
+                            <Users className="h-5 w-5 text-violet-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{agents.length}</div>
@@ -157,7 +190,9 @@ export default function AnalyticsPage() {
                         <CardTitle className="text-sm font-medium">
                             Temps de Réponse Moyen
                         </CardTitle>
-                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-orange-50">
+                            <Clock className="h-5 w-5 text-orange-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{global.avgResponseTime || "N/A"}</div>

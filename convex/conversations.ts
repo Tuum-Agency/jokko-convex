@@ -104,7 +104,8 @@ export const list = query({
                         phoneNumber: contact.phone,
                         waId: contact.phone, // Assuming phone is WA ID
                         profilePicture: null, // Add to schema if needed
-                        lastContactedAt: c.lastMessageAt
+                        lastContactedAt: c.lastMessageAt,
+                        isBlocked: contact.isBlocked || false,
                     } : null,
                     assignedTo: assignee ? {
                         _id: assignee._id,
@@ -156,7 +157,8 @@ export const getById = query({
                 phoneNumber: contact.phone,
                 waId: contact.phone,
                 profilePicture: null,
-                lastContactedAt: conversation.lastMessageAt
+                lastContactedAt: conversation.lastMessageAt,
+                isBlocked: contact.isBlocked || false,
             } : null,
             assignedTo: assignee ? {
                 _id: assignee._id,

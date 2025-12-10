@@ -9,7 +9,8 @@ import { TemplateType } from '@/convex/lib/templateTypes';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Loader2, Plus, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, Download, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 // ... imports
 import { Id } from '@/convex/_generated/dataModel';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -25,6 +26,41 @@ export default function TemplatesPage() {
     const [view, setView] = useState<ViewState>('LIST');
     const [selectedType, setSelectedType] = useState<TemplateType | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    const role = useQuery(api.users.currentUserRole);
+
+    const seedStandard = useMutation(api.templates.mutations.seedStandard);
+    const [isSeeding, setIsSeeding] = useState(false);
+
+    if (role === undefined) {
+        return (
+            <div className="space-y-6 p-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                        <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+                    </div>
+                </div>
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+            </div>
+        );
+    }
+
+    if (role === 'AGENT') {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertDescription>
+                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
 
     const handleCreateClick = () => {
         setView('SELECT_TYPE');
@@ -56,8 +92,7 @@ export default function TemplatesPage() {
         // Toast?
     };
 
-    const seedStandard = useMutation(api.templates.mutations.seedStandard);
-    const [isSeeding, setIsSeeding] = useState(false);
+
 
     const handleSeed = async () => {
         setIsSeeding(true);

@@ -225,3 +225,173 @@ export const getDashboardStats = query({
         };
     }
 });
+
+export const getAppDashboardStats = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const organizationId = await getOrganizationId(ctx, userId);
+        if (!organizationId) return null;
+
+        const now = Date.now();
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const currentStart = now - thirtyDaysMs;
+        const previousStart = currentStart - thirtyDaysMs;
+
+        // --- 1. Recent Conversations ---
+        const recentConvsRaw = await ctx.db
+            .query("conversations")
+            .withIndex("by_org_last_message", (q) => q.eq("organizationId", organizationId))
+            .order("desc")
+            .take(5);
+
+        const recentConversations = await Promise.all(recentConvsRaw.map(async (c) => {
+            let contactName = "Inconnu";
+            let contactPhone = "";
+
+            if (c.contactId) {
+                const contact = await ctx.db.get(c.contactId);
+                if (contact) {
+                    contactName = contact.name || contact.phone;
+                    contactPhone = contact.phone;
+                }
+            }
+
+            return {
+                id: c._id,
+                contactName,
+                contactPhone,
+                lastMessageTime: c.lastMessageAt,
+                unread: c.unreadCount > 0
+            };
+        }));
+
+        // --- 2. Stats & Trends ---
+
+        // Fetch all messages in the last 60 days
+        const messages = await ctx.db
+            .query("messages")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .filter(q => q.gte(q.field("createdAt"), previousStart))
+            .collect();
+
+        // Accumulators
+        let currentPeriod = {
+            messagesSent: 0,
+            messagesInbound: 0,
+            activeContacts: new Set<string>()
+        };
+
+        let previousPeriod = {
+            messagesSent: 0,
+            messagesInbound: 0,
+            activeContacts: new Set<string>()
+        };
+
+        for (const m of messages) {
+            const isCurrent = m.createdAt >= currentStart;
+            const target = isCurrent ? currentPeriod : previousPeriod;
+
+            if (m.direction === 'OUTBOUND') target.messagesSent++;
+            if (m.direction === 'INBOUND') target.messagesInbound++;
+            if (m.contactId) target.activeContacts.add(m.contactId);
+        }
+
+        // Count Total Conversations (Snapshot or new in period?)
+        // Let's use Total Conversations as "Total In Database" and Trend as "New this month"
+        const allConversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const totalConversationsCount = allConversations.length;
+
+        // Calculate new conversations in periods for trend
+        let currentNewConvs = 0;
+        let prevNewConvs = 0;
+        for (const c of allConversations) {
+            if (c.createdAt >= currentStart) currentNewConvs++;
+            else if (c.createdAt >= previousStart) prevNewConvs++;
+        }
+
+        // --- Formatting Helper ---
+        const formatTrend = (current: number, prev: number, isPercent = false) => {
+            if (prev === 0) return { trend: 'up' as const, value: isPercent ? '>100%' : `+${current}` };
+            const diff = current - prev;
+            const percent = (diff / prev) * 100;
+            const trend = diff >= 0 ? 'up' as const : 'down' as const;
+            const value = isPercent ? `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%` : `${diff > 0 ? '+' : ''}${Math.round(percent)}%`;
+            return { trend, value };
+        };
+
+        // 1. Total Conversations
+        const convTrend = formatTrend(currentNewConvs, prevNewConvs);
+
+        // 2. Active Contacts
+        const activeContactsCount = currentPeriod.activeContacts.size;
+        const prevActiveContactsCount = previousPeriod.activeContacts.size;
+        const contactsTrend = formatTrend(activeContactsCount, prevActiveContactsCount);
+
+        // 3. Messages Sent
+        const sentTrend = formatTrend(currentPeriod.messagesSent, previousPeriod.messagesSent);
+
+        // 4. Response Rate (Approx: Outbound / Total messages involved?) 
+        // Or just Replied / Inbound.
+        // Let's use (Outbound / (Outbound + Inbound)) or just Outbound/Inbound
+        const calcRate = (out: number, inb: number) => {
+            if (inb === 0) return 0; // No inbound messages
+            return Math.min(100, (out / inb) * 100);
+        };
+
+        const currentRate = calcRate(currentPeriod.messagesSent, currentPeriod.messagesInbound);
+        const prevRate = calcRate(previousPeriod.messagesSent, previousPeriod.messagesInbound);
+        const rateTrend = formatTrend(currentRate, prevRate, true);
+
+        return {
+            stats: [
+                {
+                    title: 'Total Conversations',
+                    value: totalConversationsCount.toLocaleString(),
+                    description: 'depuis le mois dernier',
+                    trend: convTrend.trend,
+                    trendValue: convTrend.value,
+                    iconColor: "text-emerald-600",
+                    iconBg: "bg-emerald-50",
+                },
+                {
+                    title: 'Contacts Actifs',
+                    value: activeContactsCount.toLocaleString(),
+                    description: 'contacts engagés',
+                    trend: contactsTrend.trend,
+                    trendValue: contactsTrend.value,
+                    iconColor: "text-blue-600",
+                    iconBg: "bg-blue-50",
+                },
+                {
+                    title: 'Messages Envoyés',
+                    value: currentPeriod.messagesSent.toLocaleString(),
+                    description: 'ce mois-ci',
+                    trend: sentTrend.trend,
+                    trendValue: sentTrend.value,
+                    iconColor: "text-purple-600",
+                    iconBg: "bg-purple-50",
+                },
+                {
+                    title: 'Taux de Réponse',
+                    value: `${currentRate.toFixed(1)}%`,
+                    description: 'estimé',
+                    trend: rateTrend.trend,
+                    trendValue: rateTrend.value,
+                    iconColor: "text-orange-600",
+                    iconBg: "bg-orange-50",
+                },
+            ],
+            recentConversations
+        };
+    }
+});
+
+// End of file update
+

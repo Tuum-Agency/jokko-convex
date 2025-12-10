@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
-import { Plus, MoreVertical, Play, Pause, Trash2, Edit, Workflow, Bot, ChevronLeft } from 'lucide-react';
+import { Plus, MoreVertical, Play, Pause, Trash2, Edit, Workflow, Bot, ChevronLeft, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
@@ -29,12 +30,45 @@ import {
 
 export function FlowsPageClient() {
     const router = useRouter();
+    const role = useQuery(api.users.currentUserRole);
+
     const flows = useQuery(api.flows.list);
     const createFlow = useMutation(api.flows.create);
     const deleteFlow = useMutation(api.flows.deleteFlow);
     const updateFlow = useMutation(api.flows.update);
-
     const [search, setSearch] = useState('');
+
+    if (role === undefined) {
+        return (
+            <div className="p-8 space-y-8 h-full">
+                <Skeleton className="h-10 w-48" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                            <Skeleton className="h-6 w-16 mb-4" />
+                            <Skeleton className="h-24 w-full" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (role === 'AGENT') {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertDescription>
+                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
+
+
 
     const filteredFlows = flows?.filter(f =>
         f.name.toLowerCase().includes(search.toLowerCase())

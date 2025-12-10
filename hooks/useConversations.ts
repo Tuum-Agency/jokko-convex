@@ -13,6 +13,7 @@ export interface ConversationSummary {
         name: string | null;
         phone: string;
         avatarUrl?: string | null;
+        isBlocked?: boolean;
     };
     lastMessageText: string | null;
     lastMessageAt: number;
@@ -52,6 +53,7 @@ export function useConversations() {
                 name: c.contact?.name || null,
                 phone: c.contact?.phoneNumber || "Unknown",
                 avatarUrl: c.contact?.profilePicture || null,
+                isBlocked: c.contact?.isBlocked,
             },
             lastMessageText: c.preview,
             lastMessageAt: c.lastMessageAt,
@@ -78,6 +80,7 @@ export function useConversations() {
     const reopenMutation = useMutation(api.conversations.reopen);
     const archiveMutation = useMutation(api.conversations.archive);
     const markAsReadMutation = useMutation(api.conversations.markAsRead);
+    const toggleBlockMutation = useMutation(api.contacts.toggleBlock);
 
     // Status state for actions
     const [isResolving, setIsResolving] = useState(false);
@@ -109,6 +112,10 @@ export function useConversations() {
         }
     };
 
+    const blockContact = async (contactId: string) => {
+        await toggleBlockMutation({ id: contactId as Id<"contacts"> });
+    }
+
     const markAsRead = async (id: string) => {
         await markAsReadMutation({ id: id as Id<"conversations"> });
     };
@@ -133,6 +140,7 @@ export function useConversations() {
         resolveConversation,
         reopenResolvedConversation,
         archiveConversation,
+        blockContact,
         markAsRead,
         isResolving,
         currentMember

@@ -22,7 +22,8 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, Users, Mail, Building2 } from 'lucide-react'
+import { UserPlus, Users, Mail, Building2, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useQuery } from "convex/react"
 
 import { Button } from '@/components/ui/button'
@@ -57,10 +58,40 @@ export default function TeamPage() {
     const [inviteModalOpen, setInviteModalOpen] = useState(false)
     const [createPoleModalOpen, setCreatePoleModalOpen] = useState(false)
 
+    const role = useQuery(api.users.currentUserRole);
+
     // Convex Queries
     const membersData = useQuery(api.team.listMembers, {})
     const invitationsData = useQuery(api.invitations.list, {})
     const polesData = useQuery(api.poles.list, {})
+
+    if (role === undefined) {
+        return (
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        );
+    }
+
+
+
+    if (role === 'AGENT') {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertDescription>
+                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
+
+
 
     // Loading states
     const membersLoading = membersData === undefined

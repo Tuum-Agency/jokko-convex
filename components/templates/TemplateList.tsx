@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { useQuery, usePaginatedQuery } from "convex/react";
+import { useQuery, usePaginatedQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -12,7 +12,7 @@ import { Skeleton } from '../ui/skeleton';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { TEMPLATE_TYPE_CONFIGS, TemplateType } from '@/convex/lib/templateTypes';
-import { Edit, Trash2, FileStack, MoreHorizontal, Search, Plus } from 'lucide-react';
+import { Edit, Trash2, FileStack, MoreHorizontal, Search, Plus, RefreshCcw } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -44,6 +44,19 @@ interface TemplateListProps {
 
 export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
+    const syncTemplates = useAction(api.templates.actions.syncFromMeta);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        try {
+            await syncTemplates({});
+        } catch (error) {
+            console.error("Sync error:", error);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const { results: templates, status, loadMore } = usePaginatedQuery(
         api.templates.queries.list,
@@ -109,10 +122,16 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <Button onClick={onCreate} className="ml-4">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nouveau Template
-                </Button>
+                <div className="flex gap-2 ml-4">
+                    <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+                        <RefreshCcw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                        Sync Status
+                    </Button>
+                    <Button onClick={onCreate}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nouveau Template
+                    </Button>
+                </div>
             </div>
 
             <div className="rounded-md border">
