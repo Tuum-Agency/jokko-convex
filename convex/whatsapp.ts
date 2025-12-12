@@ -1,5 +1,129 @@
-import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { httpAction, action, internalMutation, internalQuery } from "./_generated/server";
+import { api, internal } from "./_generated/api";
+import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+/**
+ * Helper to get active organization ID for current user
+ */
+export const getActiveOrgId = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        return session?.currentOrganizationId ?? null;
+    }
+});
+
+/**
+ * Saves the WhatsApp configuration for an organization
+ */
+export const saveWhatsAppConfig = internalMutation({
+    args: {
+        organizationId: v.id("organizations"),
+        accessToken: v.string(),
+        phoneNumberId: v.string(),
+        wabaId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.organizationId, {
+            whatsapp: {
+                accessToken: args.accessToken,
+                phoneNumberId: args.phoneNumberId, // We use this for sending
+                businessAccountId: args.wabaId,
+                webhookVerifyToken: "jokko_webhook_verify_2024", // Default verification token
+            }
+        });
+    }
+});
+
+// 1. Fetch Available Phone Numbers (Step 1)
+export const fetchWhatsAppPhoneNumbers = action({
+    args: {
+        accessToken: v.string(),
+    },
+    handler: async (ctx, args) => {
+        // Fetch WABA ID
+        console.log("Fetching WABA...");
+        let wabaId;
+        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
+
+        if (wabaResponse.ok) {
+            const wabaData = await wabaResponse.json();
+            wabaId = wabaData.data?.[0]?.id;
+        }
+
+        // Fallback to /me/accounts if needed
+        if (!wabaId) {
+            const accountsResponse = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${args.accessToken}`);
+            if (accountsResponse.ok) {
+                const accountsData = await accountsResponse.json();
+                wabaId = accountsData.data?.[0]?.id;
+            }
+        }
+
+        if (!wabaId) {
+            throw new Error("No WhatsApp Business Account found. Please create one on Facebook first.");
+        }
+
+        // Fetch Phone Numbers
+        console.log(`Fetching Phone Numbers for WABA ${wabaId}...`);
+        const phoneResponse = await fetch(`https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?access_token=${args.accessToken}`);
+
+        if (!phoneResponse.ok) {
+            throw new Error("Failed to fetch WhatsApp Phone Numbers");
+        }
+
+        const phoneData = await phoneResponse.json();
+        const phoneNumbers = phoneData.data || [];
+
+        if (phoneNumbers.length === 0) {
+            throw new Error("No phone numbers found in this WhatsApp Account.");
+        }
+
+        return {
+            wabaId,
+            phoneNumbers: phoneNumbers.map((p: any) => ({
+                id: p.id,
+                display_phone_number: p.display_phone_number,
+                verified_name: p.verified_name,
+                quality_rating: p.quality_rating
+            }))
+        };
+    }
+});
+
+// 2. Finalize Registration (Step 2 - Save Selected Number)
+export const finalizeWhatsAppRegistration = action({
+    args: {
+        accessToken: v.string(),
+        wabaId: v.string(),
+        phoneNumberId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+
+        if (!orgId) {
+            throw new Error("No active organization found");
+        }
+
+        // Save Configuration
+        await ctx.runMutation(internal.whatsapp.saveWhatsAppConfig, {
+            organizationId: orgId,
+            accessToken: args.accessToken,
+            phoneNumberId: args.phoneNumberId,
+            wabaId: args.wabaId
+        });
+
+        return { success: true };
+    }
+});
 
 export const webhook = httpAction(async (ctx, request) => {
     const { method } = request;

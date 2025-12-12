@@ -88,11 +88,44 @@ export default defineSchema({
             v.literal("PRO"),
             v.literal("ENTERPRISE")
         ),
+        creditBalance: v.optional(v.number()), // Solde de crédits (FCFA ou Unités)
+
+        // Fair Usage Policy (Limits)
+        usageStats: v.optional(v.object({
+            periodStart: v.number(), // Start of billing cycle (timestamp)
+            periodEnd: v.number(),   // End of billing cycle (timestamp)
+            serviceConversationsCount: v.number(), // Free tier usage
+        })),
+
         createdAt: v.number(),
         updatedAt: v.number(),
     })
         .index("by_owner", ["ownerId"])
         .index("by_slug", ["slug"]),
+
+    // ============================================
+    // Credits & Billing
+    // ============================================
+    creditTransactions: defineTable({
+        organizationId: v.id("organizations"),
+        amount: v.number(), // Positive for recharge, Negative for usage
+        type: v.union(
+            v.literal("RECHARGE"), // Achat de crédits
+            v.literal("USAGE"),    // Consommation (Broadcast, AI)
+            v.literal("BONUS"),    // Offert (ex: 500 offerts)
+            v.literal("REFUND"),   // Remboursement
+            v.literal("ADJUSTMENT") // Correction manuelle
+        ),
+        description: v.optional(v.string()), // ex: "Campagne Promo Tabaski"
+        referenceId: v.optional(v.string()), // ex: Payment ID or Broadcast ID
+        balanceAfter: v.number(), // Snapshot du solde après opération
+        performedBy: v.optional(v.id("users")), // User who triggered action
+        metadata: v.optional(v.any()),
+        createdAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_org_type", ["organizationId", "type"])
+        .index("by_org_date", ["organizationId", "createdAt"]),
 
 
     // ============================================
