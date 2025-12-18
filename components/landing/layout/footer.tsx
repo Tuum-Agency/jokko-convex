@@ -5,8 +5,8 @@ import { FadeInView, StaggerContainer, StaggerItem } from '@/components/animatio
 
 const footerLinks = {
     product: [
-        { name: 'Fonctionnalités', href: '#features' },
-        { name: 'Tarifs', href: '#pricing' },
+        { name: 'Fonctionnalités', href: '/fonctionnalites' },
+        { name: 'Tarifs', href: '/tarifs' },
         { name: 'Intégrations', href: '/integrations' },
         { name: 'API', href: '/api' },
     ],
@@ -167,10 +167,12 @@ export function Footer() {
                         <div className="text-gray-400 text-sm">
                             © 2024 Jokko. Tous droits réservés.
                         </div>
-                        <div className="flex items-center space-x-6 text-sm text-gray-400">
-                            <span>Plateforme WhatsApp Business</span>
-                            <span>•</span>
-                            <span>Créé avec ❤️ pour les entreprises</span>
+                        <div className="flex flex-wrap gap-3 items-center justify-center opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
+                            <div className="h-6 px-2 rounded bg-white/10 flex items-center text-[10px] font-bold tracking-wider text-white border border-white/10">VISA</div>
+                            <div className="h-6 px-2 rounded bg-white/10 flex items-center text-[10px] font-bold tracking-wider text-white border border-white/10">MASTERCARD</div>
+                            <div className="h-6 px-2 rounded bg-orange-500/20 flex items-center text-[10px] font-bold tracking-wider text-orange-400 border border-orange-500/20">ORANGE</div>
+                            <div className="h-6 px-2 rounded bg-blue-500/20 flex items-center text-[10px] font-bold tracking-wider text-blue-400 border border-blue-500/20">WAVE</div>
+                            <div className="h-6 px-2 rounded bg-red-500/20 flex items-center text-[10px] font-bold tracking-wider text-red-500 border border-red-500/20">FREE</div>
                         </div>
                     </div>
                 </FadeInView>

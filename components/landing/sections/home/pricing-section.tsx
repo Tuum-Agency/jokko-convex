@@ -1,157 +1,235 @@
+"use client";
+
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { FadeInView, StaggerContainer, StaggerItem, ScaleInView } from '@/components/animations'
-import { Check, DollarSign, Zap, Briefcase, Building, User } from 'lucide-react'
+import { Check, DollarSign, Zap, Store, Building2, ShieldCheck, HelpCircle, Sparkles } from 'lucide-react'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
 
 const plans = [
     {
         name: 'Starter',
-        price: '25 000',
+        price: '10 000',
         period: 'mois',
-        description: 'Pour solopreneurs. L\'essentiel pour démarrer.',
-        icon: User,
-        color: 'bg-green-100 text-green-600',
+        description: 'Pour les solopreneurs qui se lancent.',
+        icon: Zap,
+        gradient: 'from-slate-50 to-white',
+        border: 'border-slate-200',
+        text: 'text-slate-900',
+        buttonVariant: 'outline' as const,
         features: [
-            'Votre numéro Business connecté',
-            '1 Agent (Vous)',
-            'Réception illimitée (Gratuit)',
-            'Pas de marketing de masse',
-            'Support par email'
+            '1 Agent (Vous uniquement)',
+            'Boîte de réception unifiée',
+            'Numéro Business connecté',
+            'Tags & Notes de base',
+            'Support Standard (Email)'
         ],
-        cta: "Commencer l'essai",
+        limits: [
+            'Pas de Chatbot',
+            'Pas de Marketing de masse'
+        ],
+        cta: "Démarrer",
         popular: false
     },
     {
         name: 'Business',
-        price: '65 000',
+        price: '30 000',
         period: 'mois',
-        description: 'Pour PME. Automatisez votre activité.',
-        icon: Briefcase,
-        color: 'bg-blue-100 text-blue-600',
+        description: 'Pour les PME en croissance.',
+        icon: Store,
+        gradient: 'from-green-50 to-emerald-100/40',
+        border: 'border-green-500 ring-4 ring-green-500/10 shadow-2xl',
+        text: 'text-green-800',
+        buttonVariant: 'default' as const,
         features: [
             '5 Agents inclus',
-            'Chatbot (Répondeur auto)',
-            'Outil de campagnes illimité',
-            'Étiquettes clients',
-            'Paiement WhatsApp au réel',
+            'Marketing WhatsApp Illimité',
+            'Chatbot : Réponses rapides',
+            'Statistiques de base',
+            'Support Prioritaire'
+        ],
+        limits: [
+            'Pas d\'IA Générative',
+            'Max 5 utilisateurs'
         ],
         cta: "Choisir Business",
         popular: true
     },
     {
         name: 'Pro',
-        price: '150 000',
+        price: '70 000',
         period: 'mois',
-        description: 'Pour les Leaders. Aucune limite logicielle.',
-        icon: Building,
-        color: 'bg-purple-100 text-purple-600',
+        description: 'Pour les leaders du marché.',
+        icon: Building2,
+        gradient: 'from-purple-50 to-indigo-50/50',
+        border: 'border-purple-200',
+        text: 'text-purple-900',
+        buttonVariant: 'secondary' as const,
         features: [
             'Agents Illimités',
-            'Automatisation IA avancée',
-            'Marketing illimité (selon votre budget Meta)',
+            'Chatbot IA Avancé',
+            'Marketing Avancé & Segments',
             'API & Intégrations',
-            'Support Prioritaire (WhatsApp)'
+            'Account Manager dédié'
         ],
-        cta: "Choisir Pro",
+        limits: [],
+        cta: "Passer Pro",
         popular: false
     }
 ]
 
 export function PricingSection() {
     return (
-        <section id="pricing" className="py-24 bg-gray-50/50">
-            <div className="max-w-7xl mx-auto px-4">
+        <section id="pricing" className="py-24 relative overflow-hidden bg-slate-50">
+            {/* Background Decoration */}
+            <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-slate-300 to-transparent"></div>
+            <div className="absolute top-[10%] left-[-10%] w-[500px] h-[500px] bg-green-200/20 rounded-full blur-[100px] pointer-events-none"></div>
+            <div className="absolute bottom-[10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/20 rounded-full blur-[100px] pointer-events-none"></div>
+
+
+            <div className="max-w-7xl mx-auto px-6 relative z-10">
                 {/* Header */}
-                <div className="text-center mb-16">
+                <div className="text-center mb-20 max-w-3xl mx-auto">
                     <FadeInView>
                         <Eyebrow
-                            text="Tarifs Tout Inclus"
+                            text="Tarification Simple"
                             icon={<DollarSign className="w-3 h-3" />}
-                            className="mb-4"
+                            className="bg-white border-slate-200 shadow-sm"
                         />
                     </FadeInView>
-                    <FadeInView delay={0.2}>
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                            Simple. Transparent. Sans surprise.
+                    <FadeInView delay={0.2} className="mt-6">
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+                            Investissez dans votre <br />
+                            <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-teal-600">
+                                Machine à Vendre
+                            </span>
                         </h2>
                     </FadeInView>
                     <FadeInView delay={0.4}>
-                        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                            Louez la technologie Jokko (Dashboard, IA, Chatbot).
-                            Gérez votre budget publicitaire WhatsApp directement avec Meta.
+                        <p className="mt-6 text-xl text-slate-600 max-w-2xl mx-auto">
+                            Rejoignez 500+ entreprises qui génèrent des millions sur WhatsApp avec Jokko.
                             <br />
-                            <span className="text-green-600 font-semibold">100% Transparent. 100% Rentable.</span>
+                            <span className="text-sm text-slate-500 mt-2 block">(Prix hors coûts de conversation Meta)</span>
                         </p>
+                    </FadeInView>
+
+                    <FadeInView delay={0.5}>
+                        <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-100 text-green-700 font-medium text-sm animate-pulse">
+                            <Sparkles className="w-4 h-4" />
+                            7 jours d'essai offerts sur tous les plans
+                        </div>
                     </FadeInView>
                 </div>
 
                 {/* Pricing Cards */}
-                <StaggerContainer staggerDelay={0.15} delayChildren={0.6}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {plans.map((plan) => (
-                            <StaggerItem key={plan.name}>
-                                <ScaleInView>
-                                    <Card className={`h-full flex flex-col hover:shadow-xl transition-all duration-300 border-2 ${plan.popular ? 'border-green-500 shadow-md relative' : 'border-transparent hover:border-gray-200'}`}>
+                <StaggerContainer staggerDelay={0.1} delayChildren={0.4}>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                        {plans.map((plan, index) => (
+                            <StaggerItem key={plan.name} className={plan.popular ? 'lg:-mt-4' : ''}>
+                                <div className={`relative group h-full ${plan.popular ? 'lg:scale-105 z-10' : 'z-0'}`}>
+                                    <Card className={`h-full flex flex-col bg-linear-to-b ${plan.gradient} ${plan.border} transition-all duration-500 hover:shadow-2xl relative overflow-hidden`}>
+                                        {/* Hover Effect */}
+                                        <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none"></div>
 
-                                        {plan.popular && (
-                                            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                                                Recommandé
+                                        <CardHeader className="pb-8 pt-8 px-8 relative z-10">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white shadow-sm border border-slate-100 ${plan.popular ? 'text-green-600' : 'text-slate-600'}`}>
+                                                    <plan.icon className="w-7 h-7" />
+                                                </div>
+                                                {plan.popular && (
+                                                    <Badge className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-xs uppercase tracking-widest shadow-lg shadow-green-200 border-none">
+                                                        Recommandé
+                                                    </Badge>
+                                                )}
                                             </div>
-                                        )}
-
-                                        <CardHeader>
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${plan.color}`}>
-                                                <plan.icon className="w-6 h-6" />
-                                            </div>
-                                            <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                                            <CardDescription className="mt-2 text-base">{plan.description}</CardDescription>
+                                            <CardTitle className="text-2xl font-bold text-slate-900">{plan.name}</CardTitle>
+                                            <p className="text-slate-600 mt-2 text-sm font-medium">{plan.description}</p>
                                         </CardHeader>
 
-                                        <CardContent className="flex-1">
-                                            <div className="mb-6">
-                                                <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                                                <span className="text-gray-500 font-medium text-lg"> FCFA</span>
-                                                <span className="text-gray-400">/{plan.period}</span>
+                                        <CardContent className="px-8 flex-1 relative z-10">
+                                            <div className="flex items-end mb-8">
+                                                <span className={`text-5xl font-extrabold tracking-tight ${plan.text}`}>
+                                                    {plan.price}
+                                                </span>
+                                                <span className="text-slate-500 font-medium ml-2 mb-1">F CFA /mois</span>
                                             </div>
 
-                                            <div className="space-y-4">
+                                            <div className="space-y-4 mb-8">
+                                                {/* Included Features */}
                                                 {plan.features.map((feature, i) => (
                                                     <div key={i} className="flex items-start gap-3">
-                                                        <div className="p-0.5 bg-green-100 rounded-full mt-0.5 shrink-0">
-                                                            <Check className="w-3 h-3 text-green-600" />
+                                                        <div className={`mt-0.5 p-0.5 rounded-full shrink-0 ${plan.popular ? 'bg-green-100' : 'bg-slate-100'}`}>
+                                                            <Check className={`w-3.5 h-3.5 ${plan.popular ? 'text-green-600' : 'text-slate-600'}`} />
                                                         </div>
-                                                        <span className="text-sm text-gray-600 leading-relaxed">{feature}</span>
+                                                        <span className="text-sm text-slate-700 font-medium">{feature}</span>
+                                                    </div>
+                                                ))}
+
+                                                {/* Excluded/Limited Features (Grayed out) */}
+                                                {plan.limits.map((limit, i) => (
+                                                    <div key={i} className="flex items-start gap-3 opacity-50">
+                                                        <div className="mt-0.5 p-0.5 rounded-full shrink-0 bg-slate-50">
+                                                            <div className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <span className="text-sm text-slate-500 line-through decoration-slate-300">{limit}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </CardContent>
 
-                                        <CardFooter>
+                                        <CardFooter className="px-8 pb-8 pt-0 relative z-10 mt-auto">
                                             <Button
-                                                className={`w-full h-11 text-base font-medium ${plan.popular ? 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200' : 'bg-gray-900 hover:bg-gray-800'}`}
-                                                variant={plan.popular ? 'default' : 'secondary'}
+                                                className={`w-full h-12 text-base rounded-xl transition-all duration-300 ${plan.popular
+                                                    ? 'bg-green-600 hover:bg-green-700 shadow-green-200/50 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-white'
+                                                    : plan.buttonVariant === 'secondary'
+                                                        ? 'bg-slate-800 hover:bg-slate-900 text-white shadow-lg'
+                                                        : 'bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-200 hover:border-slate-300'
+                                                    }`}
                                                 asChild
                                             >
                                                 <Link href="/auth/sign-up">{plan.cta}</Link>
                                             </Button>
                                         </CardFooter>
                                     </Card>
-                                </ScaleInView>
+                                </div>
                             </StaggerItem>
                         ))}
                     </div>
                 </StaggerContainer>
 
-                {/* Enterprise Contact */}
-                <FadeInView delay={0.8} className="mt-16 text-center">
-                    <p className="text-gray-600">
-                        Besoin d'une offre Grand Compte (Enterprise) ?{' '}
-                        <Link href="/contact" className="text-green-600 font-semibold hover:underline">
-                            Contactez notre équipe commerciale
-                        </Link>
-                    </p>
+                {/* Enterprise Section */}
+                <FadeInView delay={0.6} className="mt-20">
+                    <div className="bg-slate-900 rounded-3xl p-8 md:p-12 relative overflow-hidden">
+                        {/* Background Gradients */}
+                        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[80px]"></div>
+                        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-green-500/10 rounded-full blur-[80px]"></div>
+
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+                            <div className="max-w-xl">
+                                <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                                    Besoin d'une offre Enterprise ?
+                                </h3>
+                                <p className="text-slate-300 text-lg leading-relaxed">
+                                    Pour les grandes organisations nécessitant une sécurité renforcée, des SLAs garantis et un accompagnement sur-mesure.
+                                </p>
+                                <div className="flex flex-wrap gap-4 mt-6">
+                                    <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                        <ShieldCheck className="w-4 h-4 text-green-500" />
+                                        <span>SSO & Sécurité</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                        <HelpCircle className="w-4 h-4 text-green-500" />
+                                        <span>Onboarding Dédié</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 h-14 px-8 rounded-full text-lg shadow-xl shrink-0">
+                                Contactez-nous
+                            </Button>
+                        </div>
+                    </div>
                 </FadeInView>
             </div>
         </section>

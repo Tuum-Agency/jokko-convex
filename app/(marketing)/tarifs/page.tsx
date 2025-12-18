@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CtaSection, PricingSection, FaqSection } from '@/components/landing/sections/home'
+import { PricingComparisonTable } from '@/components/landing/sections/home/pricing-comparison-table'
 
 export const metadata: Metadata = {
     title: 'Tarifs Flexibles - Jokko',
@@ -27,6 +28,9 @@ export default function TarifsPage() {
 
             {/* Pricing Plans */}
             <PricingSection />
+
+            {/* Comparison Table */}
+            <PricingComparisonTable />
 
             {/* FAQ */}
             <FaqSection />

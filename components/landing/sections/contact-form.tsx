@@ -257,12 +257,16 @@ export function ContactForm() {
                         name="message"
                         value={formData.message}
                         onChange={handleInputChange}
-                        rows={5}
+                        rows={8}
                         maxLength={500}
                         placeholder="Décrivez votre besoin ou posez votre question..."
                         aria-required="true"
                         aria-invalid={!!errors.message}
-                        className={cn(errors.message ? 'border-red-500 focus-visible:ring-red-500' : '')}
+                        className={cn(
+                            'min-h-[120px] resize-none rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition-all',
+                            'focus-visible:ring-0 focus-visible:border-green-500 focus-visible:bg-white',
+                            errors.message ? 'border-red-500 focus-visible:border-red-500' : ''
+                        )}
                     />
                     {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
                 </div>
