@@ -45,7 +45,7 @@ const plans = [
         buttonVariant: 'default' as const,
         features: [
             '5 Agents inclus',
-            'Marketing WhatsApp Illimité',
+            'Marketing WhatsApp (hors coûts Meta)',
             'Chatbot : Réponses rapides',
             'Statistiques de base',
             'Support Prioritaire'
@@ -68,7 +68,7 @@ const plans = [
         text: 'text-purple-900',
         buttonVariant: 'secondary' as const,
         features: [
-            'Agents Illimités',
+            '20 Agents inclus',
             'Chatbot IA Avancé',
             'Marketing Avancé & Segments',
             'API & Intégrations',
@@ -214,14 +214,26 @@ export function PricingSection() {
                                 <p className="text-slate-300 text-lg leading-relaxed">
                                     Pour les grandes organisations nécessitant une sécurité renforcée, des SLAs garantis et un accompagnement sur-mesure.
                                 </p>
-                                <div className="flex flex-wrap gap-4 mt-6">
-                                    <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                        <ShieldCheck className="w-4 h-4 text-green-500" />
-                                        <span>SSO & Sécurité</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-8">
+                                    <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                        <Check className="w-4 h-4 text-green-500" />
+                                        <span>Agents & Utilisateurs Illimités</span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                        <HelpCircle className="w-4 h-4 text-green-500" />
-                                        <span>Onboarding Dédié</span>
+                                    <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                        <Check className="w-4 h-4 text-green-500" />
+                                        <span>Multi-numéros WhatsApp</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                        <Check className="w-4 h-4 text-green-500" />
+                                        <span>Templates Illimités</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                        <Check className="w-4 h-4 text-green-500" />
+                                        <span>SSO & Sécurité Avancée</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+                                        <Check className="w-4 h-4 text-green-500" />
+                                        <span>Onboarding & Account Manager</span>
                                     </div>
                                 </div>
                             </div>

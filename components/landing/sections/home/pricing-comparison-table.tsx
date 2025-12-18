@@ -14,8 +14,8 @@ const features = [
     {
         category: 'Général',
         items: [
-            { name: 'Utilisateurs inclus', starter: '1 (Vous)', business: '5', pro: 'Illimité', help: 'Nombre de personnes pouvant accéder au compte.' },
-            { name: 'Numéros WhatsApp', starter: '1', business: '1', pro: 'Multiples', help: 'Nombre de numéros de téléphone connectables.' },
+            { name: 'Utilisateurs inclus', starter: '1 (Vous)', business: '5', pro: '20', help: 'Nombre de personnes pouvant accéder au compte.' },
+            { name: 'Numéros WhatsApp', starter: '1', business: '1', pro: '1', help: 'Nombre de numéros de téléphone connectables.' },
             { name: 'Contacts', starter: 'Illimité', business: 'Illimité', pro: 'Illimité', help: 'Nombre de contacts dans votre CRM.' },
             { name: 'Historique des messages', starter: '30 jours', business: 'Illimité', pro: 'Illimité', help: 'Durée de conservation des conversations.' },
         ]
@@ -24,9 +24,9 @@ const features = [
         category: 'Messagerie & Diffusion',
         items: [
             { name: 'Boîte de réception unifiée', starter: true, business: true, pro: true, help: 'Message centralisés au même endroit.' },
-            { name: 'Campagnes Marketing (Broadcast)', starter: false, business: 'Illimité', pro: 'Illimité', help: 'Envoi de messages en masse à vos clients.' },
+            { name: 'Campagnes Marketing (Broadcast)', starter: false, business: 'Illimité', pro: 'Illimité', help: 'Envoi en masse. Les frais de conversation WhatsApp (Meta) sont à votre charge.' },
             { name: 'Segmentation avancée', starter: false, business: true, pro: true, help: 'Filtrez vos clients par tags et attributs.' },
-            { name: 'Modèles de messages (Templates)', starter: 'Limité', business: 'Illimité', pro: 'Illimité', help: 'Modèles pré-approuvés par Meta.' },
+            { name: 'Modèles de messages (Templates)', starter: 'Limité', business: 'Limité', pro: 'Limité', help: 'Modèles pré-approuvés par Meta.' },
             { name: 'Envoi de médias (Images, Vidéos, Docs)', starter: true, business: true, pro: true, help: 'Support de tous les fichiers.' },
         ]
     },

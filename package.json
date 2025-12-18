@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ngrok": "npx ngrok http 3000"
+    "ngrok": "npx ngrok http 3001"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",

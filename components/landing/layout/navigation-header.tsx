@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Menu, Home, Zap, DollarSign, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
@@ -116,6 +116,7 @@ export function NavigationHeader() {
                                 </Button>
                             </SheetTrigger>
                             <SheetContent side="top" className="w-[100%] h-auto rounded-b-[2rem] pt-16">
+                                <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
                                 <nav className="flex flex-col gap-4">
                                     {navigationItems.map((item) => (
                                         <Link

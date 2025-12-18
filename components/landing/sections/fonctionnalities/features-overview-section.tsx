@@ -359,6 +359,7 @@ export function FeaturesOverviewSection() {
                                 {/* Right Side: Content */}
                                 <div className="md:w-3/5 p-8 md:p-10 flex flex-col overflow-y-auto">
                                     <DialogHeader className="mb-6">
+                                        <DialogTitle className="sr-only">{selectedFeature.title}</DialogTitle>
                                         <DialogDescription className="text-lg text-slate-600 leading-relaxed">
                                             {selectedFeature.detailedDescription}
                                         </DialogDescription>

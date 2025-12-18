@@ -1,32 +1,30 @@
 import Link from 'next/link'
 import { MessageCircle, Twitter, Linkedin, Github } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
-import { FadeInView, StaggerContainer, StaggerItem } from '@/components/animations'
 
 const footerLinks = {
     product: [
-        { name: 'Fonctionnalités', href: '/fonctionnalites' },
+        { name: 'Boîte de réception', href: '/fonctionnalites' },
+        { name: 'Campagnes Marketing', href: '/fonctionnalites' },
+        { name: 'Chatbot & IA', href: '/fonctionnalites' },
+        { name: 'CRM WhatsApp', href: '/fonctionnalites' },
         { name: 'Tarifs', href: '/tarifs' },
-        { name: 'Intégrations', href: '/integrations' },
-        { name: 'API', href: '/api' },
+    ],
+    solutions: [
+        { name: 'Pour le E-commerce', href: '/solutions/e-commerce' },
+        { name: 'Pour le Service Client', href: '/solutions/service-client' },
+        { name: 'Pour les Agences', href: '/solutions/agences' },
+        { name: 'TPE & PME', href: '/solutions/tpe-pme' },
     ],
     company: [
-        { name: 'À Propos', href: '/about' },
-        { name: 'Blog', href: '/blog' },
-        { name: 'Carrières', href: '/careers' },
+        { name: 'À Propos', href: '/' },
         { name: 'Contact', href: '/contact' },
-    ],
-    resources: [
-        { name: 'Documentation', href: '/docs' },
-        { name: 'Centre d\'Aide', href: '/help' },
-        { name: 'Communauté', href: '/community' },
-        { name: 'Statut', href: '/status' },
+        { name: 'Se connecter', href: '/auth/sign-in' },
+        { name: 'S\'inscrire', href: '/auth/sign-up' },
     ],
     legal: [
-        { name: 'Politique de Confidentialité', href: '/privacy' },
         { name: 'Conditions d\'Utilisation', href: '/terms' },
-        { name: 'Politique des Cookies', href: '/cookies' },
-        { name: 'RGPD', href: '/gdpr' },
+        { name: 'Politique de Confidentialité', href: '/privacy' },
+        { name: 'Mentions Légales', href: '/legal' },
     ],
 }
 
@@ -42,7 +40,7 @@ export function Footer() {
             <div className="max-w-6xl mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
                     {/* Brand Section */}
-                    <FadeInView delay={0.2} className="lg:col-span-2">
+                    <div className="lg:col-span-2">
                         <Link href="/" className="flex items-center space-x-2 mb-4">
                             <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
                                 <MessageCircle className="w-5 h-5 text-white" />
@@ -52,117 +50,93 @@ export function Footer() {
                         <p className="text-gray-400 mb-6 max-w-sm">
                             Transformez vos communications WhatsApp Business avec l&apos;automatisation alimentée par IA et les outils de collaboration d&apos;équipe.
                         </p>
-                        <StaggerContainer staggerDelay={0.1} delayChildren={0.5}>
-                            <div className="flex space-x-4">
-                                {socialLinks.map((social) => {
-                                    const Icon = social.icon
-                                    return (
-                                        <StaggerItem key={social.name}>
-                                            <a
-                                                href={social.href}
-                                                className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors"
-                                                aria-label={social.name}
-                                            >
-                                                <Icon className="w-5 h-5" />
-                                            </a>
-                                        </StaggerItem>
-                                    )
-                                })}
-                            </div>
-                        </StaggerContainer>
-                    </FadeInView>
+                        <div className="flex space-x-4">
+                            {socialLinks.map((social) => {
+                                const Icon = social.icon
+                                return (
+                                    <a
+                                        key={social.name}
+                                        href={social.href}
+                                        className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors"
+                                        aria-label={social.name}
+                                    >
+                                        <Icon className="w-5 h-5" />
+                                    </a>
+                                )
+                            })}
+                        </div>
+                    </div>
 
                     {/* Product Links */}
-                    <FadeInView delay={0.4}>
+                    <div>
                         <h3 className="text-white font-semibold mb-4">Produit</h3>
-                        <StaggerContainer staggerDelay={0.05} delayChildren={0.1}>
-                            <ul className="space-y-3">
-                                {footerLinks.product.map((link) => (
-                                    <StaggerItem key={link.name}>
-                                        <li>
-                                            <Link
-                                                href={link.href}
-                                                className="text-gray-400 hover:text-green-400 transition-colors"
-                                            >
-                                                {link.name}
-                                            </Link>
-                                        </li>
-                                    </StaggerItem>
-                                ))}
-                            </ul>
-                        </StaggerContainer>
-                    </FadeInView>
+                        <ul className="space-y-3">
+                            {footerLinks.product.map((link) => (
+                                <li key={link.name}>
+                                    <Link
+                                        href={link.href}
+                                        className="text-gray-400 hover:text-green-400 transition-colors"
+                                    >
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
 
                     {/* Company Links */}
-                    <FadeInView delay={0.5}>
+                    <div>
                         <h3 className="text-white font-semibold mb-4">Entreprise</h3>
-                        <StaggerContainer staggerDelay={0.05} delayChildren={0.1}>
-                            <ul className="space-y-3">
-                                {footerLinks.company.map((link) => (
-                                    <StaggerItem key={link.name}>
-                                        <li>
-                                            <Link
-                                                href={link.href}
-                                                className="text-gray-400 hover:text-green-400 transition-colors"
-                                            >
-                                                {link.name}
-                                            </Link>
-                                        </li>
-                                    </StaggerItem>
-                                ))}
-                            </ul>
-                        </StaggerContainer>
-                    </FadeInView>
+                        <ul className="space-y-3">
+                            {footerLinks.company.map((link) => (
+                                <li key={link.name}>
+                                    <Link
+                                        href={link.href}
+                                        className="text-gray-400 hover:text-green-400 transition-colors"
+                                    >
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
 
-                    {/* Resources Links */}
-                    <FadeInView delay={0.6}>
-                        <h3 className="text-white font-semibold mb-4">Ressources</h3>
-                        <StaggerContainer staggerDelay={0.05} delayChildren={0.1}>
-                            <ul className="space-y-3">
-                                {footerLinks.resources.map((link) => (
-                                    <StaggerItem key={link.name}>
-                                        <li>
-                                            <Link
-                                                href={link.href}
-                                                className="text-gray-400 hover:text-green-400 transition-colors"
-                                            >
-                                                {link.name}
-                                            </Link>
-                                        </li>
-                                    </StaggerItem>
-                                ))}
-                            </ul>
-                        </StaggerContainer>
-                    </FadeInView>
+                    {/* Solutions Links */}
+                    <div>
+                        <h3 className="text-white font-semibold mb-4">Solutions</h3>
+                        <ul className="space-y-3">
+                            {footerLinks.solutions.map((link) => (
+                                <li key={link.name}>
+                                    <Link
+                                        href={link.href}
+                                        className="text-gray-400 hover:text-green-400 transition-colors"
+                                    >
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
 
-                    {/* Legal Links */}
-                    <FadeInView delay={0.7}>
-                        <h3 className="text-white font-semibold mb-4">Légal</h3>
-                        <StaggerContainer staggerDelay={0.05} delayChildren={0.1}>
-                            <ul className="space-y-3">
-                                {footerLinks.legal.map((link) => (
-                                    <StaggerItem key={link.name}>
-                                        <li>
-                                            <Link
-                                                href={link.href}
-                                                className="text-gray-400 hover:text-green-400 transition-colors"
-                                            >
-                                                {link.name}
-                                            </Link>
-                                        </li>
-                                    </StaggerItem>
-                                ))}
-                            </ul>
-                        </StaggerContainer>
-                    </FadeInView>
+                    {/* Legal & Help Links */}
+                    <div>
+                        <h3 className="text-white font-semibold mb-4">Aide & Légal</h3>
+                        <ul className="space-y-3">
+                            {footerLinks.legal.map((link) => (
+                                <li key={link.name}>
+                                    <Link
+                                        href={link.href}
+                                        className="text-gray-400 hover:text-green-400 transition-colors"
+                                    >
+                                        {link.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
 
-                <FadeInView delay={0.8}>
-                    <Separator className="my-8 bg-gray-800" />
-                </FadeInView>
-
-                {/* Bottom Section */}
-                <FadeInView delay={1.0}>
+                <div className="mt-12 pt-8 border-t border-gray-800">
                     <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
                         <div className="text-gray-400 text-sm">
                             © 2024 Jokko. Tous droits réservés.
@@ -175,7 +149,7 @@ export function Footer() {
                             <div className="h-6 px-2 rounded bg-red-500/20 flex items-center text-[10px] font-bold tracking-wider text-red-500 border border-red-500/20">FREE</div>
                         </div>
                     </div>
-                </FadeInView>
+                </div>
             </div>
         </footer>
     )
