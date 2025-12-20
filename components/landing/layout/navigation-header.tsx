@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Menu, Home, Zap, DollarSign, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
+import { SquigglyUnderline } from '@/components/animations/squiggly-underline'
 
 export function NavigationHeader() {
     const [isOpen, setIsOpen] = useState(false)
@@ -118,23 +119,34 @@ export function NavigationHeader() {
                             <SheetContent side="top" className="w-[100%] h-auto rounded-b-[2rem] pt-16">
                                 <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
                                 <nav className="flex flex-col gap-4">
-                                    {navigationItems.map((item) => (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            onClick={() => setIsOpen(false)}
-                                            className="text-2xl font-semibold text-slate-900 hover:text-green-600 transition-colors"
-                                        >
-                                            {item.name}
-                                        </Link>
-                                    ))}
+                                    {navigationItems.map((item) => {
+                                        const isActive = isActiveItem(item.href)
+                                        return (
+                                            <Link
+                                                key={item.name}
+                                                href={item.href}
+                                                onClick={() => setIsOpen(false)}
+                                                className={cn(
+                                                    "relative text-2xl font-semibold transition-all flex items-center py-2",
+                                                    isActive
+                                                        ? "text-green-600"
+                                                        : "text-slate-900 hover:text-green-600"
+                                                )}
+                                            >
+                                                <span className="relative">
+                                                    {item.name}
+                                                    {isActive && <SquigglyUnderline className="-bottom-2" />}
+                                                </span>
+                                            </Link>
+                                        )
+                                    })}
                                     <hr className="border-slate-100 my-2" />
                                     <div className="flex flex-col gap-3">
-                                        <Button size="lg" variant="outline" className="w-full rounded-xl" asChild>
+                                        <Button variant="ghost" className="w-full rounded-full hover:bg-black/5 text-slate-700 font-medium" asChild>
                                             <Link href="/sign-in">Connexion</Link>
                                         </Button>
-                                        <Button size="lg" className="w-full rounded-xl bg-green-600 hover:bg-green-700" asChild>
-                                            <Link href="/sign-up">Commencer</Link>
+                                        <Button className="w-full rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-lg" asChild>
+                                            <Link href="/sign-up">Essai Gratuit</Link>
                                         </Button>
                                     </div>
                                 </nav>
