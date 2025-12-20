@@ -50,7 +50,7 @@ export function Footer() {
                         <p className="text-gray-400 mb-6 max-w-sm">
                             Transformez vos communications WhatsApp Business avec l&apos;automatisation alimentée par IA et les outils de collaboration d&apos;équipe.
                         </p>
-                        <div className="flex space-x-4">
+                        <div className="flex space-x-4 mb-6">
                             {socialLinks.map((social) => {
                                 const Icon = social.icon
                                 return (
@@ -64,6 +64,10 @@ export function Footer() {
                                     </a>
                                 )
                             })}
+                        </div>
+                        <div className="inline-flex items-center gap-2 bg-gray-800/50 rounded-full px-3 py-1.5 border border-gray-700">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-xs text-gray-300 font-medium">Nous utilisons l'API officielle WhatsApp Business</span>
                         </div>
                     </div>
 

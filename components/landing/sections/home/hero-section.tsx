@@ -6,6 +6,7 @@ import { AnimatedBadge, FadeInView, StaggerContainer, StaggerItem } from "@/comp
 import { PhoneMockup } from "@/components/landing/ui/phone-mockup"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { CompanyLogo1, CompanyLogo2, CompanyLogo3, CompanyLogo4 } from "@/components/landing/ui/company-logos"
 
 export function HeroSection() {
     return (
@@ -108,11 +109,12 @@ export function HeroSection() {
                         {/* Trust */}
                         <FadeInView delay={0.6} className="pt-4 flex items-center gap-4 text-sm text-slate-500" trigger="mount">
                             <div className="flex -space-x-2">
-                                {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[10px] font-bold">
-                                        {String.fromCharCode(64 + i)}
-                                    </div>
-                                ))}
+                                <div className="flex -space-x-3">
+                                    <CompanyLogo1 className="w-8 h-8 rounded-full border-2 border-white" />
+                                    <CompanyLogo2 className="w-8 h-8 rounded-full border-2 border-white" />
+                                    <CompanyLogo3 className="w-8 h-8 rounded-full border-2 border-white" />
+                                    <CompanyLogo4 className="w-8 h-8 rounded-full border-2 border-white" />
+                                </div>
                             </div>
                             <p>Déjà adopté par <span className="font-bold text-slate-900">500+ entreprises</span></p>
                         </FadeInView>
