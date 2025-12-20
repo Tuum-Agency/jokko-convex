@@ -75,7 +75,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                 console.log('User cancelled login or did not fully authorize.');
             }
         }, {
-            scope: 'whatsapp_business_management, whatsapp_business_messaging'
+            scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
         });
     };
 

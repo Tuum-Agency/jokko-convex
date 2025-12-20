@@ -46,7 +46,7 @@ export default defineSchema({
     // ============================================
     organizations: defineTable({
         name: v.string(),
-        slug: v.string(),
+        slug: v.optional(v.string()),
         logo: v.optional(v.id("_storage")),
 
         // Business Info
@@ -101,7 +101,8 @@ export default defineSchema({
         updatedAt: v.number(),
     })
         .index("by_owner", ["ownerId"])
-        .index("by_slug", ["slug"]),
+        .index("by_slug", ["slug"])
+        .index("by_whatsapp_phone_id", ["whatsapp.phoneNumberId"]),
 
     // ============================================
     // Credits & Billing

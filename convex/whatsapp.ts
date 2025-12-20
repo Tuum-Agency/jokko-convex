@@ -54,22 +54,69 @@ export const fetchWhatsAppPhoneNumbers = action({
         let wabaId;
         const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
 
+        console.log(`[WABA Fetch] Status: ${wabaResponse.status}`);
+
         if (wabaResponse.ok) {
             const wabaData = await wabaResponse.json();
+            console.log(`[WABA Fetch] Data: ${JSON.stringify(wabaData)}`);
             wabaId = wabaData.data?.[0]?.id;
+        } else {
+            const errorBody = await wabaResponse.text();
+            console.error(`[WABA Fetch] Error: ${errorBody}`);
         }
 
         // Fallback to /me/accounts if needed
         if (!wabaId) {
+            console.log("Primary WABA fetch empty, trying fallback /me/accounts...");
             const accountsResponse = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${args.accessToken}`);
+
+            console.log(`[Fallback Fetch] Status: ${accountsResponse.status}`);
+
             if (accountsResponse.ok) {
                 const accountsData = await accountsResponse.json();
+                console.log(`[Fallback Fetch] Data: ${JSON.stringify(accountsData)}`);
                 wabaId = accountsData.data?.[0]?.id;
+            } else {
+                const errorBody = await accountsResponse.text();
+                console.error(`[Fallback Fetch] Error: ${errorBody}`);
+            }
+        }
+
+        // 3. Fallback to /me/businesses (Businesses API)
+        if (!wabaId) {
+            console.log("Secondary fallback: Checking /me/businesses...");
+            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${args.accessToken}`);
+
+            console.log(`[Business Fetch] Status: ${businessesResponse.status}`);
+
+            if (businessesResponse.ok) {
+                const businessData = await businessesResponse.json();
+                console.log(`[Business Fetch] Data: ${JSON.stringify(businessData)}`);
+
+                const businesses = businessData.data || [];
+                // Try to find a WABA in each business
+                for (const business of businesses) {
+                    console.log(`Checking WABAs for business ${business.id}...`);
+                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts?access_token=${args.accessToken}`);
+                    if (wabaRes.ok) {
+                        const wabaResData = await wabaRes.json();
+                        if (wabaResData.data && wabaResData.data.length > 0) {
+                            wabaId = wabaResData.data[0].id;
+                            console.log(`Found WABA ${wabaId} in business ${business.id}`);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                const errorBody = await businessesResponse.text();
+                console.error(`[Business Fetch] Error: ${errorBody}`);
             }
         }
 
         if (!wabaId) {
-            throw new Error("No WhatsApp Business Account found. Please create one on Facebook first.");
+            // Instead of throwing, return null to indicate no account found gracefully
+            console.log("No WhatsApp Business Account found after all attempts.");
+            return { wabaId: null, phoneNumbers: [] };
         }
 
         // Fetch Phone Numbers
@@ -82,10 +129,6 @@ export const fetchWhatsAppPhoneNumbers = action({
 
         const phoneData = await phoneResponse.json();
         const phoneNumbers = phoneData.data || [];
-
-        if (phoneNumbers.length === 0) {
-            throw new Error("No phone numbers found in this WhatsApp Account.");
-        }
 
         return {
             wabaId,

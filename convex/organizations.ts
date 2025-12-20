@@ -51,7 +51,7 @@ export const get = query({
 export const create = mutation({
     args: {
         name: v.string(),
-        slug: v.string(),
+        slug: v.optional(v.string()),
         businessSector: v.string(),
         website: v.optional(v.string()),
         phone: v.optional(v.string()),
@@ -64,13 +64,15 @@ export const create = mutation({
             throw new Error("Unauthorized");
         }
 
-        const existing = await ctx.db
-            .query("organizations")
-            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-            .first();
+        if (args.slug) {
+            const existing = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
 
-        if (existing) {
-            throw new Error("Ce nom d'espace (slug) est déjà pris.");
+            if (existing) {
+                throw new Error("Ce nom d'espace (slug) est déjà pris.");
+            }
         }
 
         const orgId = await ctx.db.insert("organizations", {

@@ -16,9 +16,20 @@ export const handleIncomingMessage = mutation({
         const name = args.contact?.profile?.name || from;
 
         // 1. Trouver l'organisation
-        // TODO: Mapper phoneNumberId -> OrganizationId via la table whatsappConfigs
-        const organization = await ctx.db.query("organizations").first();
-        if (!organization) throw new Error("No organization found");
+        if (!phoneNumberId) {
+            console.error("[WHATSAPP] Missing phoneNumberId in webhook event");
+            return;
+        }
+
+        const organization = await ctx.db
+            .query("organizations")
+            .withIndex("by_whatsapp_phone_id", (q) => q.eq("whatsapp.phoneNumberId", phoneNumberId))
+            .first();
+
+        if (!organization) {
+            console.error(`[WHATSAPP] No organization found for phoneNumberId: ${phoneNumberId}`);
+            return;
+        }
 
         // 2. Trouver ou créer le contact
         let contact = await ctx.db
