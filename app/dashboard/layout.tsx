@@ -53,29 +53,30 @@ export default function DashboardLayout({
     }
 
     // Redirection vers le sous-domaine si nécessaire
-    if (typeof window !== 'undefined' && sessionData?.organization?.slug) {
-        const hostname = window.location.hostname;
-        const slug = sessionData.organization.slug;
+    useEffect(() => {
+        if (!sessionData?.organization?.slug) return;
 
-        // En local, on gère localhost
+        const slug = sessionData.organization.slug;
+        const hostname = window.location.hostname;
+        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
+
+        // 1. Cas Local (localhost)
         if (hostname.includes('localhost')) {
-            if (!hostname.startsWith(`${slug}.`)) {
-                // Redirection vers le sous-domaine
+            // Si on est sur 'localhost' sans sous-domaine
+            if (hostname === 'localhost') {
                 const port = window.location.port ? `:${window.location.port}` : '';
-                const newUrl = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
-                window.location.href = newUrl;
-                return null; // Empêcher le rendu pendant la redirection
+                window.location.href = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
             }
         }
-        // En prod (à adapter selon votre domaine)
-        else if (hostname.endsWith('.jokko.com')) { // Remplacez jokko.com par votre vrai domaine
-            if (!hostname.startsWith(`${slug}.`)) {
-                const newUrl = `${window.location.protocol}//${slug}.jokko.com${window.location.pathname}`;
-                window.location.href = newUrl;
-                return null;
+        // 2. Cas Production (jokko.co)
+        else {
+            // Si on est sur le domaine racine (ex: jokko.co ou www.jokko.co)
+            // On veut rediriger vers slug.jokko.co
+            if (hostname === rootDomain || hostname === `www.${rootDomain}`) {
+                window.location.href = `${window.location.protocol}//${slug}.${rootDomain}${window.location.pathname}`;
             }
         }
-    }
+    }, [sessionData]);
 
     return (
         <DashboardLayoutClient
