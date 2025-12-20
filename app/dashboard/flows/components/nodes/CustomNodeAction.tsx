@@ -1,8 +1,15 @@
 
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { Settings, UserPlus, XCircle, Tag as TagIcon } from 'lucide-react';
 
-export function CustomNodeAction({ data, isConnectable }: NodeProps) {
+interface ActionNodeData extends Record<string, unknown> {
+    actionType?: string;
+    details?: string;
+}
+
+type CustomNodeActionType = Node<ActionNodeData>;
+
+export function CustomNodeAction({ data, isConnectable }: NodeProps<CustomNodeActionType>) {
     const actionType = data.actionType || 'generic';
 
     const getIcon = () => {

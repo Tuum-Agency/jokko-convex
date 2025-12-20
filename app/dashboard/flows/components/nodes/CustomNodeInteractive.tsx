@@ -1,8 +1,16 @@
 
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { MousePointerClick, List } from 'lucide-react';
 
-export function CustomNodeInteractive({ data, isConnectable }: NodeProps) {
+interface InteractiveData extends Record<string, unknown> {
+    interactiveType?: string;
+    content?: string;
+    options?: any[];
+}
+
+type CustomNode = Node<InteractiveData>;
+
+export function CustomNodeInteractive({ data, isConnectable }: NodeProps<CustomNode>) {
     const isList = data.interactiveType === 'list';
 
     return (
@@ -22,7 +30,7 @@ export function CustomNodeInteractive({ data, isConnectable }: NodeProps) {
             {/* Show choices preview */}
             {data.options && Array.isArray(data.options) && (
                 <div className="mt-3 space-y-1">
-                    {(data.options as any[]).slice(0, 3).map((opt: any, i: number) => (
+                    {data.options.slice(0, 3).map((opt: any, i: number) => (
                         <div key={i} className="text-xs bg-gray-50 px-2 py-1 rounded text-purple-700 border border-purple-100 truncate">
                             {opt.label || opt.title || 'Option'}
                         </div>

@@ -1,8 +1,14 @@
 
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { Zap } from 'lucide-react';
 
-export function CustomNodeStart({ data, isConnectable }: NodeProps) {
+interface StartNodeData extends Record<string, unknown> {
+    label?: string;
+}
+
+type CustomNodeStartType = Node<StartNodeData>;
+
+export function CustomNodeStart({ data, isConnectable }: NodeProps<CustomNodeStartType>) {
     return (
         <div className="px-4 py-3 shadow-lg rounded-xl bg-white border-2 border-yellow-400 min-w-[250px]">
             <div className="flex items-center gap-3">

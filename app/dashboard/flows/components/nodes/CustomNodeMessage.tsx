@@ -1,12 +1,18 @@
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
+import { MessageSquare } from 'lucide-react';
 
-export function CustomNodeMessage({ data, isConnectable }: NodeProps) {
+interface MessageNodeData extends Record<string, unknown> {
+    content?: string;
+}
+
+type CustomNodeMessageType = Node<MessageNodeData>;
+
+export function CustomNodeMessage({ data, isConnectable }: NodeProps<CustomNodeMessageType>) {
     return (
         <div className="px-4 py-3 shadow-lg rounded-xl bg-white border-2 border-blue-400 min-w-[250px]">
             <div className="flex items-center gap-3">
                 <div className="rounded-full w-8 h-8 bg-blue-100 flex justify-center items-center text-blue-600">
-                    {/* Icon placeholder or use Lucide MessageSquare */}
-                    <span className="text-xs">msg</span>
+                    <MessageSquare className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
                     <div className="font-semibold text-gray-800">Message Texte</div>
