@@ -21,11 +21,14 @@ export default function DashboardLayout({
 
     // 1. Auth & Onboarding Redirect
     useEffect(() => {
+        console.log(`[DashboardLayout] Auth check: user=${user !== undefined ? (user ? 'present' : 'null') : 'loading'}`);
         if (user === null) {
+            console.log(`[DashboardLayout] Redirecting to /sign-in (user is null)`);
             router.push('/sign-in');
             return;
         }
         if (user && user.onboardingCompleted === false) {
+            console.log(`[DashboardLayout] Redirecting to /onboarding (onboarding incomplete)`);
             router.push('/onboarding');
         }
     }, [user, router]);
@@ -33,6 +36,7 @@ export default function DashboardLayout({
     // 2. Session Init
     useEffect(() => {
         if (sessionData === null && user) {
+            console.log(`[DashboardLayout] Initializing session...`);
             ensureSession();
         }
     }, [sessionData, user, ensureSession]);
@@ -45,14 +49,20 @@ export default function DashboardLayout({
         const hostname = window.location.hostname;
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 
+        console.log(`[DashboardLayout] Subdomain Check: host=${hostname}, targetSlug=${slug}, root=${rootDomain}`);
+
         if (hostname.includes('localhost')) {
             if (hostname === 'localhost') {
                 const port = window.location.port ? `:${window.location.port}` : '';
-                window.location.href = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
+                const newUrl = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
+                console.log(`[DashboardLayout] Redirecting to localhost subdomain: ${newUrl}`);
+                window.location.href = newUrl;
             }
         } else {
             if (hostname === rootDomain || hostname === `www.${rootDomain}`) {
-                window.location.href = `${window.location.protocol}//${slug}.${rootDomain}${window.location.pathname}`;
+                const newUrl = `${window.location.protocol}//${slug}.${rootDomain}${window.location.pathname}`;
+                console.log(`[DashboardLayout] Redirecting to production subdomain: ${newUrl}`);
+                window.location.href = newUrl;
             }
         }
     }, [sessionData]);
