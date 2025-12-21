@@ -180,6 +180,7 @@ export function PricingSection() {
                                         </CardContent>
 
                                         <CardFooter className="px-8 pb-8 pt-0 relative z-10 mt-auto">
+                                            {/* Action buttons hidden until public launch
                                             <Button
                                                 className={`w-full h-12 text-base rounded-xl transition-all duration-300 ${plan.popular
                                                     ? 'bg-green-600 hover:bg-green-700 shadow-green-200/50 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-white'
@@ -191,6 +192,7 @@ export function PricingSection() {
                                             >
                                                 <Link href="/auth/sign-up">{plan.cta}</Link>
                                             </Button>
+                                            */}
                                         </CardFooter>
                                     </Card>
                                 </div>
@@ -237,9 +239,11 @@ export function PricingSection() {
                                     </div>
                                 </div>
                             </div>
+                            {/*
                             <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 h-14 px-8 rounded-full text-lg shadow-xl shrink-0">
                                 Contactez-nous
                             </Button>
+                            */}
                         </div>
                     </div>
                 </FadeInView>
