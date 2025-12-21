@@ -13,6 +13,12 @@ import { Logo } from '@/components/ui/logo'
 import { SocialButtons, AuthDivider } from '@/components/landing/layout'
 
 import { useRouter } from 'next/navigation';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: "Connexion - Jokko",
+    description: "Connectez-vous à votre espace Jokko pour gérer vos conversations WhatsApp Business et vos campagnes marketing.",
+};
 
 export default function SignInPage() {
     const router = useRouter();

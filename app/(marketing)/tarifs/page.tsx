@@ -3,11 +3,11 @@ import { CtaSection, PricingSection, FaqSection } from '@/components/landing/sec
 import { PricingComparisonTable } from '@/components/landing/sections/home/pricing-comparison-table'
 
 export const metadata: Metadata = {
-    title: 'Tarifs Flexibles - Jokko',
-    description: 'Plans adaptés à votre croissance. Service client illimité et options marketing flexibles pour maîtriser votre ROI.',
+    title: 'Tarifs et Plans - Jokko | WhatsApp Business CRM',
+    description: 'Des tarifs transparents adaptés à votre croissance. Commencez gratuitement avec notre offre Starter. Service client illimité et automatisation marketing incluse.',
     openGraph: {
-        title: 'Tarifs Flexibles - Jokko',
-        description: 'Plans adaptés à votre croissance. Service client illimité et options marketing flexibles.',
+        title: 'Tarifs Jokko - Choisissez le plan idéal pour votre entreprise',
+        description: 'Boostez votre ROI avec nos solutions de marketing conversationnel sur WhatsApp.',
     },
 }
 

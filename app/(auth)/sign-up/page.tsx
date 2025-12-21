@@ -14,6 +14,12 @@ import { SocialButtons, AuthDivider } from '@/components/landing/layout'
 import { useAuthActions } from "@convex-dev/auth/react";
 
 import { useRouter } from 'next/navigation';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: "Inscription - Jokko (Essai Gratuit)",
+    description: "Créez votre compte Jokko gratuitement et commencez à automatiser votre relation client sur WhatsApp dès aujourd'hui.",
+};
 
 export default function SignUpPage() {
     const router = useRouter();

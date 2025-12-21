@@ -19,7 +19,7 @@ export function SocialButtons({ disabled, action }: SocialButtonsProps) {
 
   return (
     <div className="space-y-3">
-      <Button
+      {/*<Button
         type="button"
         variant="outline"
         size="lg"
@@ -46,7 +46,10 @@ export function SocialButtons({ disabled, action }: SocialButtonsProps) {
           />
         </svg>
         {text} avec Google
-      </Button>
+      </Button>*/}
+      <div className="text-center text-sm text-gray-500 italic">
+        Connexion Google temporairement indisponible
+      </div>
     </div>
   )
 }

@@ -3,11 +3,11 @@ import { FeaturesOverviewSection } from '@/components/landing/sections/fonctionn
 import { CtaSection } from '@/components/landing/sections/home/cta-section'
 
 export const metadata: Metadata = {
-    title: 'Fonctionnalités',
-    description: 'Découvrez toutes les fonctionnalités de Jokko : messagerie centralisée, automatisation IA, gestion multi-agents, analytics et plus encore.',
+    title: 'Fonctionnalités & Outils - Jokko',
+    description: 'Explorez nos outils puissants : Boîte de réception partagée, Chatbots IA, Campagnes Marketing WhatsApp en masse, et CRM intégré.',
     openGraph: {
-        title: 'Fonctionnalités - Jokko',
-        description: 'Les outils puissants qui transformeront votre gestion WhatsApp Business.',
+        title: 'Fonctionnalités Jokko - Tout pour réussir sur WhatsApp',
+        description: 'Transformez vos conversations en ventes grâce à notre suite complète d\'outils WhatsApp Business.',
     },
 }
 

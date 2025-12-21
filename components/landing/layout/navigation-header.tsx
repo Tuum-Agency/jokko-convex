@@ -59,10 +59,10 @@ export function NavigationHeader() {
                     )}
                 >
                     {/* Logo Area */}
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                         <Link href="/" className="flex items-center gap-2">
                             {/* Simplified Logo for Navbar */}
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg">
                                 J
                             </div>
                             <span className={cn(
@@ -116,7 +116,7 @@ export function NavigationHeader() {
                                     <Menu className="w-6 h-6 text-slate-700" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="top" className="w-[100%] h-auto rounded-b-[2rem] pt-16">
+                            <SheetContent side="top" className="w-full h-auto rounded-b-4xl pt-16">
                                 <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
                                 <nav className="flex flex-col gap-4">
                                     {navigationItems.map((item) => {
