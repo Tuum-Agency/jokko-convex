@@ -9,6 +9,8 @@ import { Menu, Home, Zap, DollarSign, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { SquigglyUnderline } from '@/components/animations/squiggly-underline'
+import { WaitingListDialog } from '@/components/landing/waiting-list-dialog'
+
 
 export function NavigationHeader() {
     const [isOpen, setIsOpen] = useState(false)
@@ -97,14 +99,11 @@ export function NavigationHeader() {
 
                     {/* Right Actions */}
                     <div className="hidden lg:flex items-center gap-3">
-                        <Button variant="ghost" asChild className="rounded-full hover:bg-black/5 text-slate-700 font-medium">
-                            <Link href="/sign-in">Connexion</Link>
-                        </Button>
-                        <Button asChild className="rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-lg px-6">
-                            <Link href="/sign-up">
-                                Essai Gratuit
-                            </Link>
-                        </Button>
+                        <WaitingListDialog>
+                            <Button className="rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-lg px-6">
+                                Rejoindre la liste d'attente
+                            </Button>
+                        </WaitingListDialog>
                     </div>
 
 
@@ -142,12 +141,11 @@ export function NavigationHeader() {
                                     })}
                                     <hr className="border-slate-100 my-2" />
                                     <div className="flex flex-col gap-3">
-                                        <Button variant="ghost" className="w-full rounded-full hover:bg-black/5 text-slate-700 font-medium" asChild>
-                                            <Link href="/sign-in">Connexion</Link>
-                                        </Button>
-                                        <Button className="w-full rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-lg" asChild>
-                                            <Link href="/sign-up">Essai Gratuit</Link>
-                                        </Button>
+                                        <WaitingListDialog>
+                                            <Button className="w-full rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-lg">
+                                                Rejoindre la liste d'attente
+                                            </Button>
+                                        </WaitingListDialog>
                                     </div>
                                 </nav>
                             </SheetContent>

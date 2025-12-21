@@ -57,6 +57,7 @@ import type * as templates_webhooks from "../templates/webhooks.js";
 import type * as tickets from "../tickets.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
+import type * as waitingList from "../waitingList.js";
 import type * as webhook from "../webhook.js";
 import type * as whatsapp from "../whatsapp.js";
 import type * as whatsapp_actions from "../whatsapp_actions.js";
@@ -117,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   tickets: typeof tickets;
   users: typeof users;
   utils: typeof utils;
+  waitingList: typeof waitingList;
   webhook: typeof webhook;
   whatsapp: typeof whatsapp;
   whatsapp_actions: typeof whatsapp_actions;

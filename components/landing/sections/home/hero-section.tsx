@@ -7,6 +7,8 @@ import { PhoneMockup } from "@/components/landing/ui/phone-mockup"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { CompanyLogo1, CompanyLogo2, CompanyLogo3, CompanyLogo4 } from "@/components/landing/ui/company-logos"
+import { WaitingListDialog } from "@/components/landing/waiting-list-dialog"
+
 
 export function HeroSection() {
     return (
@@ -94,11 +96,11 @@ export function HeroSection() {
 
                         {/* Buttons */}
                         <FadeInView delay={0.4} className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto" trigger="mount">
-                            <Button size="lg" asChild className="h-14 px-8 rounded-full bg-green-600 hover:bg-green-700 text-white text-lg shadow-green-200/50 shadow-xl transition-all hover:-translate-y-1">
-                                <Link href="/auth/sign-up">
-                                    <span className="flex items-center gap-2">Essayer Gratuitement <ArrowRight className="w-5 h-5" /></span>
-                                </Link>
-                            </Button>
+                            <WaitingListDialog>
+                                <Button size="lg" className="h-14 px-8 rounded-full bg-green-600 hover:bg-green-700 text-white text-lg shadow-green-200/50 shadow-xl transition-all hover:-translate-y-1">
+                                    <span className="flex items-center gap-2">Rejoindre la liste d'attente <ArrowRight className="w-5 h-5" /></span>
+                                </Button>
+                            </WaitingListDialog>
                             <Button size="lg" variant="outline" asChild className="h-14 px-8 rounded-full border-2 border-slate-200 text-slate-700 hover:border-green-600 hover:text-green-600 bg-white/50 backdrop-blur-sm text-lg transition-all">
                                 <Link href="#demo">
                                     <span className="flex items-center gap-2"><Play className="w-5 h-5" /> Voir la démo</span>
@@ -116,7 +118,7 @@ export function HeroSection() {
                                     <CompanyLogo4 className="w-8 h-8 rounded-full border-2 border-white" />
                                 </div>
                             </div>
-                            <p>Déjà adopté par <span className="font-bold text-slate-900">500+ entreprises</span></p>
+                            <p>Rejoignez les <span className="font-bold text-slate-900">premiers inscrits</span></p>
                         </FadeInView>
                     </div>
 

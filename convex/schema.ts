@@ -1276,4 +1276,15 @@ export default defineSchema({
         .index("by_user", ["userId"])
         .index("by_user_read", ["userId", "isRead"])
         .index("by_org", ["organizationId"]),
+    // ============================================
+    // Waiting List
+    // ============================================
+    waitingList: defineTable({
+        email: v.string(),
+        companyName: v.string(),
+        representativeName: v.string(),
+        status: v.string(), // "PENDING", "APPROVED", "INVITED"
+        createdAt: v.number(),
+    }).index("by_email", ["email"]),
 });
+

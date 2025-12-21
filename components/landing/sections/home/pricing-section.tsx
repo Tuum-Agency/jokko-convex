@@ -109,7 +109,7 @@ export function PricingSection() {
                     </FadeInView>
                     <FadeInView delay={0.4}>
                         <p className="mt-6 text-xl text-slate-600 max-w-2xl mx-auto">
-                            Rejoignez 500+ entreprises qui génèrent des millions sur WhatsApp avec Jokko.
+                            Rejoignez les entreprises innovantes qui préparent leur succès sur WhatsApp avec Jokko.
                             <br />
                             <span className="text-sm text-slate-500 mt-2 block">(Prix hors coûts de conversation Meta)</span>
                         </p>

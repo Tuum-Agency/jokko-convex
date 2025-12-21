@@ -1,14 +1,15 @@
 
 "use client";
 
-import { useState, useEffect } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FadeInView, SlideInView, StaggerContainer, StaggerItem, ScaleInView } from '@/components/animations'
 import { MessageCircle, ArrowRight, Zap, CheckCircle2, Star, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { PopupModal } from 'react-calendly'
+import { WaitingListDialog } from '@/components/landing/waiting-list-dialog'
+
 
 function BackgroundBeams() {
     return (
@@ -27,13 +28,6 @@ function BackgroundBeams() {
 }
 
 export function CtaSection() {
-    const [isCalendlyOpen, setIsCalendlyOpen] = useState(false)
-    const [rootElement, setRootElement] = useState<HTMLElement | null>(null)
-
-    useEffect(() => {
-        // Set root element for Calendly portal ensuring it exists
-        setRootElement(document.body)
-    }, [])
 
     return (
         <section className="relative py-32 overflow-hidden text-white">
@@ -46,7 +40,7 @@ export function CtaSection() {
                     <FadeInView delay={0.2} className="flex justify-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700 backdrop-blur-md shadow-xl text-green-400 font-medium text-sm">
                             <Star className="w-4 h-4 fill-green-400 text-green-400" />
-                            <span className="text-white">Recommandé par 500+ Entreprises</span>
+                            <span className="text-white">Accès en avant-première</span>
                         </div>
                     </FadeInView>
 
@@ -68,24 +62,14 @@ export function CtaSection() {
                     <StaggerContainer staggerDelay={0.15} delayChildren={0.6}>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                             <StaggerItem>
-                                <Button size="lg" asChild className="h-12 px-8 rounded-full bg-white hover:bg-slate-100 text-slate-900 text-base font-bold transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_-5px_rgba(74,222,128,0.4)] hover:shadow-[0_0_30px_-10px_rgba(74,222,128,0.6)]">
-                                    <Link href="/auth/sign-up">
+                                <WaitingListDialog>
+                                    <Button size="lg" className="h-12 px-8 rounded-full bg-white hover:bg-slate-100 text-slate-900 text-base font-bold transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_-5px_rgba(74,222,128,0.4)] hover:shadow-[0_0_30px_-10px_rgba(74,222,128,0.6)]">
                                         <Zap className="w-5 h-5 mr-2 text-green-600 fill-green-600" />
-                                        Essai Gratuit 7 Jours
-                                    </Link>
-                                </Button>
+                                        Rejoindre la liste d'attente
+                                    </Button>
+                                </WaitingListDialog>
                             </StaggerItem>
-                            <StaggerItem>
-                                <Button
-                                    size="lg"
-                                    variant="outline"
-                                    onClick={() => setIsCalendlyOpen(true)}
-                                    className="h-12 px-8 rounded-full border border-slate-700 bg-transparent text-white hover:bg-slate-800 hover:text-white hover:border-slate-600 text-base font-medium"
-                                >
-                                    <Calendar className="w-5 h-5 mr-2" />
-                                    Réserver un appel
-                                </Button>
-                            </StaggerItem>
+
                         </div>
                     </StaggerContainer>
 
@@ -125,15 +109,6 @@ export function CtaSection() {
                         </div>
                     </FadeInView>
 
-                    {/* Calendly Modal */}
-                    {rootElement && (
-                        <PopupModal
-                            url="https://calendly.com/jokko-contact/demo"
-                            onModalClose={() => setIsCalendlyOpen(false)}
-                            open={isCalendlyOpen}
-                            rootElement={rootElement}
-                        />
-                    )}
 
                 </div>
             </div>
