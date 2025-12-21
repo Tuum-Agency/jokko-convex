@@ -15,7 +15,7 @@ export const checkAuth = query({
         // Check if user exists in DB
         const user = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         return {

@@ -107,7 +107,7 @@ export const seedTeam = mutation({
         // Check if user exists by email
         let fatou = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", "fatou.ndiaye@jokko.co"))
+            .withIndex("email", (q) => q.eq("email", "fatou.ndiaye@jokko.co"))
             .first();
 
         if (!fatou) {
@@ -159,7 +159,7 @@ export const seedTeam = mutation({
         // 5. Add 'momoseck8@gmail.com' as OWNER if exists
         let userMomo = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", "momoseck8@gmail.com"))
+            .withIndex("email", (q) => q.eq("email", "momoseck8@gmail.com"))
             .first();
 
         if (!userMomo) {

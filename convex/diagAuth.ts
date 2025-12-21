@@ -15,7 +15,7 @@ export const whoAmI = query({
         // Chercher l'utilisateur dans la DB
         const user = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         return {
@@ -43,7 +43,7 @@ export const createMissingUser = mutation({
         // Vérifier si existe déjà
         const existing = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         if (existing) {

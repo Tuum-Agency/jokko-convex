@@ -17,7 +17,7 @@ export const syncAuthUser = mutation({
         // Check if user exists
         const existingUser = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         if (existingUser) {

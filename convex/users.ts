@@ -85,7 +85,7 @@ export const ensureUser = mutation({
         // Check if user exists
         const existingUser = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         if (existingUser) {
@@ -131,7 +131,7 @@ export const whoAmI = query({
 
         const user = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .withIndex("email", (q) => q.eq("email", identity.email!))
             .first();
 
         return {

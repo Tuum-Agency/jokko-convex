@@ -39,7 +39,7 @@ export default defineSchema({
         onboardingCompleted: v.optional(v.boolean()),
         createdAt: v.optional(v.number()),
         updatedAt: v.optional(v.number()),
-    }).index("by_email", ["email"]),
+    }).index("email", ["email"]),
 
     // ============================================
     // Organizations (Entreprises - Tenants)
