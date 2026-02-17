@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useMutation, useAction } from 'convex/react';
@@ -8,6 +8,7 @@ import { api } from '@/convex/_generated/api';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Script from "next/script";
 
 interface WhatsAppConnectStepProps {
     onComplete: () => void;
@@ -25,7 +26,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Data State
-    const [sdkLoaded, setSdkLoaded] = useState(false);
+    const [fbReady, setFbReady] = useState(false);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
@@ -36,41 +37,22 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
 
-    // Load Facebook SDK
-    useEffect(() => {
+    // Facebook SDK ready callback
+    const handleFBReady = useCallback(() => {
         const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-
-        const initFB = () => {
+        if ((window as any).FB) {
             (window as any).FB.init({
                 appId,
                 autoLogAppEvents: true,
                 xfbml: true,
                 version: 'v19.0'
             });
-            setSdkLoaded(true);
-        };
-
-        // SDK already loaded - just (re)init
-        if ((window as any).FB) {
-            initFB();
-            return;
-        }
-
-        // SDK not yet loaded - set callback and load script
-        (window as any).fbAsyncInit = initFB;
-
-        // Check if script tag already exists
-        if (!document.querySelector('script[src*="connect.facebook.net"]')) {
-            const script = document.createElement('script');
-            script.src = "https://connect.facebook.net/en_US/sdk.js";
-            script.async = true;
-            script.defer = true;
-            document.body.appendChild(script);
+            setFbReady(true);
         }
     }, []);
 
     const launchWhatsAppSignup = () => {
-        if (!sdkLoaded) return;
+        if (!fbReady) return;
         setErrorMessage(null);
 
         (window as any).FB.login(function (response: any) {
@@ -182,6 +164,13 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
     return (
         <div className="space-y-6 text-center">
+            {/* Facebook SDK via next/script - onReady fires after load AND on re-renders */}
+            <Script
+                src="https://connect.facebook.net/en_US/sdk.js"
+                strategy="lazyOnload"
+                onReady={handleFBReady}
+            />
+
             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
                 <h3 className="text-lg font-semibold text-blue-900 mb-2">Connexion WhatsApp Business</h3>
                 <p className="text-blue-700 text-sm mb-4">
@@ -199,7 +188,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                 <div className="flex justify-center p-4">
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={!sdkLoaded || status === 'FETCHING'}
+                        disabled={!fbReady || status === 'FETCHING'}
                         className="bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-2 px-4 rounded shadow-md flex items-center gap-2"
                     >
                         {status === 'FETCHING' ? (

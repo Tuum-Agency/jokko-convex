@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -8,6 +8,7 @@ import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartph
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Script from "next/script";
 import { PhoneInput } from "@/components/contacts/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,22 @@ export default function SettingsPage() {
     const updateProfile = useMutation(api.users.updateProfile);
     const deleteAccount = useMutation(api.users.deleteAccount);
     const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+
+    // Facebook SDK state - loaded at page level so it's ready before WhatsApp tab
+    const [fbReady, setFbReady] = useState(false);
+
+    const handleFBScriptReady = useCallback(() => {
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
+        if ((window as any).FB) {
+            (window as any).FB.init({
+                appId,
+                autoLogAppEvents: true,
+                xfbml: true,
+                version: 'v19.0'
+            });
+            setFbReady(true);
+        }
+    }, []);
 
     // Form States
     const [name, setName] = useState("");
@@ -128,6 +145,13 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-10">
+            {/* Facebook SDK - loaded at page level, ready before WhatsApp tab mount */}
+            <Script
+                src="https://connect.facebook.net/en_US/sdk.js"
+                strategy="lazyOnload"
+                onReady={handleFBScriptReady}
+            />
+
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900">Paramètres</h1>
                 <p className="text-gray-500 mt-2">
@@ -264,7 +288,7 @@ export default function SettingsPage() {
 
                 {/* WhatsApp Tab */}
                 <TabsContent value="whatsapp" className="space-y-6">
-                    <WhatsAppSettingsTab />
+                    <WhatsAppSettingsTab fbReady={fbReady} />
                 </TabsContent>
 
                 {/* Compte Tab */}
@@ -439,14 +463,13 @@ interface WhatsAppNumber {
     quality_rating: string;
 }
 
-function WhatsAppSettingsTab() {
+function WhatsAppSettingsTab({ fbReady }: { fbReady: boolean }) {
     const { currentOrg } = useCurrentOrg();
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
 
     const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'SUCCESS' | 'ERROR'>('IDLE');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [sdkLoaded, setSdkLoaded] = useState(false);
     const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
     const [selectedPhoneId, setSelectedPhoneId] = useState<string | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -454,40 +477,8 @@ function WhatsAppSettingsTab() {
 
     const isConnected = !!currentOrg?.whatsapp?.phoneNumberId;
 
-    // Load Facebook SDK
-    useEffect(() => {
-        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-
-        const initFB = () => {
-            (window as any).FB.init({
-                appId,
-                autoLogAppEvents: true,
-                xfbml: true,
-                version: 'v19.0'
-            });
-            setSdkLoaded(true);
-        };
-
-        // SDK already loaded - just (re)init
-        if ((window as any).FB) {
-            initFB();
-            return;
-        }
-
-        // SDK not yet loaded - set callback and load script
-        (window as any).fbAsyncInit = initFB;
-
-        if (!document.querySelector('script[src*="connect.facebook.net"]')) {
-            const script = document.createElement('script');
-            script.src = "https://connect.facebook.net/en_US/sdk.js";
-            script.async = true;
-            script.defer = true;
-            document.body.appendChild(script);
-        }
-    }, []);
-
     const launchWhatsAppSignup = () => {
-        if (!sdkLoaded) return;
+        if (!fbReady) return;
         setErrorMessage(null);
 
         (window as any).FB.login(function (response: any) {
@@ -692,7 +683,7 @@ function WhatsAppSettingsTab() {
 
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={!sdkLoaded || status === 'FETCHING'}
+                        disabled={!fbReady || status === 'FETCHING'}
                         className="bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-2 px-4 rounded shadow-md flex items-center gap-2"
                     >
                         {status === 'FETCHING' ? (
