@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartphone, Briefcase, MessageSquare, CheckCircle2, AlertCircle, RefreshCw, Phone } from 'lucide-react';
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import { useFacebookSDK } from "@/hooks/useFacebookSDK";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PhoneInput } from "@/components/contacts/PhoneInput";
@@ -29,35 +30,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-/**
- * Initialize FB SDK and call FB.login() - safe to call multiple times.
- * The SDK script is loaded in dashboard/layout.tsx via fbAsyncInit pattern.
- */
-function ensureFBInitAndLogin(callback: (response: any) => void, onError: (msg: string) => void) {
-    const FB = (window as any).FB;
-    if (!FB) {
-        console.error('[FB SDK] window.FB not found - SDK script not loaded');
-        onError("Le SDK Facebook n'est pas chargé. Rechargez la page et réessayez.");
-        return;
-    }
-    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-    console.log('[FB SDK] Calling FB.init() before login, appId:', appId ? 'present' : 'MISSING');
-    try {
-        FB.init({
-            appId,
-            autoLogAppEvents: true,
-            xfbml: true,
-            version: 'v19.0'
-        });
-    } catch (e) {
-        console.warn('[FB SDK] FB.init() threw (may be already initialized):', e);
-    }
-    console.log('[FB SDK] Calling FB.login()...');
-    FB.login(callback, {
-        scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
-    });
-}
 
 export default function SettingsPage() {
     const user = useQuery(api.users.me);
@@ -470,6 +442,7 @@ interface WhatsAppNumber {
 
 function WhatsAppSettingsTab() {
     const { currentOrg } = useCurrentOrg();
+    const { isReady: fbReady, login: fbLogin } = useFacebookSDK();
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
 
@@ -482,19 +455,14 @@ function WhatsAppSettingsTab() {
 
     const isConnected = !!currentOrg?.whatsapp?.phoneNumberId;
 
-    const launchWhatsAppSignup = () => {
+    const launchWhatsAppSignup = async () => {
         setErrorMessage(null);
-        ensureFBInitAndLogin(
-            (response: any) => {
-                console.log('[FB SDK] FB.login() response:', JSON.stringify(response));
-                if (response.authResponse) {
-                    handleFetchNumbers(response.authResponse.accessToken);
-                } else {
-                    setErrorMessage("Connexion annulée ou non autorisée.");
-                }
-            },
-            (msg: string) => setErrorMessage(msg)
-        );
+        try {
+            const { accessToken: token } = await fbLogin();
+            handleFetchNumbers(token);
+        } catch (err: any) {
+            setErrorMessage(err.message || "Connexion annulée ou non autorisée.");
+        }
     };
 
     async function handleFetchNumbers(token: string) {
@@ -688,10 +656,12 @@ function WhatsAppSettingsTab() {
 
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={status === 'FETCHING'}
+                        disabled={!fbReady || status === 'FETCHING'}
                         className="bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-2 px-4 rounded shadow-md flex items-center gap-2"
                     >
                         {status === 'FETCHING' ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : !fbReady ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : isConnected ? (
                             <RefreshCw className="w-5 h-5" />
@@ -700,7 +670,7 @@ function WhatsAppSettingsTab() {
                                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                             </svg>
                         )}
-                        {status === 'FETCHING' ? "Récupération..." : isConnected ? "Reconnecter avec Facebook" : "Se connecter avec Facebook"}
+                        {status === 'FETCHING' ? "Récupération..." : !fbReady ? "Chargement SDK..." : isConnected ? "Reconnecter avec Facebook" : "Se connecter avec Facebook"}
                     </Button>
 
                     <p className="text-xs text-gray-500 mt-2">
