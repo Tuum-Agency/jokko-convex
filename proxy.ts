@@ -7,7 +7,7 @@ export default function proxy(request: NextRequest) {
 
     // Configuration: Domaine principal
     // En local, on peut utiliser "localhost:3000" ou un domaine de test
-    const currentHost = hostname.replace(`:3000`, '')
+    const currentHost = hostname.replace(/:\d+$/, '')
     // Récupérer le domaine racine depuis l'env ou par défaut
     const mainDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co'
 

@@ -85,6 +85,7 @@ export default defineSchema({
         plan: v.union(
             v.literal("FREE"),
             v.literal("STARTER"),
+            v.literal("BUSINESS"),
             v.literal("PRO"),
             v.literal("ENTERPRISE")
         ),
@@ -763,7 +764,8 @@ export default defineSchema({
         updatedAt: v.number(),
     })
         .index("by_conversation", ["conversationId"])
-        .index("by_organization", ["organizationId"]),
+        .index("by_organization", ["organizationId"])
+        .index("by_external_id", ["externalId"]),
 
     // ============================================
     // TYPING INDICATORS

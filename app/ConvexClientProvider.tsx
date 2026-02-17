@@ -27,7 +27,8 @@ const cookieStorage = {
         const expires = new Date();
         expires.setTime(expires.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-        document.cookie = `${key}=${encodeURIComponent(value)}${domainProp}; path=/; expires=${expires.toUTCString()}; SameSite=Lax; Secure`;
+        const secureProp = isLocal ? "" : "; Secure";
+        document.cookie = `${key}=${encodeURIComponent(value)}${domainProp}; path=/; expires=${expires.toUTCString()}; SameSite=Lax${secureProp}`;
     },
     removeItem: (key: string) => {
         if (typeof document === 'undefined') return;
@@ -36,7 +37,8 @@ const cookieStorage = {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
         const domainProp = isLocal ? "" : `; domain=.${rootDomain}`;
 
-        document.cookie = `${key}=${domainProp}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+        const secureProp = isLocal ? "" : "; Secure";
+        document.cookie = `${key}=${domainProp}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secureProp}`;
     }
 };
 

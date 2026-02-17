@@ -44,7 +44,37 @@ export const listMine = query({
 export const get = query({
     args: { id: v.id("organizations") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
+        const userId = await getAuthUserId(ctx);
+        if (!userId) {
+            throw new Error("Unauthorized");
+        }
+
+        // Vérifier que l'utilisateur est membre de l'organisation
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", args.id)
+            )
+            .first();
+
+        if (!membership) {
+            throw new Error("Unauthorized: Not a member of this organization");
+        }
+
+        const org = await ctx.db.get(args.id);
+        if (!org) return null;
+
+        // Exclure le token d'accès WhatsApp de la réponse
+        const { whatsapp, ...safeOrg } = org;
+        return {
+            ...safeOrg,
+            whatsapp: whatsapp ? {
+                phoneNumberId: whatsapp.phoneNumberId,
+                businessAccountId: whatsapp.businessAccountId,
+                webhookVerifyToken: whatsapp.webhookVerifyToken,
+                // accessToken volontairement exclu
+            } : undefined,
+        };
     }
 });
 

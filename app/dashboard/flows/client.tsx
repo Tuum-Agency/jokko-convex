@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
-import { Plus, MoreVertical, Play, Pause, Trash2, Edit, Workflow, Bot, ChevronLeft, AlertCircle } from 'lucide-react';
+import { Plus, MoreVertical, Play, Pause, Trash2, Edit, Workflow, Bot, ChevronLeft, AlertCircle, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,7 @@ export function FlowsPageClient() {
 
     if (role === undefined) {
         return (
-            <div className="p-8 space-y-8 h-full">
+            <div className="p-8 space-y-8 h-full bg-gray-50/30">
                 <Skeleton className="h-10 w-48" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3].map((i) => (
@@ -68,8 +68,6 @@ export function FlowsPageClient() {
         );
     }
 
-
-
     const filteredFlows = flows?.filter(f =>
         f.name.toLowerCase().includes(search.toLowerCase())
     ) || [];
@@ -85,29 +83,29 @@ export function FlowsPageClient() {
     }
 
     return (
-        <div className="p-8 space-y-8 h-full">
-            <div className="flex items-center justify-between">
+        <div className="p-8 space-y-8 h-screen overflow-y-auto bg-gray-50/30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">Automatisation</h1>
-                    <p className="text-gray-500 mt-2">Créez des flux de conversation automatisés pour répondre à vos clients.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">Automatisation/Flux</h1>
+                    <p className="text-gray-500 mt-2 text-sm lg:text-base">Gérez vos séquences de messages et chatbots WhatsApp.</p>
                 </div>
+                <Button
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 rounded-xl shadow-lg shadow-indigo-200 transition-all hover:scale-105"
+                    onClick={() => router.push('/dashboard/flows/new')}
+                >
+                    <Sparkles className="w-4 h-4" />
+                    Nouveau Flux IA
+                </Button>
             </div>
 
-            <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between gap-4 mb-6 sticky top-0 z-10 bg-gray-50/30 backdrop-blur-sm py-2">
                 <SearchInput
                     placeholder="Rechercher un flux..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    containerClassName="max-w-md"
+                    containerClassName="max-w-md w-full"
+                    className="bg-white border-gray-200 focus:border-indigo-300 focus:ring-indigo-100 rounded-xl"
                 />
-
-                <Button
-                    className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                    onClick={() => router.push('/dashboard/flows/new')}
-                >
-                    <Plus className="w-4 h-4" />
-                    Nouveau Flux
-                </Button>
             </div>
 
             {flows === undefined ? (
@@ -129,44 +127,49 @@ export function FlowsPageClient() {
                     ))}
                 </div>
             ) : filteredFlows.length === 0 ? (
-                <Empty>
-                    <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                            <Workflow className="w-5 h-5" />
-                        </EmptyMedia>
-                        <EmptyTitle>Aucun flux trouvé</EmptyTitle>
-                        <EmptyDescription>
-                            Commencez par créer votre premier flux d'automatisation pour répondre automatiquement à vos clients.
-                        </EmptyDescription>
-                    </EmptyHeader>
-                    <EmptyContent>
-                        <Button className="bg-green-600 hover:bg-green-700 text-white gap-2" onClick={() => router.push('/dashboard/flows/new')}>
-                            <Plus className="w-4 h-4" />
-                            Créer un flux
-                        </Button>
-                    </EmptyContent>
-                </Empty>
+                <div className="flex items-center justify-center py-12">
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyMedia variant="icon" className="bg-indigo-100 text-indigo-600 rounded-full p-4 mb-4">
+                                <Workflow className="w-8 h-8" />
+                            </EmptyMedia>
+                            <EmptyTitle className="text-xl font-bold text-gray-900">Aucun flux trouvé</EmptyTitle>
+                            <EmptyDescription className="text-gray-500 max-w-sm mx-auto mt-2">
+                                Commencez par créer votre premier flux d'automatisation pour répondre automatiquement à vos clients.
+                            </EmptyDescription>
+                        </EmptyHeader>
+                        <EmptyContent className="mt-6">
+                            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 rounded-xl" onClick={() => router.push('/dashboard/flows/new')}>
+                                <Sparkles className="w-4 h-4" />
+                                Créer avec l'IA
+                            </Button>
+                        </EmptyContent>
+                    </Empty>
+                </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
                     {filteredFlows.map((flow) => (
-                        <div key={flow._id} className="group relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all hover:border-green-200">
-                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div
+                            key={flow._id}
+                            className="group relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 hover:border-indigo-100 flex flex-col"
+                        >
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreVertical className="w-4 h-4" />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100">
+                                            <MoreVertical className="w-4 h-4 text-gray-500" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/flows/${flow._id}`)}>
+                                    <DropdownMenuContent align="end" className="rounded-xl border border-gray-100 shadow-lg">
+                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/flows/${flow._id}`)} className="cursor-pointer">
                                             <Edit className="w-4 h-4 mr-2" />
                                             Modifier
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => toggleStatus(flow._id, flow.isActive)}>
+                                        <DropdownMenuItem onClick={() => toggleStatus(flow._id, flow.isActive)} className="cursor-pointer">
                                             {flow.isActive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                                             {flow.isActive ? 'Désactiver' : 'Activer'}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(flow._id)}>
+                                        <DropdownMenuItem className="text-red-600 focus:text-red-600 cursor-pointer" onClick={() => handleDelete(flow._id)}>
                                             <Trash2 className="w-4 h-4 mr-2" />
                                             Supprimer
                                         </DropdownMenuItem>
@@ -175,25 +178,58 @@ export function FlowsPageClient() {
                             </div>
 
                             <div className="mb-4">
-                                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${flow.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                <div className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${flow.isActive
+                                        ? 'bg-green-100 text-green-700 border border-green-200'
+                                        : 'bg-gray-100 text-gray-600 border border-gray-200'
                                     }`}>
-                                    {flow.isActive ? 'Actif' : 'Brouillon'}
+                                    {flow.isActive ? (
+                                        <>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                                            Actif
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
+                                            Brouillon
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
-                            <h3 className="text-lg font-semibold text-gray-900 mb-1">{flow.name}</h3>
-                            <p className="text-sm text-gray-500 line-clamp-2 mb-4 h-10">
-                                {flow.description || "Aucune description"}
-                            </p>
+                            <div className="mb-auto">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2 truncate pr-8 group-hover:text-indigo-700 transition-colors">
+                                    {flow.name}
+                                </h3>
+                                <p className="text-sm text-gray-500 line-clamp-2 h-10 leading-relaxed">
+                                    {flow.description || "Un flux automatisé pour gérer les interactions clients."}
+                                </p>
+                            </div>
 
-                            <div className="flex items-center justify-between text-xs text-gray-400 mt-auto pt-4 border-t border-gray-100">
-                                <span>Modifié {formatDistanceToNow(flow.updatedAt, { addSuffix: true, locale: fr })}</span>
-                                <Button size="sm" variant="ghost" className="text-green-600 hover:text-green-700 hover:bg-green-50 p-0 h-auto font-medium" onClick={() => router.push(`/dashboard/flows/${flow._id}`)}>
-                                    Ouvrir l'éditeur →
+                            <div className="flex items-center justify-between text-xs text-gray-400 mt-6 pt-4 border-t border-gray-50">
+                                <span>{formatDistanceToNow(flow.updatedAt, { addSuffix: true, locale: fr })}</span>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 p-0 h-auto font-medium group/btn"
+                                    onClick={() => router.push(`/dashboard/flows/${flow._id}`)}
+                                >
+                                    Ouvrir
+                                    <ChevronLeft className="w-3 h-3 ml-1 rotate-180 transition-transform group-hover/btn:translate-x-1" />
                                 </Button>
                             </div>
                         </div>
                     ))}
+
+                    {/* Add New Card (Ghost) */}
+                    <div
+                        className="group relative rounded-2xl border-2 border-dashed border-gray-200 p-6 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition-all min-h-[220px]"
+                        onClick={() => router.push('/dashboard/flows/new')}
+                    >
+                        <div className="h-12 w-12 rounded-full bg-gray-50 group-hover:bg-white flex items-center justify-center border border-gray-100 group-hover:scale-110 transition-transform shadow-sm">
+                            <Plus className="w-6 h-6 text-gray-400 group-hover:text-indigo-600" />
+                        </div>
+                        <span className="font-semibold text-gray-500 group-hover:text-indigo-700">Créer un nouveau flux</span>
+                    </div>
                 </div>
             )}
         </div>

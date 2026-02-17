@@ -6,9 +6,38 @@ import { Id } from "./_generated/dataModel";
 // Gérer un message entrant
 export const handleIncomingMessage = mutation({
     args: {
-        message: v.any(), // L'objet message raw de WhatsApp
-        phoneNumberId: v.optional(v.string()), // ID du compte WhatsApp Business
-        contact: v.optional(v.any()), // Info contact raw
+        message: v.object({
+            from: v.string(),
+            id: v.string(),
+            timestamp: v.string(),
+            type: v.string(),
+            text: v.optional(v.object({ body: v.string() })),
+            image: v.optional(v.object({
+                id: v.string(),
+                mime_type: v.optional(v.string()),
+                caption: v.optional(v.string()),
+            })),
+            interactive: v.optional(v.object({
+                type: v.optional(v.string()),
+                button_reply: v.optional(v.object({ id: v.string(), title: v.optional(v.string()) })),
+                list_reply: v.optional(v.object({ id: v.string(), title: v.optional(v.string()) })),
+                nfm_reply: v.optional(v.object({ body: v.optional(v.string()) })),
+                active_title: v.optional(v.string()),
+                body: v.optional(v.string()),
+            })),
+            button: v.optional(v.object({
+                id: v.optional(v.string()),
+                title: v.optional(v.string()),
+            })),
+            context: v.optional(v.object({ id: v.optional(v.string()) })),
+        }),
+        phoneNumberId: v.optional(v.string()),
+        contact: v.optional(v.object({
+            wa_id: v.optional(v.string()),
+            profile: v.optional(v.object({
+                name: v.optional(v.string()),
+            })),
+        })),
     },
     handler: async (ctx, args) => {
         const { message, phoneNumberId } = args;
@@ -104,32 +133,39 @@ export const handleIncomingMessage = mutation({
         let mediaUrl = undefined;
         let mediaType = undefined;
 
-        if (message.type === "text") {
+        if (message.type === "text" && message.text) {
             content = message.text.body;
-        } else if (message.type === "image") {
+        } else if (message.type === "image" && message.image) {
             type = "IMAGE";
             content = message.image.caption || "";
             mediaUrl = message.image.id;
             mediaType = message.image.mime_type;
         } else if (["interactive", "button", "simple_button"].includes(message.type.toLowerCase())) {
             type = "INTERACTIVE";
-            const interactive = message.interactive || message.button || {};
-            console.log("Interactive Payload:", JSON.stringify(interactive));
+            const interactive = message.interactive;
+            const button = message.button;
 
-            if (interactive.type === "button_reply" || message.type === "button") {
-                const reply = interactive.button_reply || interactive;
-                content = reply.title || reply.id || "Bouton";
-            } else if (interactive.type === "list_reply") {
-                const reply = interactive.list_reply || interactive;
-                content = reply.title || reply.id || "Liste";
-            } else if (interactive.type === "nfm_reply") {
-                content = interactive.nfm_reply.body || "Réponse Flow";
+            if (interactive) {
+                console.log("Interactive Payload:", JSON.stringify(interactive));
+
+                if (interactive.type === "button_reply" || message.type === "button") {
+                    const reply = interactive.button_reply;
+                    content = reply?.title || reply?.id || "Bouton";
+                } else if (interactive.type === "list_reply") {
+                    const reply = interactive.list_reply;
+                    content = reply?.title || reply?.id || "Liste";
+                } else if (interactive.type === "nfm_reply") {
+                    content = interactive.nfm_reply?.body || "Réponse Flow";
+                } else {
+                    content = interactive.active_title || interactive.body || `[Interaction: ${interactive.type || message.type}]`;
+                }
+            } else if (button) {
+                content = button.title || button.id || "Bouton";
             } else {
-                content = interactive.active_title || interactive.body || `[Interaction: ${interactive.type || message.type}]`;
+                content = `[Interaction: ${message.type}]`;
             }
         } else {
             type = message.type.toUpperCase();
-            // Fallback: If unknown type, dump the json to help debug
             content = `[${type}] ${JSON.stringify(message).slice(0, 100)}`;
         }
 
@@ -176,10 +212,11 @@ export const handleIncomingMessage = mutation({
             let attributedBroadcastId: any = null;
 
             // A. Explicit Reply (Context)
-            if (message.context && message.context.id) {
+            const contextId = message.context?.id;
+            if (contextId) {
                 const originalMsg = await ctx.db
                     .query("messages")
-                    .filter(q => q.eq(q.field("externalId"), message.context.id))
+                    .withIndex("by_external_id", (q) => q.eq("externalId", contextId))
                     .first();
 
                 if (originalMsg && originalMsg.broadcastId) {
@@ -251,11 +288,9 @@ export const handleStatusUpdate = mutation({
         errors: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
-        // Trouver le message par son externalId (scan car pas d'index global UNIQUE sur externalId, mais rare)
-        // TODO: Ajouter index pour perf
         const message = await ctx.db
             .query("messages")
-            .filter((q) => q.eq(q.field("externalId"), args.waMessageId))
+            .withIndex("by_external_id", (q) => q.eq("externalId", args.waMessageId))
             .first();
 
         if (!message) {

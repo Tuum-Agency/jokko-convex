@@ -9,27 +9,27 @@ export const seedTeam = mutation({
     args: {},
     handler: async (ctx) => {
         // 1. Get the first organization or create one
-        let org = await ctx.db.query("organizations").first();
+        let org = await ctx.db.query("organizations").filter(q => q.eq(q.field("name"), "Hair by MB")).first();
         if (!org) {
-            console.log("No organization found. Creating a default organization 'Jokko Demo'.");
+            console.log("Creating 'Hair by MB' organization.");
 
-            // Create a mock user first for the owner
+            // Create Marie B Seck as the owner
             const ownerId = await ctx.db.insert("users", {
-                name: "Demo Owner",
-                email: "owner@jokko.demo",
+                name: "Marie B Seck",
+                email: "mariebernadettepiasene@gmail.com",
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             });
 
             const orgId = await ctx.db.insert("organizations", {
-                name: "Jokko Demo",
-                slug: "jokko-demo",
-                businessSector: "Technology",
+                name: "Hair by MB",
+                slug: "hair-by-mb",
+                businessSector: "Beauty",
                 timezone: "UTC",
-                locale: "en-US",
+                locale: "fr-FR",
                 onboardingStep: "COMPLETED",
                 ownerId: ownerId,
-                plan: "FREE",
+                plan: "BUSINESS",
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             });

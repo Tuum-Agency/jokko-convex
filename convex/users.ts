@@ -229,11 +229,47 @@ export const deleteAccount = mutation({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Unauthorized");
 
-        // Soft delete or hard delete?
-        // Typically complex due to relationships.
-        // For now, let's mark as deactivated or delete user entry?
-        // Schema doesn't show 'isActive' on users.
-        // Let's just delete the user record for now, but in prod we'd scrub data.
+        // Vérifier que l'utilisateur n'est pas le seul OWNER d'une organisation
+        const memberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+
+        for (const membership of memberships) {
+            if (membership.role === "OWNER") {
+                // Vérifier s'il y a d'autres OWNER dans cette organisation
+                const otherOwners = await ctx.db
+                    .query("memberships")
+                    .withIndex("by_organization", (q) =>
+                        q.eq("organizationId", membership.organizationId)
+                    )
+                    .filter((q) =>
+                        q.and(
+                            q.eq(q.field("role"), "OWNER"),
+                            q.neq(q.field("userId"), userId)
+                        )
+                    )
+                    .first();
+
+                if (!otherOwners) {
+                    // Vérifier s'il y a d'autres membres
+                    const otherMembers = await ctx.db
+                        .query("memberships")
+                        .withIndex("by_organization", (q) =>
+                            q.eq("organizationId", membership.organizationId)
+                        )
+                        .filter((q) => q.neq(q.field("userId"), userId))
+                        .first();
+
+                    if (otherMembers) {
+                        throw new Error(
+                            "Vous êtes le seul propriétaire d'une organisation qui a d'autres membres. " +
+                            "Veuillez transférer la propriété avant de supprimer votre compte."
+                        );
+                    }
+                }
+            }
+        }
 
         // 1. Delete user sessions
         const sessions = await ctx.db
@@ -245,14 +281,21 @@ export const deleteAccount = mutation({
             await ctx.db.delete(session._id);
         }
 
-        // 2. Delete memberships
-        const memberships = await ctx.db
-            .query("memberships")
-            .withIndex("by_user", (q) => q.eq("userId", userId))
-            .collect();
-
+        // 2. Delete memberships (et supprimer les organisations orphelines)
         for (const membership of memberships) {
             await ctx.db.delete(membership._id);
+
+            // Si l'utilisateur était le seul membre, supprimer l'organisation
+            const remainingMembers = await ctx.db
+                .query("memberships")
+                .withIndex("by_organization", (q) =>
+                    q.eq("organizationId", membership.organizationId)
+                )
+                .first();
+
+            if (!remainingMembers) {
+                await ctx.db.delete(membership.organizationId);
+            }
         }
 
         // 3. Delete user

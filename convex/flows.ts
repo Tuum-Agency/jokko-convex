@@ -1,9 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { hasPermission, type Role, type Permission } from "./lib/permissions";
+import { QueryCtx, MutationCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 // Helper to get current Org ID
-async function getCurrentOrgId(ctx: any) {
+async function getCurrentOrgId(ctx: QueryCtx | MutationCtx) {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
         throw new Error("Unauthorized");
@@ -11,20 +14,45 @@ async function getCurrentOrgId(ctx: any) {
 
     const session = await ctx.db
         .query("userSessions")
-        .withIndex("by_user", (q: any) => q.eq("userId", userId))
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .first();
 
     if (!session || !session.currentOrganizationId) {
         throw new Error("Unauthorized: No active organization");
     }
 
-    return session.currentOrganizationId;
+    return { userId, organizationId: session.currentOrganizationId };
+}
+
+async function requirePermission(
+    ctx: QueryCtx | MutationCtx,
+    userId: Id<"users">,
+    organizationId: Id<"organizations">,
+    permission: Permission
+) {
+    const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_user_org", (q) =>
+            q.eq("userId", userId).eq("organizationId", organizationId)
+        )
+        .first();
+
+    if (!membership) {
+        throw new Error("Unauthorized: Not a member of this organization");
+    }
+
+    if (!hasPermission(membership.role as Role, permission)) {
+        throw new Error(`Forbidden: Missing permission '${permission}'`);
+    }
+
+    return membership;
 }
 
 export const list = query({
     args: {},
     handler: async (ctx) => {
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:read");
 
         return await ctx.db
             .query("flows")
@@ -44,8 +72,9 @@ export const get = query({
             throw new Error("Flow not found");
         }
 
-        // Ensure user belongs to the flow's organization
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:read");
+
         if (flow.organizationId !== organizationId) {
             throw new Error("Unauthorized");
         }
@@ -61,15 +90,16 @@ export const create = mutation({
         triggerType: v.string(),
     },
     handler: async (ctx, args) => {
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:create");
 
         const flowId = await ctx.db.insert("flows", {
             organizationId,
             name: args.name,
             description: args.description,
             triggerType: args.triggerType,
-            nodes: "[]", // Start with empty array
-            edges: "[]", // Start with empty array
+            nodes: "[]",
+            edges: "[]",
             isActive: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -86,7 +116,8 @@ export const createFromAI = mutation({
         edges: v.string(),
     },
     handler: async (ctx, args) => {
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:create");
 
         const flowId = await ctx.db.insert("flows", {
             organizationId,
@@ -119,7 +150,9 @@ export const update = mutation({
             throw new Error("Flow not found");
         }
 
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:update");
+
         if (flow.organizationId !== organizationId) {
             throw new Error("Unauthorized");
         }
@@ -140,7 +173,9 @@ export const deleteFlow = mutation({
             throw new Error("Flow not found");
         }
 
-        const organizationId = await getCurrentOrgId(ctx);
+        const { userId, organizationId } = await getCurrentOrgId(ctx);
+        await requirePermission(ctx, userId, organizationId, "flows:delete");
+
         if (flow.organizationId !== organizationId) {
             throw new Error("Unauthorized");
         }
