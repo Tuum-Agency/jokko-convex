@@ -456,14 +456,11 @@ function WhatsAppSettingsTab() {
 
     // Load Facebook SDK
     useEffect(() => {
-        if ((window as any).FB) {
-            setSdkLoaded(true);
-            return;
-        }
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
 
-        (window as any).fbAsyncInit = function () {
+        const initFB = () => {
             (window as any).FB.init({
-                appId: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '',
+                appId,
                 autoLogAppEvents: true,
                 xfbml: true,
                 version: 'v19.0'
@@ -471,16 +468,21 @@ function WhatsAppSettingsTab() {
             setSdkLoaded(true);
         };
 
-        const script = document.createElement('script');
-        script.src = "https://connect.facebook.net/en_US/sdk.js";
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
+        // SDK already loaded - just (re)init
+        if ((window as any).FB) {
+            initFB();
+            return;
+        }
 
-        return () => {
-            if (script.parentNode) {
-                document.body.removeChild(script);
-            }
+        // SDK not yet loaded - set callback and load script
+        (window as any).fbAsyncInit = initFB;
+
+        if (!document.querySelector('script[src*="connect.facebook.net"]')) {
+            const script = document.createElement('script');
+            script.src = "https://connect.facebook.net/en_US/sdk.js";
+            script.async = true;
+            script.defer = true;
+            document.body.appendChild(script);
         }
     }, []);
 
