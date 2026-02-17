@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardLayoutClient } from "./_components/dashboard-layout-client";
+import Script from "next/script";
 
 export default function DashboardLayout({
     children,
@@ -137,6 +138,29 @@ export default function DashboardLayout({
 
     // E. Ready
     return (
+        <>
+        {/* Facebook SDK: inline init MUST come before the SDK script */}
+        <Script
+            id="fb-sdk-init"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+                __html: `
+                    window.fbAsyncInit = function() {
+                        FB.init({
+                            appId: '${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ''}',
+                            autoLogAppEvents: true,
+                            xfbml: true,
+                            version: 'v19.0'
+                        });
+                        console.log('[FB SDK] init done via fbAsyncInit');
+                    };
+                `,
+            }}
+        />
+        <Script
+            src="https://connect.facebook.net/en_US/sdk.js"
+            strategy="afterInteractive"
+        />
         <DashboardLayoutClient
             user={user ? {
                 name: user.name ?? 'User',
@@ -150,5 +174,6 @@ export default function DashboardLayout({
         >
             {children}
         </DashboardLayoutClient>
+        </>
     );
 }

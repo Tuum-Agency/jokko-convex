@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useMutation, useAction } from 'convex/react';
@@ -8,7 +8,6 @@ import { api } from '@/convex/_generated/api';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Script from "next/script";
 
 interface WhatsAppConnectStepProps {
     onComplete: () => void;
@@ -21,12 +20,40 @@ interface WhatsAppNumber {
     quality_rating: string;
 }
 
+/**
+ * Initialize FB SDK and call FB.login() - safe to call multiple times.
+ * The SDK script is loaded in dashboard/layout.tsx via fbAsyncInit pattern.
+ */
+function ensureFBInitAndLogin(callback: (response: any) => void, onError: (msg: string) => void) {
+    const FB = (window as any).FB;
+    if (!FB) {
+        console.error('[FB SDK] window.FB not found - SDK script not loaded');
+        onError("Le SDK Facebook n'est pas chargé. Rechargez la page et réessayez.");
+        return;
+    }
+    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
+    console.log('[FB SDK] Calling FB.init() before login, appId:', appId ? 'present' : 'MISSING');
+    try {
+        FB.init({
+            appId,
+            autoLogAppEvents: true,
+            xfbml: true,
+            version: 'v19.0'
+        });
+    } catch (e) {
+        console.warn('[FB SDK] FB.init() threw (may be already initialized):', e);
+    }
+    console.log('[FB SDK] Calling FB.login()...');
+    FB.login(callback, {
+        scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
+    });
+}
+
 export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
     const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'ERROR'>('IDLE');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Data State
-    const [fbReady, setFbReady] = useState(false);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
@@ -37,33 +64,19 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
 
-    // Facebook SDK ready callback
-    const handleFBReady = useCallback(() => {
-        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-        if ((window as any).FB) {
-            (window as any).FB.init({
-                appId,
-                autoLogAppEvents: true,
-                xfbml: true,
-                version: 'v19.0'
-            });
-            setFbReady(true);
-        }
-    }, []);
-
     const launchWhatsAppSignup = () => {
-        if (!fbReady) return;
         setErrorMessage(null);
-
-        (window as any).FB.login(function (response: any) {
-            if (response.authResponse) {
-                handleFetchNumbers(response.authResponse.accessToken);
-            } else {
-                console.log('User cancelled login or did not fully authorize.');
-            }
-        }, {
-            scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
-        });
+        ensureFBInitAndLogin(
+            (response: any) => {
+                console.log('[FB SDK Onboarding] FB.login() response:', JSON.stringify(response));
+                if (response.authResponse) {
+                    handleFetchNumbers(response.authResponse.accessToken);
+                } else {
+                    console.log('User cancelled login or did not fully authorize.');
+                }
+            },
+            (msg: string) => setErrorMessage(msg)
+        );
     };
 
     // Step 1: Fetch Numbers
@@ -77,7 +90,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
             setPhoneNumbers(data.phoneNumbers);
 
             if (data.phoneNumbers.length > 0) {
-                // Pre-select first one for convenience
                 setSelectedPhoneId(data.phoneNumbers[0].id);
                 setStatus('SELECTING');
             } else {
@@ -164,13 +176,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
     return (
         <div className="space-y-6 text-center">
-            {/* Facebook SDK via next/script - onReady fires after load AND on re-renders */}
-            <Script
-                src="https://connect.facebook.net/en_US/sdk.js"
-                strategy="lazyOnload"
-                onReady={handleFBReady}
-            />
-
             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
                 <h3 className="text-lg font-semibold text-blue-900 mb-2">Connexion WhatsApp Business</h3>
                 <p className="text-blue-700 text-sm mb-4">
@@ -188,7 +193,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                 <div className="flex justify-center p-4">
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={!fbReady || status === 'FETCHING'}
+                        disabled={status === 'FETCHING'}
                         className="bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-2 px-4 rounded shadow-md flex items-center gap-2"
                     >
                         {status === 'FETCHING' ? (

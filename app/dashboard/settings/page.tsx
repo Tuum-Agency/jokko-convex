@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -8,7 +8,6 @@ import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartph
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import Script from "next/script";
 import { PhoneInput } from "@/components/contacts/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,28 +30,41 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+/**
+ * Initialize FB SDK and call FB.login() - safe to call multiple times.
+ * The SDK script is loaded in dashboard/layout.tsx via fbAsyncInit pattern.
+ */
+function ensureFBInitAndLogin(callback: (response: any) => void, onError: (msg: string) => void) {
+    const FB = (window as any).FB;
+    if (!FB) {
+        console.error('[FB SDK] window.FB not found - SDK script not loaded');
+        onError("Le SDK Facebook n'est pas chargé. Rechargez la page et réessayez.");
+        return;
+    }
+    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
+    console.log('[FB SDK] Calling FB.init() before login, appId:', appId ? 'present' : 'MISSING');
+    try {
+        FB.init({
+            appId,
+            autoLogAppEvents: true,
+            xfbml: true,
+            version: 'v19.0'
+        });
+    } catch (e) {
+        console.warn('[FB SDK] FB.init() threw (may be already initialized):', e);
+    }
+    console.log('[FB SDK] Calling FB.login()...');
+    FB.login(callback, {
+        scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
+    });
+}
+
 export default function SettingsPage() {
     const user = useQuery(api.users.me);
     const role = useQuery(api.users.currentUserRole);
     const updateProfile = useMutation(api.users.updateProfile);
     const deleteAccount = useMutation(api.users.deleteAccount);
     const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-
-    // Facebook SDK state - loaded at page level so it's ready before WhatsApp tab
-    const [fbReady, setFbReady] = useState(false);
-
-    const handleFBScriptReady = useCallback(() => {
-        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-        if ((window as any).FB) {
-            (window as any).FB.init({
-                appId,
-                autoLogAppEvents: true,
-                xfbml: true,
-                version: 'v19.0'
-            });
-            setFbReady(true);
-        }
-    }, []);
 
     // Form States
     const [name, setName] = useState("");
@@ -145,13 +157,6 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-10">
-            {/* Facebook SDK - loaded at page level, ready before WhatsApp tab mount */}
-            <Script
-                src="https://connect.facebook.net/en_US/sdk.js"
-                strategy="lazyOnload"
-                onReady={handleFBScriptReady}
-            />
-
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900">Paramètres</h1>
                 <p className="text-gray-500 mt-2">
@@ -288,7 +293,7 @@ export default function SettingsPage() {
 
                 {/* WhatsApp Tab */}
                 <TabsContent value="whatsapp" className="space-y-6">
-                    <WhatsAppSettingsTab fbReady={fbReady} />
+                    <WhatsAppSettingsTab />
                 </TabsContent>
 
                 {/* Compte Tab */}
@@ -463,7 +468,7 @@ interface WhatsAppNumber {
     quality_rating: string;
 }
 
-function WhatsAppSettingsTab({ fbReady }: { fbReady: boolean }) {
+function WhatsAppSettingsTab() {
     const { currentOrg } = useCurrentOrg();
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
@@ -478,18 +483,18 @@ function WhatsAppSettingsTab({ fbReady }: { fbReady: boolean }) {
     const isConnected = !!currentOrg?.whatsapp?.phoneNumberId;
 
     const launchWhatsAppSignup = () => {
-        if (!fbReady) return;
         setErrorMessage(null);
-
-        (window as any).FB.login(function (response: any) {
-            if (response.authResponse) {
-                handleFetchNumbers(response.authResponse.accessToken);
-            } else {
-                setErrorMessage("Connexion annulée ou non autorisée.");
-            }
-        }, {
-            scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management'
-        });
+        ensureFBInitAndLogin(
+            (response: any) => {
+                console.log('[FB SDK] FB.login() response:', JSON.stringify(response));
+                if (response.authResponse) {
+                    handleFetchNumbers(response.authResponse.accessToken);
+                } else {
+                    setErrorMessage("Connexion annulée ou non autorisée.");
+                }
+            },
+            (msg: string) => setErrorMessage(msg)
+        );
     };
 
     async function handleFetchNumbers(token: string) {
@@ -683,7 +688,7 @@ function WhatsAppSettingsTab({ fbReady }: { fbReady: boolean }) {
 
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={!fbReady || status === 'FETCHING'}
+                        disabled={status === 'FETCHING'}
                         className="bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-2 px-4 rounded shadow-md flex items-center gap-2"
                     >
                         {status === 'FETCHING' ? (
