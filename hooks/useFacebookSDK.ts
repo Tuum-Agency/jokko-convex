@@ -12,27 +12,34 @@ declare global {
     }
 }
 
+/** Call FB.init() — safe to call multiple times */
+function initFB() {
+    console.log('[FB SDK] Calling FB.init(), appId:', FB_APP_ID ? 'present' : 'MISSING');
+    window.FB.init({
+        appId: FB_APP_ID,
+        autoLogAppEvents: true,
+        xfbml: false,
+        version: FB_SDK_VERSION,
+    });
+    console.log('[FB SDK] FB.init() done');
+}
+
 export function useFacebookSDK() {
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        // Si déjà chargé (navigation client-side)
+        // Si déjà chargé (navigation client-side) — on doit quand même appeler FB.init()
         if (window.FB) {
-            console.log('[FB SDK] Already loaded, marking ready');
+            console.log('[FB SDK] Already loaded, calling init and marking ready');
+            initFB();
             setIsReady(true);
             return;
         }
 
         // Définir le callback AVANT de charger le script
         window.fbAsyncInit = function () {
-            console.log('[FB SDK] fbAsyncInit fired, calling FB.init()');
-            window.FB.init({
-                appId: FB_APP_ID,
-                autoLogAppEvents: true,
-                xfbml: false,
-                version: FB_SDK_VERSION,
-            });
-            console.log('[FB SDK] FB.init() done, SDK ready');
+            console.log('[FB SDK] fbAsyncInit fired');
+            initFB();
             setIsReady(true);
         };
 
@@ -61,6 +68,10 @@ export function useFacebookSDK() {
                 reject(new Error("Le SDK Facebook n'est pas chargé. Rechargez la page."));
                 return;
             }
+
+            // Toujours appeler FB.init() avant FB.login() pour garantir l'initialisation
+            console.log('[FB SDK] login() called, ensuring init before login...');
+            initFB();
 
             console.log('[FB SDK] Calling FB.login()...');
             window.FB.login(
