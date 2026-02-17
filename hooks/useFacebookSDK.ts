@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID!;
 const FB_SDK_VERSION = 'v19.0';
@@ -12,83 +12,104 @@ declare global {
     }
 }
 
-/** Call FB.init() — safe to call multiple times */
-function initFB() {
-    console.log('[FB SDK] Calling FB.init(), appId:', FB_APP_ID ? 'present' : 'MISSING');
-    window.FB.init({
-        appId: FB_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: FB_SDK_VERSION,
-    });
-    console.log('[FB SDK] FB.init() done');
-}
-
 export function useFacebookSDK() {
     const [isReady, setIsReady] = useState(false);
+    const sdkInitialized = useRef(false);
 
     useEffect(() => {
-        // Si déjà chargé (navigation client-side) — on doit quand même appeler FB.init()
-        if (window.FB) {
-            console.log('[FB SDK] Already loaded, calling init and marking ready');
-            initFB();
-            setIsReady(true);
-            return;
-        }
-
-        // Définir le callback AVANT de charger le script
+        // 1. Define fbAsyncInit BEFORE injecting the script
         window.fbAsyncInit = function () {
-            console.log('[FB SDK] fbAsyncInit fired');
-            initFB();
+            console.log('[FB SDK] fbAsyncInit fired, calling FB.init()');
+            window.FB.init({
+                appId: FB_APP_ID,
+                cookie: true,
+                xfbml: true,
+                version: FB_SDK_VERSION,
+            });
+            sdkInitialized.current = true;
             setIsReady(true);
+            console.log('[FB SDK] FB.init() done, SDK ready');
         };
 
-        // Vérifier que le script n'est pas déjà injecté (React 19 strict mode)
-        if (document.getElementById('facebook-jssdk')) {
-            console.log('[FB SDK] Script tag already exists, skipping injection');
-            return;
-        }
-
-        console.log('[FB SDK] Injecting SDK script...');
-        const script = document.createElement('script');
-        script.id = 'facebook-jssdk';
-        script.src = 'https://connect.facebook.net/fr_FR/sdk.js';
-        script.async = true;
-        script.defer = true;
-        script.crossOrigin = 'anonymous';
-
-        // Insérer avant le premier script existant (recommandé par Meta)
-        const firstScript = document.getElementsByTagName('script')[0];
-        firstScript.parentNode?.insertBefore(script, firstScript);
+        // 2. Inject the SDK script using Facebook's recommended IIFE pattern
+        (function (d: Document, s: string, id: string) {
+            const fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) {
+                // Script already exists — if FB is loaded, re-init
+                if (window.FB) {
+                    console.log('[FB SDK] Script exists, FB present, calling init');
+                    window.FB.init({
+                        appId: FB_APP_ID,
+                        cookie: true,
+                        xfbml: true,
+                        version: FB_SDK_VERSION,
+                    });
+                    sdkInitialized.current = true;
+                    setIsReady(true);
+                }
+                return;
+            }
+            const js = d.createElement(s) as HTMLScriptElement;
+            js.id = id;
+            js.src = 'https://connect.facebook.net/en_US/sdk.js';
+            js.async = true;
+            js.defer = true;
+            fjs.parentNode?.insertBefore(js, fjs);
+            console.log('[FB SDK] Script injected');
+        })(document, 'script', 'facebook-jssdk');
     }, []);
 
     const login = useCallback(() => {
         return new Promise<{ accessToken: string }>((resolve, reject) => {
+            // Retry mechanism if SDK not yet loaded
             if (!window.FB) {
-                reject(new Error("Le SDK Facebook n'est pas chargé. Rechargez la page."));
+                console.log('[FB SDK] FB not available, retrying in 500ms...');
+                setTimeout(() => {
+                    if (!window.FB) {
+                        reject(new Error("Le SDK Facebook n'est pas chargé. Rechargez la page."));
+                        return;
+                    }
+                    // Retry login
+                    doLogin(resolve, reject);
+                }, 500);
                 return;
             }
 
-            // Toujours appeler FB.init() avant FB.login() pour garantir l'initialisation
-            console.log('[FB SDK] login() called, ensuring init before login...');
-            initFB();
-
-            console.log('[FB SDK] Calling FB.login()...');
-            window.FB.login(
-                (response: any) => {
-                    console.log('[FB SDK] FB.login() response:', JSON.stringify(response));
-                    if (response.authResponse?.accessToken) {
-                        resolve({ accessToken: response.authResponse.accessToken });
-                    } else {
-                        reject(new Error('Connexion annulée ou non autorisée.'));
-                    }
-                },
-                {
-                    scope: 'whatsapp_business_management, whatsapp_business_messaging, business_management',
-                }
-            );
+            doLogin(resolve, reject);
         });
     }, []);
+
+    function doLogin(
+        resolve: (value: { accessToken: string }) => void,
+        reject: (reason: Error) => void
+    ) {
+        // Ensure FB.init() has been called
+        if (!sdkInitialized.current) {
+            console.log('[FB SDK] Re-initializing before login...');
+            window.FB.init({
+                appId: FB_APP_ID,
+                cookie: true,
+                xfbml: true,
+                version: FB_SDK_VERSION,
+            });
+            sdkInitialized.current = true;
+        }
+
+        console.log('[FB SDK] Calling FB.login()...');
+        window.FB.login(
+            (response: any) => {
+                console.log('[FB SDK] FB.login() response:', JSON.stringify(response));
+                if (response.authResponse?.accessToken) {
+                    resolve({ accessToken: response.authResponse.accessToken });
+                } else {
+                    reject(new Error('Connexion annulée ou non autorisée.'));
+                }
+            },
+            {
+                scope: 'whatsapp_business_management,whatsapp_business_messaging,business_management',
+            }
+        );
+    }
 
     return { isReady, login };
 }
