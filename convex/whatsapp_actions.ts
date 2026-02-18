@@ -33,12 +33,10 @@ export const sendMessage = internalAction({
         const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
 
         // Resolve Credentials
-        // Prioritize ENV vars
-        const envPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-        const envToken = process.env.WHATSAPP_ACCESS_TOKEN;
-
-        let phoneNumberId = envPhoneId || org?.whatsapp?.phoneNumberId;
-        let accessToken = envToken || org?.whatsapp?.accessToken;
+        // Prioritize org DB config (set via Facebook Embedded Signup)
+        // Fall back to ENV vars only for dev/test
+        let phoneNumberId = org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+        let accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
 
         if (!phoneNumberId || !accessToken) {
             console.error(`[OUTBOUND] Missing WhatsApp credentials (DB or ENV) for Org ${args.organizationId}`);
