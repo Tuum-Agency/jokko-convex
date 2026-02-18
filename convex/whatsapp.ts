@@ -146,7 +146,7 @@ export const fetchWhatsAppPhoneNumbers = action({
     }
 });
 
-// 2. Finalize Registration (Step 2 - Save Selected Number)
+// 2. Finalize Registration (Step 2 - Save Selected Number + Subscribe Webhooks)
 export const finalizeWhatsAppRegistration = action({
     args: {
         accessToken: v.string(),
@@ -162,7 +162,49 @@ export const finalizeWhatsAppRegistration = action({
             throw new Error("No active organization found");
         }
 
-        // Save Configuration
+        // 1. Subscribe app to WABA webhooks (so incoming messages trigger our webhook)
+        console.log(`[REGISTER] Subscribing app to WABA ${args.wabaId} webhooks...`);
+        const subscribeRes = await fetch(
+            `https://graph.facebook.com/v20.0/${args.wabaId}/subscribed_apps`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${args.accessToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        const subscribeData = await subscribeRes.json();
+        if (!subscribeRes.ok) {
+            console.error("[REGISTER] Failed to subscribe app to WABA webhooks:", subscribeData);
+        } else {
+            console.log("[REGISTER] App subscribed to WABA webhooks successfully:", subscribeData);
+        }
+
+        // 2. Register phone number for Cloud API messaging
+        console.log(`[REGISTER] Registering phone number ${args.phoneNumberId}...`);
+        const registerRes = await fetch(
+            `https://graph.facebook.com/v20.0/${args.phoneNumberId}/register`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${args.accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messaging_product: "whatsapp",
+                    pin: "123456",
+                }),
+            }
+        );
+        const registerData = await registerRes.json();
+        if (!registerRes.ok) {
+            console.error("[REGISTER] Phone registration response:", registerData);
+        } else {
+            console.log("[REGISTER] Phone registered successfully:", registerData);
+        }
+
+        // 3. Save Configuration
         await ctx.runMutation(internal.whatsapp.saveWhatsAppConfig, {
             organizationId: orgId,
             accessToken: args.accessToken,
@@ -173,6 +215,49 @@ export const finalizeWhatsAppRegistration = action({
         });
 
         return { success: true };
+    }
+});
+
+// Subscribe existing WABA to webhooks (for already connected orgs)
+export const subscribeWebhook = action({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+    },
+    handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+        let orgId: any = args.organizationId;
+        if (!orgId) {
+            orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        }
+        if (!orgId) throw new Error("No active organization found");
+
+        const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
+        if (!org?.whatsapp?.businessAccountId || !org?.whatsapp?.accessToken) {
+            throw new Error("WhatsApp not configured for this organization");
+        }
+
+        const wabaId: string = org.whatsapp.businessAccountId;
+        const accessToken: string = org.whatsapp.accessToken;
+
+        console.log(`[SUBSCRIBE] Subscribing app to WABA ${wabaId}...`);
+        const res: Response = await fetch(
+            `https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        const data: any = await res.json();
+
+        if (!res.ok) {
+            console.error("[SUBSCRIBE] Failed:", data);
+            throw new Error(data.error?.message || "Failed to subscribe webhook");
+        }
+
+        console.log("[SUBSCRIBE] Success:", data);
+        return { success: true, message: `WABA ${wabaId} subscribed to webhooks` };
     }
 });
 
