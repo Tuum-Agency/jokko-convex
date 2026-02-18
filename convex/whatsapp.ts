@@ -30,14 +30,18 @@ export const saveWhatsAppConfig = internalMutation({
         accessToken: v.string(),
         phoneNumberId: v.string(),
         wabaId: v.string(),
+        displayPhoneNumber: v.optional(v.string()),
+        verifiedName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.organizationId, {
             whatsapp: {
                 accessToken: args.accessToken,
-                phoneNumberId: args.phoneNumberId, // We use this for sending
+                phoneNumberId: args.phoneNumberId,
                 businessAccountId: args.wabaId,
                 webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "",
+                displayPhoneNumber: args.displayPhoneNumber,
+                verifiedName: args.verifiedName,
             }
         });
     }
@@ -148,6 +152,8 @@ export const finalizeWhatsAppRegistration = action({
         accessToken: v.string(),
         wabaId: v.string(),
         phoneNumberId: v.string(),
+        displayPhoneNumber: v.optional(v.string()),
+        verifiedName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
@@ -161,10 +167,76 @@ export const finalizeWhatsAppRegistration = action({
             organizationId: orgId,
             accessToken: args.accessToken,
             phoneNumberId: args.phoneNumberId,
-            wabaId: args.wabaId
+            wabaId: args.wabaId,
+            displayPhoneNumber: args.displayPhoneNumber,
+            verifiedName: args.verifiedName,
         });
 
         return { success: true };
+    }
+});
+
+// Send a test message to verify WhatsApp connection
+export const sendTestMessage = action({
+    args: {
+        to: v.string(),
+        organizationId: v.optional(v.id("organizations")),
+        useEnvCredentials: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
+        let phoneNumberId: string = "";
+        let accessToken: string = "";
+
+        if (args.useEnvCredentials) {
+            phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
+            accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "";
+        } else {
+            let orgId: any = args.organizationId;
+            if (!orgId) {
+                orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+            }
+            if (!orgId) throw new Error("No active organization found");
+
+            const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
+            phoneNumberId = org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || "";
+            accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN || "";
+        }
+
+        if (!phoneNumberId || !accessToken) {
+            throw new Error("WhatsApp not configured");
+        }
+
+        const recipientPhone: string = args.to.replace(/\D/g, '');
+
+        const messageBody = {
+            messaging_product: "whatsapp" as const,
+            recipient_type: "individual" as const,
+            to: recipientPhone,
+            type: "text" as const,
+            text: {
+                preview_url: false,
+                body: "Ceci est un message test de Jokko. Votre intégration WhatsApp fonctionne correctement ! ✅"
+            }
+        };
+
+        const response: Response = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(messageBody),
+        });
+
+        const data: any = await response.json();
+
+        if (!response.ok) {
+            console.error("[TEST] WhatsApp API Error:", data);
+            throw new Error(data.error?.message || "Failed to send test message");
+        }
+
+        console.log(`[TEST] Message sent successfully to ${recipientPhone}. ID: ${data.messages?.[0]?.id}`);
+        return { success: true, messageId: data.messages?.[0]?.id };
     }
 });
 

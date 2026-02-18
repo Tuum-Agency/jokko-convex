@@ -491,12 +491,16 @@ function WhatsAppSettingsTab() {
     async function handleConfirmSelection() {
         if (!accessToken || !wabaId || !selectedPhoneId) return;
 
+        const selectedPhone = phoneNumbers.find(p => p.id === selectedPhoneId);
+
         setStatus('SAVING');
         try {
             await finalizeRegistration({
                 accessToken,
                 wabaId,
-                phoneNumberId: selectedPhoneId
+                phoneNumberId: selectedPhoneId,
+                displayPhoneNumber: selectedPhone?.display_phone_number,
+                verifiedName: selectedPhone?.verified_name,
             });
             setStatus('SUCCESS');
             toast.success("WhatsApp connecté", {
@@ -610,9 +614,17 @@ function WhatsAppSettingsTab() {
                                 {isConnected ? 'WhatsApp connecté' : 'WhatsApp non connecté'}
                             </p>
                             {isConnected ? (
-                                <p className="text-sm text-gray-500">
-                                    Phone ID : {currentOrg?.whatsapp?.phoneNumberId}
-                                </p>
+                                <div className="text-sm text-gray-500">
+                                    {currentOrg?.whatsapp?.displayPhoneNumber && (
+                                        <p className="font-medium text-gray-700">{currentOrg.whatsapp.displayPhoneNumber}</p>
+                                    )}
+                                    {currentOrg?.whatsapp?.verifiedName && (
+                                        <p className="text-xs text-gray-400">{currentOrg.whatsapp.verifiedName}</p>
+                                    )}
+                                    {!currentOrg?.whatsapp?.displayPhoneNumber && (
+                                        <p>Phone ID : {currentOrg?.whatsapp?.phoneNumberId}</p>
+                                    )}
+                                </div>
                             ) : (
                                 <p className="text-sm text-orange-600">
                                     Connectez un numéro pour envoyer et recevoir des messages.
@@ -629,6 +641,18 @@ function WhatsAppSettingsTab() {
                     <div className="p-4 border rounded-lg bg-gray-50/50">
                         <h4 className="text-sm font-medium text-gray-700 mb-2">Détails de la connexion</h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
+                            {currentOrg.whatsapp.displayPhoneNumber && (
+                                <div>
+                                    <span className="text-gray-500">Numéro</span>
+                                    <p className="font-mono text-gray-900">{currentOrg.whatsapp.displayPhoneNumber}</p>
+                                </div>
+                            )}
+                            {currentOrg.whatsapp.verifiedName && (
+                                <div>
+                                    <span className="text-gray-500">Nom vérifié</span>
+                                    <p className="font-mono text-gray-900">{currentOrg.whatsapp.verifiedName}</p>
+                                </div>
+                            )}
                             <div>
                                 <span className="text-gray-500">WABA ID</span>
                                 <p className="font-mono text-gray-900">{currentOrg.whatsapp.businessAccountId}</p>
