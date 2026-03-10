@@ -43,9 +43,15 @@ export const current = query({
             )
             .first();
 
+        // Strip sensitive WhatsApp access token before returning to client
+        const safeOrganization = { ...organization } as any;
+        if (safeOrganization.whatsapp?.accessToken) {
+            safeOrganization.whatsapp = { ...safeOrganization.whatsapp, accessToken: undefined };
+        }
+
         return {
             session,
-            organization,
+            organization: safeOrganization,
             membership,
         };
     },

@@ -108,6 +108,16 @@ export const updateRole = mutation({
         // Map frontend role string to schema enum
         const roleEnum = args.role.toUpperCase() as "ADMIN" | "AGENT" | "OWNER";
 
+        // Only OWNER can assign the OWNER role
+        if (roleEnum === "OWNER" && requesterMembership.role !== "OWNER") {
+            throw new Error("Seul le propriétaire peut assigner le rôle OWNER");
+        }
+
+        // ADMIN cannot promote to ADMIN (only OWNER can)
+        if (roleEnum === "ADMIN" && requesterMembership.role === "ADMIN") {
+            throw new Error("Seul le propriétaire peut promouvoir au rôle ADMIN");
+        }
+
         await ctx.db.patch(args.membershipId, { role: roleEnum });
     }
 });

@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { auth } from "./auth";
 
 const http = httpRouter();
@@ -90,43 +90,59 @@ http.route({
             }
 
             const body = JSON.parse(rawBody);
+            console.log("[Webhook] Payload received:", JSON.stringify(body).slice(0, 500));
+
             const entry = body.entry?.[0];
             const changes = entry?.changes?.[0];
             const value = changes?.value;
 
-            if (!value) return new Response("No value", { status: 200 });
+            if (!value) {
+                console.log("[Webhook] No value in payload, skipping");
+                return new Response("No value", { status: 200 });
+            }
+
+            console.log(`[Webhook] Field: ${changes?.field}, has messages: ${!!value.messages}, has statuses: ${!!value.statuses}, phoneNumberId: ${value.metadata?.phone_number_id}`);
 
             // Case A: Messages entrants
             if (value.messages) {
                 const contacts = value.contacts || [];
                 for (const message of value.messages) {
-                    console.log(`[Webhook] Received message from ${message.from}`);
+                    console.log(`[Webhook] Received ${message.type} message from ${message.from}, id: ${message.id}`);
 
-                    await ctx.runMutation(api.webhook.handleIncomingMessage, {
-                        message,
-                        phoneNumberId: value.metadata?.phone_number_id,
-                        contact: contacts.find((c: any) => c.wa_id === message.from),
-                    });
+                    try {
+                        await ctx.runMutation(internal.webhook.handleIncomingMessage, {
+                            message,
+                            phoneNumberId: value.metadata?.phone_number_id,
+                            contact: contacts.find((c: any) => c.wa_id === message.from),
+                        });
+                        console.log(`[Webhook] Message processed successfully for ${message.from}`);
+                    } catch (mutationError) {
+                        console.error(`[Webhook] Mutation error for message ${message.id}:`, mutationError);
+                    }
                 }
             }
 
             // Case B: Status updates
             if (value.statuses) {
                 for (const status of value.statuses) {
-                    console.log(`[Webhook] Status update: ${status.status}`);
+                    console.log(`[Webhook] Status update: ${status.status} for ${status.id}`);
 
-                    await ctx.runMutation(api.webhook.handleStatusUpdate, {
-                        waMessageId: status.id,
-                        status: status.status,
-                        timestamp: status.timestamp,
-                        errors: status.errors,
-                    });
+                    try {
+                        await ctx.runMutation(internal.webhook.handleStatusUpdate, {
+                            waMessageId: status.id,
+                            status: status.status,
+                            timestamp: status.timestamp,
+                            errors: status.errors,
+                        });
+                    } catch (statusError) {
+                        console.error(`[Webhook] Status mutation error:`, statusError);
+                    }
                 }
             }
 
             return new Response("OK", { status: 200 });
         } catch (error) {
-            console.error("[Webhook] Error:", error);
+            console.error("[Webhook] Top-level error:", error);
             return new Response("Internal Error", { status: 500 });
         }
     }),

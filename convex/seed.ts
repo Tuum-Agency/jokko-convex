@@ -1,11 +1,11 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
  * Seed data for development.
  * Usage: npx convex run seed:seedTeam
  */
-export const seedTeam = mutation({
+export const seedTeam = internalMutation({
     args: {},
     handler: async (ctx) => {
         // 1. Get the first organization or create one
@@ -217,7 +217,7 @@ export const seedTeam = mutation({
     }
 });
 
-export const seedAssignments = mutation({
+export const seedAssignments = internalMutation({
     args: {},
     handler: async (ctx) => {
         // 1. Get Org

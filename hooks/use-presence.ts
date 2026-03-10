@@ -18,8 +18,11 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentOrg } from "./use-current-org";
 
-export function usePresence(organizationId: Id<"organizations">) {
-    const members = useQuery(api.presence.listWithPresence, { organizationId });
+export function usePresence(organizationId: Id<"organizations"> | undefined) {
+    const members = useQuery(
+        api.presence.listWithPresence,
+        organizationId ? { organizationId } : "skip"
+    );
     const updateStatus = useMutation(api.presence.updateStatus);
     const heartbeat = useMutation(api.presence.heartbeat);
 

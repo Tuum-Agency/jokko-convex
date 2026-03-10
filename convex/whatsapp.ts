@@ -193,7 +193,7 @@ export const finalizeWhatsAppRegistration = action({
                 },
                 body: JSON.stringify({
                     messaging_product: "whatsapp",
-                    pin: "123456",
+                    pin: crypto.randomUUID().replace(/-/g, "").substring(0, 6),
                 }),
             }
         );

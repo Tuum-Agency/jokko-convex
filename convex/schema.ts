@@ -641,7 +641,8 @@ export default defineSchema({
         updatedAt: v.number(),
     })
         .index("by_organization", ["organizationId"])
-        .index("by_org_status", ["organizationId", "status"]),
+        .index("by_org_status", ["organizationId", "status"])
+        .index("by_status", ["status"]),
 
     shortcuts: defineTable({
         organizationId: v.id("organizations"),
@@ -718,6 +719,7 @@ export default defineSchema({
         .index("by_organization", ["organizationId"])
         .index("by_org_status", ["organizationId", "status"])
         .index("by_org_last_message", ["organizationId", "lastMessageAt"])
+        .index("by_org_contact", ["organizationId", "contactId", "status"])
         .index("by_assigned", ["assignedTo"])
         .index("by_department", ["departmentId"]),
 

@@ -7,11 +7,9 @@ import { useCurrentOrg } from './use-current-org';
 
 // Use this for overall presence
 export const useRealtime = (organizationId: string) => {
-    // This hook manages heartbeat and status via usePresence internally
-    // We cast string to Id<"organizations"> because usePresence expects Typed ID.
-    // Ensure caller passes valid ID or we handle null/undefined inside usePresence
-    if (!organizationId) return;
-    usePresence(organizationId as Id<"organizations">);
+    // Always call usePresence (React hooks must not be called conditionally).
+    // usePresence should handle falsy organizationId internally.
+    usePresence((organizationId || undefined) as Id<"organizations">);
 };
 
 export const useTypingIndicator = (conversationId: string, organizationId?: string) => {

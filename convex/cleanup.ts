@@ -1,7 +1,7 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const deleteUser = mutation({
+export const deleteUser = internalMutation({
     args: { email: v.string() },
     handler: async (ctx, args) => {
         // Find the user
@@ -35,7 +35,7 @@ export const deleteUser = mutation({
     }
 });
 
-export const repairStats = mutation({
+export const repairStats = internalMutation({
     args: {},
     handler: async (ctx) => {
         const memberships = await ctx.db.query("memberships").collect();

@@ -34,8 +34,6 @@ export async function requireMembership(
 ) {
     const userId = await requireAuth(ctx);
 
-    console.log(`[AUTH DEBUG] Looking for membership - userId: ${userId}, orgId: ${organizationId}`);
-
     const membership = await ctx.db
         .query("memberships")
         .withIndex("by_user_org", (q) =>
@@ -44,7 +42,6 @@ export async function requireMembership(
         .first();
 
     if (!membership) {
-        console.error(`[AUTH ERROR] No membership found for user ${userId} in org ${organizationId}`);
         throw new Error("Non membre de cette organisation");
     }
 

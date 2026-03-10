@@ -5,6 +5,15 @@ import { Loader2 } from 'lucide-react';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
 const FB_SDK_VERSION = 'v19.0';
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
+
+function getTargetOrigin(): string {
+    const isLocalhost = window.location.hostname.includes('localhost');
+    if (isLocalhost) {
+        return window.location.origin;
+    }
+    return `${window.location.protocol}//${ROOT_DOMAIN}`;
+}
 
 declare global {
     interface Window {
@@ -75,12 +84,13 @@ export default function FacebookConnectPage() {
                 if (response.authResponse?.accessToken) {
                     // Send token back to the opener window (subdomain)
                     if (window.opener) {
+                        const targetOrigin = getTargetOrigin();
                         window.opener.postMessage(
                             {
                                 type: 'FB_LOGIN_SUCCESS',
                                 accessToken: response.authResponse.accessToken,
                             },
-                            '*' // We accept any origin since subdomains are dynamic
+                            targetOrigin
                         );
                     }
                     setStatus('done');
@@ -88,9 +98,10 @@ export default function FacebookConnectPage() {
                     setTimeout(() => window.close(), 1000);
                 } else {
                     if (window.opener) {
+                        const targetOrigin = getTargetOrigin();
                         window.opener.postMessage(
                             { type: 'FB_LOGIN_ERROR', message: 'Connexion annulée ou non autorisée.' },
-                            '*'
+                            targetOrigin
                         );
                     }
                     setErrorMsg('Connexion annulée ou non autorisée.');

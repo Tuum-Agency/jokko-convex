@@ -138,12 +138,8 @@ export const getById = query({
         const { userId, membership } = await requireMembership(ctx, conversation.organizationId);
 
         if (!canSeeAllConversations(membership.role) && conversation.assignedTo && conversation.assignedTo !== userId) {
-            // Agent trying to view someone else's conversation?
-            // Allowed via "conversation:view" usually, but list filters strict.
-            // Let's allow view if they have generic permission.
-            // permissions.ts says "conversations:read_assigned" for AGENT.
-            // So maybe restriction applies.
-            // For now, allow view.
+            // Agent can only view conversations assigned to them or unassigned
+            return null;
         }
 
         const contact = conversation.contactId ? await ctx.db.get(conversation.contactId) : null;

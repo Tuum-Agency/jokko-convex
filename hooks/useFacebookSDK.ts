@@ -48,7 +48,11 @@ export function useFacebookSDK() {
 
             // Listen for the postMessage from the popup
             const handleMessage = (event: MessageEvent) => {
-                // Accept messages from the root domain or localhost
+                // Validate origin: only accept messages from root domain or localhost
+                const isLocalhost = event.origin.includes('localhost');
+                const isRootDomain = event.origin.endsWith(`.${ROOT_DOMAIN}`) || event.origin.includes(`//${ROOT_DOMAIN}`);
+                if (!isLocalhost && !isRootDomain) return;
+
                 if (event.data?.type === 'FB_LOGIN_SUCCESS' && event.data?.accessToken) {
                     window.removeEventListener('message', handleMessage);
                     clearInterval(pollTimer);
