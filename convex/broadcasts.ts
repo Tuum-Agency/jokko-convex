@@ -95,6 +95,7 @@ export const create = mutation({
         name: v.string(),
         templateId: v.id("templates"),
         scheduledAt: v.optional(v.number()),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
         audienceConfig: v.object({
             type: v.union(v.literal("ALL"), v.literal("TAGS"), v.literal("COUNTRIES")),
             tags: v.optional(v.array(v.id("tags"))),
@@ -127,6 +128,7 @@ export const create = mutation({
             name: args.name,
             templateId: args.templateId,
             audienceConfig: args.audienceConfig,
+            whatsappChannelId: args.whatsappChannelId,
             status: args.scheduledAt ? "SCHEDULED" : "DRAFT",
             scheduledAt: args.scheduledAt,
             sentCount: 0,

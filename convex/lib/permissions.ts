@@ -24,7 +24,10 @@ export type Permission =
     | "templates:read" | "templates:create" | "templates:update" | "templates:delete"
     | "contacts:read" | "contacts:create" | "contacts:update" | "contacts:delete" | "contacts:import" | "contacts:export"
     | "flows:read" | "flows:create" | "flows:update" | "flows:delete"
-    | "settings:read" | "settings:update" | "settings:whatsapp";
+    | "settings:read" | "settings:update" | "settings:whatsapp"
+    | "teams:create" | "teams:update" | "teams:delete" | "teams:manage_members"
+    | "channels:create" | "channels:update" | "channels:delete" | "channels:assign_team"
+    | "broadcasts:create" | "broadcasts:send" | "broadcasts:override_channel";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     OWNER: [
@@ -36,6 +39,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "contacts:read", "contacts:create", "contacts:update", "contacts:delete", "contacts:import", "contacts:export",
         "flows:read", "flows:create", "flows:update", "flows:delete",
         "settings:read", "settings:update", "settings:whatsapp",
+        "teams:create", "teams:update", "teams:delete", "teams:manage_members",
+        "channels:create", "channels:update", "channels:delete", "channels:assign_team",
+        "broadcasts:create", "broadcasts:send", "broadcasts:override_channel",
     ],
     ADMIN: [
         "org:read", "org:update",
@@ -46,6 +52,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "contacts:read", "contacts:create", "contacts:update", "contacts:delete", "contacts:import", "contacts:export",
         "flows:read", "flows:create", "flows:update", "flows:delete",
         "settings:read", "settings:update",
+        "teams:create", "teams:update", "teams:manage_members",
+        "channels:create", "channels:update", "channels:assign_team",
+        "broadcasts:create", "broadcasts:send",
     ],
     AGENT: [
         "org:read",

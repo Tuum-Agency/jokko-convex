@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartphone, Briefcase, MessageSquare, CheckCircle2, AlertCircle, RefreshCw, Phone } from 'lucide-react';
+import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartphone, Briefcase, MessageSquare, CheckCircle2, AlertCircle, RefreshCw, Phone, Users, Hash } from 'lucide-react';
+import { TeamsSettings } from '@/components/settings/TeamsSettings';
+import { ChannelsSettings } from '@/components/settings/ChannelsSettings';
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useFacebookSDK } from "@/hooks/useFacebookSDK";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -137,9 +139,11 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+                <TabsList className="grid w-full grid-cols-7 lg:w-[700px]">
                     <TabsTrigger value="profile">Profil</TabsTrigger>
                     <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+                    <TabsTrigger value="teams">Équipes</TabsTrigger>
+                    <TabsTrigger value="channels">Canaux</TabsTrigger>
                     <TabsTrigger value="account">Compte</TabsTrigger>
                     <TabsTrigger value="notifications">Notifs</TabsTrigger>
                     <TabsTrigger value="display">Affichage</TabsTrigger>
@@ -266,6 +270,16 @@ export default function SettingsPage() {
                 {/* WhatsApp Tab */}
                 <TabsContent value="whatsapp" className="space-y-6">
                     <WhatsAppSettingsTab />
+                </TabsContent>
+
+                {/* Teams Tab */}
+                <TabsContent value="teams" className="space-y-6">
+                    <TeamsSettings />
+                </TabsContent>
+
+                {/* Channels Tab */}
+                <TabsContent value="channels" className="space-y-6">
+                    <ChannelsSettings />
                 </TabsContent>
 
                 {/* Compte Tab */}

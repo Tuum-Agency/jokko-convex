@@ -32,12 +32,24 @@ export const processMessage = internalMutation({
     handler: async (ctx, args) => {
         console.log(`[ENGINE] Processing message: ${args.messageText} (First: ${args.isFirstMessage})`);
 
+        // Get conversation to know the channel
+        const conversation = await ctx.db.get(args.conversationId);
+        const channelId = conversation?.whatsappChannelId;
+
         // 1. Fetch active flows
-        const flows = await ctx.db
+        const allFlows = await ctx.db
             .query("flows")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
             .filter((q) => q.eq(q.field("isActive"), true))
             .collect();
+
+        // Filter: channel-specific flows first, then global flows (no channelId)
+        const flows = channelId
+            ? [
+                ...allFlows.filter((f) => f.whatsappChannelId === channelId),
+                ...allFlows.filter((f) => !f.whatsappChannelId),
+              ]
+            : allFlows;
 
         let flowExecuted = false;
 

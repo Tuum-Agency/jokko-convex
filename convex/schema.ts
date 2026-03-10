@@ -639,6 +639,10 @@ export default defineSchema({
         scheduledAt: v.optional(v.number()),
         completedAt: v.optional(v.number()),
 
+        // Multi-channel WhatsApp
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
+        teamId: v.optional(v.id("teams")),
+
         // Stats snapshot
         sentCount: v.number(),
         deliveredCount: v.number(),
@@ -652,7 +656,8 @@ export default defineSchema({
     })
         .index("by_organization", ["organizationId"])
         .index("by_org_status", ["organizationId", "status"])
-        .index("by_status", ["status"]),
+        .index("by_status", ["status"])
+        .index("by_channel", ["whatsappChannelId"]),
 
     shortcuts: defineTable({
         organizationId: v.id("organizations"),
@@ -677,6 +682,94 @@ export default defineSchema({
     // User usually searches the trigger.
     // I'll just add search on `shortcut`.
     // ============================================
+    // WhatsApp Business Accounts (WABA)
+    // ============================================
+    wabas: defineTable({
+        organizationId: v.id("organizations"),
+        metaBusinessAccountId: v.string(),
+        accessTokenRef: v.string(),
+        label: v.optional(v.string()),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_org", ["organizationId"])
+        .index("by_meta_waba_id", ["metaBusinessAccountId"]),
+
+    // ============================================
+    // WhatsApp Channels (Phone Numbers)
+    // ============================================
+    whatsappChannels: defineTable({
+        organizationId: v.id("organizations"),
+        wabaId: v.id("wabas"),
+        primaryTeamId: v.optional(v.id("teams")),
+        label: v.string(),
+        phoneNumberId: v.string(),
+        displayPhoneNumber: v.string(),
+        verifiedName: v.optional(v.string()),
+        webhookVerifyTokenRef: v.string(),
+        isOrgDefault: v.boolean(),
+        status: v.union(
+            v.literal("pending_setup"),
+            v.literal("active"),
+            v.literal("disconnected"),
+            v.literal("error"),
+            v.literal("disabled"),
+            v.literal("banned"),
+        ),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        lastConnectedAt: v.optional(v.number()),
+        lastWebhookAt: v.optional(v.number()),
+    })
+        .index("by_org", ["organizationId"])
+        .index("by_phone_id", ["phoneNumberId"])
+        .index("by_org_default", ["organizationId", "isOrgDefault"])
+        .index("by_team", ["primaryTeamId"])
+        .index("by_waba", ["wabaId"]),
+
+    // ============================================
+    // Teams (Departments / Équipes)
+    // ============================================
+    teams: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
+        isArchived: v.optional(v.boolean()),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_org", ["organizationId"]),
+
+    // ============================================
+    // Team Members (N:N users <-> teams)
+    // ============================================
+    teamMembers: defineTable({
+        teamId: v.id("teams"),
+        userId: v.id("users"),
+        role: v.union(v.literal("lead"), v.literal("member")),
+        joinedAt: v.number(),
+    })
+        .index("by_team", ["teamId"])
+        .index("by_user", ["userId"])
+        .index("by_team_user", ["teamId", "userId"])
+        .index("by_user_team", ["userId", "teamId"]),
+
+    // ============================================
+    // Webhook Events (Idempotence)
+    // ============================================
+    webhookEvents: defineTable({
+        metaEventId: v.string(),
+        channelId: v.id("whatsappChannels"),
+        eventType: v.union(v.literal("message"), v.literal("status")),
+        processedAt: v.number(),
+    })
+        .index("by_event", ["metaEventId", "channelId"]),
+
+    // ============================================
     // Flows (Automation)
     // ============================================
     flows: defineTable({
@@ -688,9 +781,12 @@ export default defineSchema({
         nodes: v.string(), // JSON string (array of nodes)
         edges: v.string(), // JSON string (array of edges)
         isActive: v.boolean(),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
         createdAt: v.number(),
         updatedAt: v.number(),
-    }).index("by_organization", ["organizationId"]),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_channel", ["whatsappChannelId"]),
 
     // ============================================
     // CONVERSATIONS
@@ -701,7 +797,10 @@ export default defineSchema({
 
         // Channel info
         channel: v.string(), // "WHATSAPP", "SMS", etc.
-        channelId: v.optional(v.string()), // External ID
+        externalChannelId: v.optional(v.string()), // External ID (legacy, renamed from channelId)
+
+        // Multi-channel WhatsApp
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
 
         // Status
         status: v.string(), // "OPEN", "CLOSED", "SNOOZED"
@@ -710,6 +809,8 @@ export default defineSchema({
         assignedTo: v.optional(v.id("users")),
         assignedAt: v.optional(v.number()), // Log assignment time
         departmentId: v.optional(v.string()),
+        assignedTeamId: v.optional(v.id("teams")),
+        assignedUserId: v.optional(v.id("users")),
 
         // Window
         windowExpiresAt: v.optional(v.number()), // WhatsApp 24h window expiration
@@ -731,7 +832,11 @@ export default defineSchema({
         .index("by_org_last_message", ["organizationId", "lastMessageAt"])
         .index("by_org_contact", ["organizationId", "contactId", "status"])
         .index("by_assigned", ["assignedTo"])
-        .index("by_department", ["departmentId"]),
+        .index("by_department", ["departmentId"])
+        // Multi-channel indexes
+        .index("by_assigned_team_lastMessage", ["assignedTeamId", "lastMessageAt"])
+        .index("by_org_channel_lastMessage", ["organizationId", "whatsappChannelId", "lastMessageAt"])
+        .index("by_org_channel_unassigned", ["organizationId", "whatsappChannelId", "assignedTeamId", "lastMessageAt"]),
 
     // ============================================
     // MESSAGES

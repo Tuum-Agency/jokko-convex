@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Id } from '@/convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { useChannels } from '@/hooks/useChannels';
 import { Switch } from '@/components/ui/switch';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,8 +30,12 @@ export default function NewBroadcastPage() {
     const tags = tagsData?.tags || [];
     const availableCountries = useQuery(api.contacts.getAvailableCountryCodes) || [];
 
+    const { channels } = useChannels();
+    const hasMultipleChannels = channels.length > 1;
+
     const [name, setName] = useState('');
     const [templateId, setTemplateId] = useState<string>('');
+    const [channelId, setChannelId] = useState<string>('');
     const [audienceType, setAudienceType] = useState<'ALL' | 'TAGS' | 'COUNTRIES'>('ALL');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -66,6 +71,7 @@ export default function NewBroadcastPage() {
             const id = await createBroadcast({
                 name,
                 templateId: templateId as Id<"templates">,
+                whatsappChannelId: channelId ? channelId as Id<"whatsappChannels"> : undefined,
                 audienceConfig: {
                     type: audienceType,
                     countries: audienceType === 'COUNTRIES' ? selectedCountries : undefined
@@ -207,6 +213,34 @@ export default function NewBroadcastPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Channel selector (only shown with multiple channels) */}
+                        {hasMultipleChannels && (
+                            <div className="space-y-2">
+                                <Label>Canal d'envoi</Label>
+                                <Select value={channelId} onValueChange={setChannelId}>
+                                    <SelectTrigger className="h-10">
+                                        <Phone className="h-4 w-4 mr-2 text-green-600" />
+                                        <SelectValue placeholder="Canal par défaut" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {channels
+                                            .filter((ch: any) => ch.status === 'active')
+                                            .map((ch: any) => (
+                                                <SelectItem key={ch._id} value={ch._id}>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                                                        {ch.label} — {ch.displayPhoneNumber}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    Choisissez depuis quel numéro WhatsApp envoyer la campagne.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="template">Template WhatsApp</Label>

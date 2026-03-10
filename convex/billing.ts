@@ -9,6 +9,18 @@ const LIMITS = {
     "ENTERPRISE": Infinity
 };
 
+const CHANNEL_LIMITS: Record<string, number> = {
+    "FREE": 1,
+    "STARTER": 1,
+    "BUSINESS": 3,
+    "PRO": 10,
+    "ENTERPRISE": Infinity,
+};
+
+export function getMaxChannels(plan: string): number {
+    return CHANNEL_LIMITS[plan] ?? 1;
+}
+
 export const getUsageStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
