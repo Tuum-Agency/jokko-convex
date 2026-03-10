@@ -91,6 +91,15 @@ export default defineSchema({
         ),
         creditBalance: v.optional(v.number()), // Solde de crédits (FCFA ou Unités)
 
+        // Stripe Subscription
+        stripe: v.optional(v.object({
+            customerId: v.string(),
+            subscriptionId: v.optional(v.string()),
+            priceId: v.optional(v.string()),
+            status: v.optional(v.string()), // active, canceled, past_due, trialing
+            currentPeriodEnd: v.optional(v.number()),
+        })),
+
         // Fair Usage Policy (Limits)
         usageStats: v.optional(v.object({
             periodStart: v.number(), // Start of billing cycle (timestamp)
@@ -103,7 +112,8 @@ export default defineSchema({
     })
         .index("by_owner", ["ownerId"])
         .index("by_slug", ["slug"])
-        .index("by_whatsapp_phone_id", ["whatsapp.phoneNumberId"]),
+        .index("by_whatsapp_phone_id", ["whatsapp.phoneNumberId"])
+        .index("by_stripe_customer", ["stripe.customerId"]),
 
     // ============================================
     // Credits & Billing

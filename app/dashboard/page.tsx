@@ -8,12 +8,19 @@ import {
     Send,
     ArrowUpRight,
     ArrowDownRight,
+    Crown,
+    CreditCard,
+    Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import Link from 'next/link'
+import { useCurrentOrg } from '@/hooks/use-current-org'
 
 
 function StatsCard({
@@ -64,9 +71,19 @@ function StatsCard({
     )
 }
 
+const PLAN_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+    FREE: { label: 'Gratuit', color: 'text-gray-700', bg: 'bg-gray-100', icon: '🆓' },
+    STARTER: { label: 'Starter', color: 'text-blue-700', bg: 'bg-blue-100', icon: '🚀' },
+    BUSINESS: { label: 'Business', color: 'text-purple-700', bg: 'bg-purple-100', icon: '💼' },
+    PRO: { label: 'Pro', color: 'text-orange-700', bg: 'bg-orange-100', icon: '⚡' },
+    ENTERPRISE: { label: 'Enterprise', color: 'text-amber-700', bg: 'bg-amber-100', icon: '👑' },
+};
+
 export default function DashboardPage() {
     const user = useQuery(api.users.me);
     const dashboardData = useQuery(api.analytics.getAppDashboardStats);
+    const { currentOrg } = useCurrentOrg();
+    const creditBalance = useQuery(api.credits.getBalance);
 
     // Loading Skeleton state
     if (user === undefined || dashboardData === undefined) {
@@ -169,6 +186,52 @@ export default function DashboardPage() {
                     Voici un aperçu de votre activité sur votre organisation.
                 </p>
             </div>
+
+            {/* Subscription Banner */}
+            {currentOrg && (() => {
+                const plan = PLAN_CONFIG[currentOrg.plan] || PLAN_CONFIG.FREE;
+                const formatCurrency = (n: number) => new Intl.NumberFormat('fr-SN', { style: 'currency', currency: 'XOF' }).format(n);
+                return (
+                    <Card className="bg-gradient-to-r from-white to-gray-50/80 border-gray-200/80 shadow-sm">
+                        <CardContent className="py-4">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-lg", plan.bg)}>
+                                        {plan.icon}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-900">{currentOrg.name}</span>
+                                            <Badge variant="secondary" className={cn("text-xs", plan.bg, plan.color)}>
+                                                {plan.label}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Solde : <span className="font-medium text-gray-700">{creditBalance != null ? formatCurrency(creditBalance) : '...'}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Link href="/dashboard/billing">
+                                        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                                            <CreditCard className="h-3.5 w-3.5" />
+                                            Recharger
+                                        </Button>
+                                    </Link>
+                                    {currentOrg.plan === 'FREE' && (
+                                        <Link href="/dashboard/billing">
+                                            <Button size="sm" className="gap-1.5 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
+                                                <Zap className="h-3.5 w-3.5" />
+                                                Passer au plan supérieur
+                                            </Button>
+                                        </Link>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                );
+            })()}
 
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

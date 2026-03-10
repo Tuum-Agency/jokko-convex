@@ -10,7 +10,10 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 function getTargetOrigin(): string {
     const isLocalhost = window.location.hostname.includes('localhost');
     if (isLocalhost) {
-        return window.location.origin;
+        // En dev, le popup est sur localhost:PORT mais l'opener peut être
+        // sur un sous-domaine (ex: be-in-digital-21.localhost:PORT).
+        // On utilise "*" car les sous-domaines localhost ont des origines différentes.
+        return "*";
     }
     return `${window.location.protocol}//${ROOT_DOMAIN}`;
 }
