@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { action, query, mutation } from "./_generated/server";
+import { action, query, mutation, internalMutation } from "./_generated/server";
 import { requirePermission } from "./lib/auth";
 import { sendInvitationEmail } from "./lib/email";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 // LIST PENDING INVITATIONS
@@ -103,13 +103,13 @@ export const create = action({
 
         if (!orgId) throw new Error("Organization not found");
 
-        // 2. Generate token
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        // 2. Generate cryptographically secure token
+        const token = crypto.randomUUID();
 
         const roleEnum = args.role.toUpperCase() as "ADMIN" | "AGENT";
 
-        // 3. Create invitation record via mutation
-        await ctx.runMutation(api.invitations.createRecord, {
+        // 3. Create invitation record via internal mutation
+        await ctx.runMutation(internal.invitations.createRecord, {
             organizationId: orgId,
             email: args.email.trim(),
             name: args.name,
@@ -141,8 +141,8 @@ export const create = action({
     },
 });
 
-// INTERNAL HELPER MUTATION
-export const createRecord = mutation({
+// INTERNAL HELPER MUTATION — not callable from clients
+export const createRecord = internalMutation({
     args: {
         organizationId: v.id("organizations"),
         email: v.string(),

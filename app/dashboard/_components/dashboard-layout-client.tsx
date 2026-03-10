@@ -1,7 +1,4 @@
-import { useState, useEffect } from 'react'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { Id } from '@/convex/_generated/dataModel'
+import { useState } from 'react'
 import { Sidebar, DashboardHeader } from '@/components/dashboard'
 import { BrowserNotifications } from '@/components/browser-notifications'
 import { NotificationBanner } from '@/components/dashboard/notification-banner'
@@ -29,22 +26,7 @@ export function DashboardLayoutClient({
     const basePath = '/dashboard'
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
-    // Presence Heartbeat
-    const heartbeat = useMutation(api.presence.heartbeat)
-
-    useEffect(() => {
-        if (!organizationId) return
-
-        // Initial heartbeat
-        heartbeat({ organizationId: organizationId as Id<"organizations"> })
-
-        // Periodic heartbeat (every 30 seconds)
-        const intervalId = setInterval(() => {
-            heartbeat({ organizationId: organizationId as Id<"organizations"> })
-        }, 30000)
-
-        return () => clearInterval(intervalId)
-    }, [organizationId, heartbeat])
+    // Heartbeat is handled by usePresence hook (via useRealtime) — no duplicate here
 
     return (
         <div className="flex h-screen bg-gray-50/50">

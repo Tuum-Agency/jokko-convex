@@ -9,22 +9,9 @@ import { QueryCtx, MutationCtx } from "./_generated/server";
 
 // Helper to resolve context
 async function getContext(ctx: QueryCtx | MutationCtx): Promise<VisibilityContext> {
-    let userId = await getAuthUserId(ctx);
+    const userId = await getAuthUserId(ctx);
 
-    // Fallback for CLI/Seed usage if no auth
-    if (!userId) {
-        // Try to find the "Jokko Demo" owner or any owner
-        const org = await ctx.db.query("organizations").first();
-        if (org && org.ownerId) {
-            userId = org.ownerId;
-        } else {
-            // Try fetching any user
-            const user = await ctx.db.query("users").first();
-            if (user) userId = user._id;
-        }
-    }
-
-    if (!userId) throw new Error("Unauthorized: No user found");
+    if (!userId) throw new Error("Non authentifie");
 
     // Get session/org
     const session = await ctx.db

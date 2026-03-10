@@ -13,8 +13,24 @@
  */
 
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+
+export const getCurrentSession = internalQuery({
+    args: {},
+    handler: async (ctx): Promise<{ organizationId: string } | null> => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) return null;
+        return { organizationId: session.currentOrganizationId as string };
+    },
+});
 
 export const current = query({
     args: {},
@@ -43,9 +59,15 @@ export const current = query({
             )
             .first();
 
+        // Strip sensitive WhatsApp access token before returning to client
+        const safeOrganization = { ...organization } as any;
+        if (safeOrganization.whatsapp?.accessToken) {
+            safeOrganization.whatsapp = { ...safeOrganization.whatsapp, accessToken: undefined };
+        }
+
         return {
             session,
-            organization,
+            organization: safeOrganization,
             membership,
         };
     },

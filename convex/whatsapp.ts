@@ -47,6 +47,36 @@ export const saveWhatsAppConfig = internalMutation({
     }
 });
 
+/**
+ * Get phone number status from Meta API for the current org's connected number
+ */
+export const getPhoneNumberStatus = action({
+    args: {},
+    handler: async (ctx): Promise<Record<string, string> | null> => {
+        const orgId: string | null = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("Non authentifié");
+
+        const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId as any });
+        if (!org?.whatsapp?.phoneNumberId || !org?.whatsapp?.accessToken) {
+            return null;
+        }
+
+        const phoneNumberId: string = org.whatsapp.phoneNumberId;
+        const accessToken: string = org.whatsapp.accessToken;
+        const res: Response = await fetch(
+            `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (!res.ok) {
+            const err: any = await res.json();
+            return { error: err.error?.message || "Erreur API Meta" };
+        }
+
+        return await res.json() as Record<string, string>;
+    }
+});
+
 // 1. Fetch Available Phone Numbers (Step 1)
 export const fetchWhatsAppPhoneNumbers = action({
     args: {
@@ -125,7 +155,7 @@ export const fetchWhatsAppPhoneNumbers = action({
 
         // Fetch Phone Numbers
         console.log(`Fetching Phone Numbers for WABA ${wabaId}...`);
-        const phoneResponse = await fetch(`https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?access_token=${args.accessToken}`);
+        const phoneResponse = await fetch(`https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status&access_token=${args.accessToken}`);
 
         if (!phoneResponse.ok) {
             throw new Error("Failed to fetch WhatsApp Phone Numbers");
@@ -140,7 +170,9 @@ export const fetchWhatsAppPhoneNumbers = action({
                 id: p.id,
                 display_phone_number: p.display_phone_number,
                 verified_name: p.verified_name,
-                quality_rating: p.quality_rating
+                quality_rating: p.quality_rating,
+                platform_type: p.platform_type,
+                status: p.status,
             }))
         };
     }
@@ -193,7 +225,7 @@ export const finalizeWhatsAppRegistration = action({
                 },
                 body: JSON.stringify({
                     messaging_product: "whatsapp",
-                    pin: "123456",
+                    pin: crypto.randomUUID().replace(/-/g, "").substring(0, 6),
                 }),
             }
         );
@@ -325,4 +357,98 @@ export const sendTestMessage = action({
     }
 });
 
-// Webhook handler supprimé - centralisé dans http.ts pour éviter la duplication
+// Diagnostic: Check WhatsApp phone number status, webhook subscription, and app config
+export const diagnoseWebhook = action({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+    },
+    handler: async (ctx, args) => {
+        const results: Record<string, any> = {};
+
+        // 1. Get org
+        let orgId: any = args.organizationId;
+        if (!orgId) {
+            orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        }
+        if (!orgId) {
+            // List all orgs with WhatsApp configured
+            const orgs = await ctx.runQuery(internal.utils.listWhatsAppOrgs);
+            if (orgs.length === 0) return { error: "No organizations with WhatsApp configured" };
+            if (orgs.length > 0) {
+                // Use first org found
+                orgId = orgs[0]._id;
+                console.log(`[DIAGNOSE] No orgId provided, using first WhatsApp org: ${orgs[0].name} (${orgId})`);
+            }
+        }
+
+        const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
+        if (!org?.whatsapp) return { error: "WhatsApp not configured for this organization", orgId };
+
+        const { phoneNumberId, businessAccountId: wabaId, accessToken } = org.whatsapp;
+        results.config = {
+            phoneNumberId,
+            wabaId,
+            hasAccessToken: !!accessToken,
+            displayPhoneNumber: org.whatsapp.displayPhoneNumber,
+            verifiedName: org.whatsapp.verifiedName,
+        };
+
+        // 2. Check phone number status
+        try {
+            const phoneRes = await fetch(
+                `https://graph.facebook.com/v20.0/${phoneNumberId}?fields=verified_name,display_phone_number,quality_rating,platform_type,status,name_status,messaging_limit_tier,is_official_business_account,account_mode`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            const phoneData = await phoneRes.json();
+            results.phoneNumber = phoneRes.ok ? phoneData : { error: phoneData.error };
+        } catch (e: any) {
+            results.phoneNumber = { error: e.message };
+        }
+
+        // 3. Check WABA subscribed apps
+        try {
+            const subsRes = await fetch(
+                `https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            const subsData = await subsRes.json();
+            results.subscribedApps = subsRes.ok ? subsData : { error: subsData.error };
+        } catch (e: any) {
+            results.subscribedApps = { error: e.message };
+        }
+
+        // 4. Check webhook URL configured on the app (requires app-level token)
+        const appId = process.env.FACEBOOK_APP_ID;
+        const appSecret = process.env.FACEBOOK_APP_SECRET;
+        if (appId && appSecret) {
+            try {
+                const appTokenRes = await fetch(
+                    `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&grant_type=client_credentials`
+                );
+                const appTokenData = await appTokenRes.json();
+                if (appTokenData.access_token) {
+                    const webhookRes = await fetch(
+                        `https://graph.facebook.com/v20.0/${appId}/subscriptions`,
+                        { headers: { Authorization: `Bearer ${appTokenData.access_token}` } }
+                    );
+                    const webhookData = await webhookRes.json();
+                    results.appWebhookSubscriptions = webhookRes.ok ? webhookData : { error: webhookData.error };
+                }
+            } catch (e: any) {
+                results.appWebhookSubscriptions = { error: e.message };
+            }
+        } else {
+            results.appWebhookSubscriptions = { warning: "FACEBOOK_APP_ID or FACEBOOK_APP_SECRET not set" };
+        }
+
+        // 5. Env vars check
+        results.envVars = {
+            FACEBOOK_APP_SECRET: !!process.env.FACEBOOK_APP_SECRET,
+            FACEBOOK_APP_ID: !!process.env.FACEBOOK_APP_ID,
+            WHATSAPP_WEBHOOK_VERIFY_TOKEN: !!process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+        };
+
+        console.log("[DIAGNOSE] Full results:", JSON.stringify(results, null, 2));
+        return results;
+    },
+});

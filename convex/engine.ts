@@ -1,8 +1,8 @@
 
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, MutationCtx } from "./_generated/server";
 import { internal, api } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
 type Node = {
     id: string;
@@ -85,7 +85,7 @@ export const processMessage = internalMutation({
     },
 });
 
-async function executeFlow(ctx: any, flow: any, input: { conversationId: Id<"conversations">; organizationId: Id<"organizations">; contactId: Id<"contacts"> }) {
+async function executeFlow(ctx: MutationCtx, flow: Doc<"flows">, input: { conversationId: Id<"conversations">; organizationId: Id<"organizations">; contactId: Id<"contacts"> }) {
     let nodes: Node[] = [];
     let edges: Edge[] = [];
 

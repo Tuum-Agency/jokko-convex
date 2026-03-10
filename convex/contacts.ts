@@ -5,6 +5,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
+import { hasPermission, type Role } from "./lib/permissions";
 
 // Helper to normalize search text
 const getSearchName = (args: { name?: string, firstName?: string, lastName?: string, phone?: string, email?: string }) => {
@@ -367,18 +368,23 @@ export const update = mutation({
 export const remove = mutation({
     args: { id: v.id("contacts") },
     handler: async (ctx, args) => {
-        // Boilerplate auth
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Unauthorized");
-        // Verify membership implicitly via finding contact in org?
-        // Optimization: delete if it exists.
-        // Ideally verify ownership/org.
+
         const contact = await ctx.db.get(args.id);
         if (!contact) return;
 
         const session = await ctx.db.query("userSessions").withIndex("by_user", q => q.eq("userId", userId)).first();
         if (!session || session.currentOrganizationId !== contact.organizationId) {
             throw new Error("Unauthorized");
+        }
+
+        // Permission check: contacts:delete required
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", contact.organizationId))
+            .first();
+        if (!membership || !hasPermission(membership.role as Role, "contacts:delete")) {
+            throw new Error("Permission refusée: contacts:delete");
         }
 
         await ctx.db.delete(args.id);
@@ -415,6 +421,14 @@ export const batchCreate = mutation({
 
         if (!session || !session.currentOrganizationId) throw new Error("No active organization");
         const orgId = session.currentOrganizationId;
+
+        // Permission check: contacts:import required for batch operations
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", orgId))
+            .first();
+        if (!membership || !hasPermission(membership.role as Role, "contacts:import")) {
+            throw new Error("Permission refusée: contacts:import");
+        }
 
         let createdCount = 0;
         let errors = [];

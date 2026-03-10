@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { hasPermission, type Role } from "./lib/permissions";
 
 // List broadcasts for the current organization
 export const list = query({
@@ -113,6 +114,14 @@ export const create = mutation({
             throw new Error("No organization selected");
         }
 
+        // Permission check: only ADMIN+ can create broadcasts
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", session.currentOrganizationId!))
+            .first();
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Permission refusée: seuls les admins peuvent créer des broadcasts");
+        }
+
         const id = await ctx.db.insert("broadcasts", {
             organizationId: session.currentOrganizationId,
             name: args.name,
@@ -201,14 +210,14 @@ export const sendSingleToContact = internalMutation({
         components: v.optional(v.array(v.any())),
     },
     handler: async (ctx, args) => {
-        // 1. Find OPEN Conversation
+        // 1. Find OPEN Conversation (using composite index)
         let conversation = await ctx.db
             .query("conversations")
-            .withIndex("by_organization", q => q.eq("organizationId", args.organizationId))
-            .filter(q => q.and(
-                q.eq(q.field("contactId"), args.contactId),
-                q.eq(q.field("status"), "OPEN")
-            ))
+            .withIndex("by_org_contact", q =>
+                q.eq("organizationId", args.organizationId)
+                    .eq("contactId", args.contactId)
+                    .eq("status", "OPEN")
+            )
             .first();
 
         if (!conversation) {
@@ -358,11 +367,10 @@ export const processScheduled = internalMutation({
     handler: async (ctx) => {
         const now = Date.now();
 
-        // Scan for SCHEDULED broadcasts
-        // In production, should use an index.
+        // Use status index to avoid full table scan
         const broadcasts = await ctx.db
             .query("broadcasts")
-            .filter(q => q.eq(q.field("status"), "SCHEDULED"))
+            .withIndex("by_status", q => q.eq("status", "SCHEDULED"))
             .collect();
 
         for (const broadcast of broadcasts) {
@@ -396,6 +404,14 @@ export const deleteBroadcast = mutation({
 
         if (session?.currentOrganizationId !== broadcast.organizationId) {
             throw new Error("Unauthorized");
+        }
+
+        // Permission check: only ADMIN+ can delete broadcasts
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", broadcast.organizationId))
+            .first();
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Permission refusée: seuls les admins peuvent supprimer des broadcasts");
         }
 
         await ctx.db.delete(args.id);

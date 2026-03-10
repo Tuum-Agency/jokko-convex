@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -438,6 +438,8 @@ interface WhatsAppNumber {
     display_phone_number: string;
     verified_name: string;
     quality_rating: string;
+    platform_type?: string;
+    status?: string;
 }
 
 function WhatsAppSettingsTab() {
@@ -446,14 +448,23 @@ function WhatsAppSettingsTab() {
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
 
+    const getPhoneStatus = useAction(api.whatsapp.getPhoneNumberStatus);
+
     const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'SUCCESS' | 'ERROR'>('IDLE');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
     const [selectedPhoneId, setSelectedPhoneId] = useState<string | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [wabaId, setWabaId] = useState<string | null>(null);
+    const [phoneStatus, setPhoneStatus] = useState<Record<string, string> | null>(null);
 
     const isConnected = !!currentOrg?.whatsapp?.phoneNumberId;
+
+    useEffect(() => {
+        if (isConnected) {
+            getPhoneStatus().then(setPhoneStatus).catch(() => {});
+        }
+    }, [isConnected, getPhoneStatus]);
 
     const launchWhatsAppSignup = async () => {
         setErrorMessage(null);
@@ -535,7 +546,17 @@ function WhatsAppSettingsTab() {
                                     <Label htmlFor={`settings-${phone.id}`} className="flex flex-col cursor-pointer w-full p-3 rounded-lg border bg-white hover:border-green-500 transition-colors">
                                         <span className="font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
                                         <span className="text-sm text-gray-500">{phone.display_phone_number}</span>
-                                        <span className="text-xs text-green-600 mt-1">Qualité : {phone.quality_rating}</span>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <span className={`text-xs ${phone.quality_rating === 'GREEN' ? 'text-green-600' : phone.quality_rating === 'YELLOW' ? 'text-yellow-600' : phone.quality_rating === 'RED' ? 'text-red-600' : 'text-gray-500'}`}>
+                                                Qualité : {phone.quality_rating || 'N/A'}
+                                            </span>
+                                            <span className={`text-xs ${phone.status === 'CONNECTED' ? 'text-green-600' : phone.status === 'PENDING' ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                                Statut : {phone.status || 'N/A'}
+                                            </span>
+                                            <span className={`text-xs ${phone.platform_type === 'CLOUD_API' ? 'text-blue-600' : 'text-orange-500'}`}>
+                                                {phone.platform_type === 'CLOUD_API' ? 'Cloud API' : phone.platform_type || 'Non enregistré'}
+                                            </span>
+                                        </div>
                                     </Label>
                                 </div>
                             ))}
@@ -662,6 +683,28 @@ function WhatsAppSettingsTab() {
                                 <p className="font-mono text-gray-900">{currentOrg.whatsapp.phoneNumberId}</p>
                             </div>
                         </div>
+                        {phoneStatus && !phoneStatus.error && (
+                            <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <span className="text-gray-500">Qualité</span>
+                                    <p className={`font-semibold ${phoneStatus.quality_rating === 'GREEN' ? 'text-green-600' : phoneStatus.quality_rating === 'YELLOW' ? 'text-yellow-600' : phoneStatus.quality_rating === 'RED' ? 'text-red-600' : 'text-gray-500'}`}>
+                                        {phoneStatus.quality_rating || 'N/A'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Statut</span>
+                                    <p className={`font-semibold ${phoneStatus.status === 'CONNECTED' ? 'text-green-600' : phoneStatus.status === 'PENDING' ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                        {phoneStatus.status || 'N/A'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Plateforme</span>
+                                    <p className={`font-semibold ${phoneStatus.platform_type === 'CLOUD_API' ? 'text-blue-600' : 'text-orange-500'}`}>
+                                        {phoneStatus.platform_type === 'CLOUD_API' ? 'Cloud API' : phoneStatus.platform_type || 'Non enregistré'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

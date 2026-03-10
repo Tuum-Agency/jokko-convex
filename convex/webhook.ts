@@ -1,43 +1,16 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
-// Gérer un message entrant
-export const handleIncomingMessage = mutation({
+// Gérer un message entrant (internal only — called from http.ts webhook handler)
+export const handleIncomingMessage = internalMutation({
     args: {
-        message: v.object({
-            from: v.string(),
-            id: v.string(),
-            timestamp: v.string(),
-            type: v.string(),
-            text: v.optional(v.object({ body: v.string() })),
-            image: v.optional(v.object({
-                id: v.string(),
-                mime_type: v.optional(v.string()),
-                caption: v.optional(v.string()),
-            })),
-            interactive: v.optional(v.object({
-                type: v.optional(v.string()),
-                button_reply: v.optional(v.object({ id: v.string(), title: v.optional(v.string()) })),
-                list_reply: v.optional(v.object({ id: v.string(), title: v.optional(v.string()) })),
-                nfm_reply: v.optional(v.object({ body: v.optional(v.string()) })),
-                active_title: v.optional(v.string()),
-                body: v.optional(v.string()),
-            })),
-            button: v.optional(v.object({
-                id: v.optional(v.string()),
-                title: v.optional(v.string()),
-            })),
-            context: v.optional(v.object({ id: v.optional(v.string()) })),
-        }),
+        // v.any() pour accepter tous les formats de message WhatsApp
+        // (v.object strict rejetait les champs inconnus envoyés par Meta)
+        message: v.any(),
         phoneNumberId: v.optional(v.string()),
-        contact: v.optional(v.object({
-            wa_id: v.optional(v.string()),
-            profile: v.optional(v.object({
-                name: v.optional(v.string()),
-            })),
-        })),
+        contact: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
         const { message, phoneNumberId } = args;
@@ -89,16 +62,13 @@ export const handleIncomingMessage = mutation({
             return;
         }
 
-        // 3. Trouver ou créer la conversation
-        // Utilisation de filter car pas d'index direct composite (ou utilisation index by_organization)
+        // 3. Trouver ou créer la conversation (using composite index)
         let conversation = await ctx.db
             .query("conversations")
-            .withIndex("by_organization", (q) => q.eq("organizationId", organization._id))
-            .filter((q) =>
-                q.and(
-                    q.eq(q.field("contactId"), contact!._id),
-                    q.eq(q.field("status"), "OPEN")
-                )
+            .withIndex("by_org_contact", (q) =>
+                q.eq("organizationId", organization._id)
+                    .eq("contactId", contact!._id)
+                    .eq("status", "OPEN")
             )
             .first();
 
@@ -279,8 +249,8 @@ export const handleIncomingMessage = mutation({
     }
 });
 
-// Gérer une mise à jour de statut
-export const handleStatusUpdate = mutation({
+// Gérer une mise à jour de statut (internal only — called from http.ts webhook handler)
+export const handleStatusUpdate = internalMutation({
     args: {
         waMessageId: v.string(),
         status: v.string(),

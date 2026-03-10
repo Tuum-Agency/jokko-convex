@@ -24,9 +24,11 @@ import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useCurrentOrg } from '@/hooks/use-current-org'
 import {
     Tooltip,
     TooltipContent,
@@ -97,6 +99,13 @@ const bottomNavigation = [
     },
 ]
 
+const PLAN_LABELS: Record<string, string> = {
+    FREE: 'Gratuit', STARTER: 'Starter', BUSINESS: 'Business', PRO: 'Pro', ENTERPRISE: 'Enterprise',
+};
+const PLAN_INITIALS: Record<string, string> = {
+    FREE: 'F', STARTER: 'S', BUSINESS: 'B', PRO: 'P', ENTERPRISE: 'E',
+};
+
 interface SidebarProps {
     /** Base path for the dashboard (e.g., /dashboard) */
     basePath?: string
@@ -114,6 +123,7 @@ export function Sidebar({
     const pathname = usePathname()
     const stats = useQuery(api.conversations.getSidebarStats)
     const role = useQuery(api.users.currentUserRole)
+    const { currentOrg } = useCurrentOrg()
 
     const restrictedForAgents = ['Assignments', 'Templates', 'Broadcasts', 'Analytics', 'Automatisation', 'Team'];
 
@@ -294,6 +304,63 @@ export function Sidebar({
                         </StaggerContainer>
                     </nav>
                 </ScrollArea>
+
+                {/* Subscription Info */}
+                {currentOrg && !isCollapsed && (
+                    <div className="px-3 pb-2">
+                        <Link
+                            href={`${basePath}/billing`}
+                            className="block rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/80 border border-gray-200/60 p-3 hover:border-green-200 transition-colors"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-500">Abonnement</span>
+                                <Badge
+                                    variant="secondary"
+                                    className={cn("text-[10px] px-1.5 py-0", {
+                                        'bg-gray-100 text-gray-600': currentOrg.plan === 'FREE',
+                                        'bg-blue-100 text-blue-700': currentOrg.plan === 'STARTER',
+                                        'bg-purple-100 text-purple-700': currentOrg.plan === 'BUSINESS',
+                                        'bg-orange-100 text-orange-700': currentOrg.plan === 'PRO',
+                                        'bg-amber-100 text-amber-700': currentOrg.plan === 'ENTERPRISE',
+                                    })}
+                                >
+                                    {PLAN_LABELS[currentOrg.plan] || currentOrg.plan}
+                                </Badge>
+                            </div>
+                            <p className="text-xs text-gray-900 font-semibold mt-1 truncate">{currentOrg.name}</p>
+                            {currentOrg.plan === 'FREE' && (
+                                <p className="text-[10px] text-green-600 mt-1 font-medium">Passer au plan supérieur →</p>
+                            )}
+                        </Link>
+                    </div>
+                )}
+
+                {currentOrg && isCollapsed && (
+                    <div className="px-3 pb-2 flex justify-center">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Link
+                                    href={`${basePath}/billing`}
+                                    className={cn(
+                                        "h-8 w-8 rounded-lg flex items-center justify-center text-[10px] font-bold border transition-colors",
+                                        {
+                                            'bg-gray-100 text-gray-600 border-gray-200': currentOrg.plan === 'FREE',
+                                            'bg-blue-100 text-blue-700 border-blue-200': currentOrg.plan === 'STARTER',
+                                            'bg-purple-100 text-purple-700 border-purple-200': currentOrg.plan === 'BUSINESS',
+                                            'bg-orange-100 text-orange-700 border-orange-200': currentOrg.plan === 'PRO',
+                                            'bg-amber-100 text-amber-700 border-amber-200': currentOrg.plan === 'ENTERPRISE',
+                                        }
+                                    )}
+                                >
+                                    {PLAN_INITIALS[currentOrg.plan] || '?'}
+                                </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                {PLAN_LABELS[currentOrg.plan] || currentOrg.plan}
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                )}
 
                 {/* Bottom Section */}
                 <div className="mt-auto">

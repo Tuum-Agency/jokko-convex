@@ -1,9 +1,10 @@
-import { query } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
 
 /**
- * Debug query to check current auth identity
+ * Debug query to check current auth identity.
+ * Internal only — not callable from clients.
  */
-export const checkAuth = query({
+export const checkAuth = internalQuery({
     args: {},
     handler: async (ctx) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -12,7 +13,6 @@ export const checkAuth = query({
             return { authenticated: false, message: "Not authenticated" };
         }
 
-        // Check if user exists in DB
         const user = await ctx.db
             .query("users")
             .withIndex("email", (q) => q.eq("email", identity.email!))
@@ -32,9 +32,10 @@ export const checkAuth = query({
 });
 
 /**
- * List all users in the database
+ * List all users in the database.
+ * Internal only — not callable from clients.
  */
-export const listAllUsers = query({
+export const listAllUsers = internalQuery({
     args: {},
     handler: async (ctx) => {
         const users = await ctx.db.query("users").collect();
