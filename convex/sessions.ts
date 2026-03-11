@@ -137,25 +137,8 @@ export const ensure = mutation({
         if (membership) {
             orgId = membership.organizationId;
         } else {
-            // Create default organization
-            orgId = await ctx.db.insert("organizations", {
-                name: "My Organization",
-                slug: "my-org-" + Date.now(),
-                ownerId: userId,
-                plan: "FREE",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            });
-            await ctx.db.insert("memberships", {
-                userId,
-                organizationId: orgId,
-                role: "OWNER",
-                status: "ONLINE",
-                maxConversations: 0,
-                activeConversations: 0,
-                lastSeenAt: Date.now(),
-                joinedAt: Date.now(),
-            });
+            // No org found — user needs to complete onboarding first
+            return null;
         }
 
         if (session) {

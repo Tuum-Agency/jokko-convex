@@ -27,15 +27,16 @@ export default function DashboardLayout({
             router.push('/sign-in');
             return;
         }
-        if (user && user.onboardingCompleted === false) {
-            console.log(`[DashboardLayout] Redirecting to /onboarding (onboarding incomplete)`);
+        if (user && user.onboardingCompleted !== true) {
+            console.log(`[DashboardLayout] Redirecting to /onboarding (onboarding not completed)`);
             router.push('/onboarding');
+            return;
         }
     }, [user, router]);
 
-    // 2. Session Init
+    // 2. Session Init (only after onboarding is complete)
     useEffect(() => {
-        if (sessionData === null && user) {
+        if (sessionData === null && user && user.onboardingCompleted === true) {
             console.log(`[DashboardLayout] Initializing session...`);
             ensureSession();
         }
@@ -116,7 +117,7 @@ export default function DashboardLayout({
     }
 
     // C. Needs Onboarding
-    if (user.onboardingCompleted === false) {
+    if (user.onboardingCompleted !== true) {
         return (
             <div className="flex h-screen items-center justify-center flex-col gap-2 bg-gray-50">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
