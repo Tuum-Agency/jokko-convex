@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
@@ -10,9 +10,6 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 function getTargetOrigin(): string {
     const isLocalhost = window.location.hostname.includes('localhost');
     if (isLocalhost) {
-        // En dev, le popup est sur localhost:PORT mais l'opener peut être
-        // sur un sous-domaine (ex: be-in-digital-21.localhost:PORT).
-        // On utilise "*" car les sous-domaines localhost ont des origines différentes.
         return "*";
     }
     return `${window.location.protocol}//${ROOT_DOMAIN}`;
@@ -28,41 +25,52 @@ declare global {
 export default function FacebookConnectPage() {
     const [status, setStatus] = useState<'loading' | 'ready' | 'logging-in' | 'done' | 'error'>('loading');
     const [errorMsg, setErrorMsg] = useState('');
+    const fbInitialized = useRef(false);
+
+    function initFB() {
+        if (!window.FB || fbInitialized.current) return;
+        window.FB.init({
+            appId: FB_APP_ID,
+            cookie: true,
+            xfbml: true,
+            version: FB_SDK_VERSION,
+        });
+        fbInitialized.current = true;
+        console.log('[FB] SDK initialized, appId:', FB_APP_ID);
+        setStatus('ready');
+    }
 
     useEffect(() => {
-        // 1. Define fbAsyncInit BEFORE injecting the script
+        // If FB is already loaded (hot-reload), init immediately
+        if (window.FB) {
+            initFB();
+            return;
+        }
+
+        // Define fbAsyncInit BEFORE injecting the script
         window.fbAsyncInit = function () {
-            window.FB.init({
-                appId: FB_APP_ID,
-                cookie: true,
-                xfbml: true,
-                version: FB_SDK_VERSION,
-            });
-            setStatus('ready');
+            initFB();
         };
 
-        // 2. Inject Facebook SDK using the official IIFE pattern
-        (function (d: Document, s: string, id: string) {
-            const fjs = d.getElementsByTagName(s)[0];
-            if (d.getElementById(id)) {
+        // Inject Facebook SDK
+        const existingScript = document.getElementById('facebook-jssdk');
+        if (existingScript) {
+            // Script tag exists but FB not ready yet — wait for it
+            const interval = setInterval(() => {
                 if (window.FB) {
-                    window.FB.init({
-                        appId: FB_APP_ID,
-                        cookie: true,
-                        xfbml: true,
-                        version: FB_SDK_VERSION,
-                    });
-                    setStatus('ready');
+                    clearInterval(interval);
+                    initFB();
                 }
-                return;
-            }
-            const js = d.createElement(s) as HTMLScriptElement;
-            js.id = id;
-            js.src = 'https://connect.facebook.net/en_US/sdk.js';
-            js.async = true;
-            js.defer = true;
-            fjs.parentNode?.insertBefore(js, fjs);
-        })(document, 'script', 'facebook-jssdk');
+            }, 100);
+            return () => clearInterval(interval);
+        }
+
+        const js = document.createElement('script');
+        js.id = 'facebook-jssdk';
+        js.src = 'https://connect.facebook.net/en_US/sdk.js';
+        js.async = true;
+        js.defer = true;
+        document.body.appendChild(js);
     }, []);
 
     const handleLogin = () => {
@@ -79,20 +87,16 @@ export default function FacebookConnectPage() {
             return;
         }
 
-        setStatus('logging-in');
+        // Re-init if needed (safety net)
+        if (!fbInitialized.current) {
+            initFB();
+        }
 
-        // Always call FB.init() right before FB.login() as safety net
-        window.FB.init({
-            appId: FB_APP_ID,
-            cookie: true,
-            xfbml: true,
-            version: FB_SDK_VERSION,
-        });
+        setStatus('logging-in');
 
         window.FB.login(
             (response: any) => {
                 if (response.authResponse?.accessToken) {
-                    // Send token back to the opener window (subdomain)
                     if (window.opener) {
                         const targetOrigin = getTargetOrigin();
                         window.opener.postMessage(
@@ -104,7 +108,6 @@ export default function FacebookConnectPage() {
                         );
                     }
                     setStatus('done');
-                    // Close popup after a short delay
                     setTimeout(() => window.close(), 1000);
                 } else {
                     if (window.opener) {
