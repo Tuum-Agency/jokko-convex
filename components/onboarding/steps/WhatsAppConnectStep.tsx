@@ -93,11 +93,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
         }
     }
 
-    async function handleSkip() {
-        await completeOnboarding();
-        onComplete();
-    }
-
     // ==========================================
     // RENDER
     // ==========================================
@@ -183,15 +178,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                 </p>
             </div>
 
-            <div className="flex gap-4 justify-center">
-                <Button
-                    onClick={handleSkip}
-                    variant="ghost"
-                    className='text-gray-500'
-                >
-                    Passer cette étape (Mode Démo)
-                </Button>
-            </div>
         </div>
     );
 }
