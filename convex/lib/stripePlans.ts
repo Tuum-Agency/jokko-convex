@@ -1,6 +1,8 @@
 /**
  * Stripe plan-to-price mapping utilities.
  * No Stripe SDK import - usable in both edge and Node runtimes.
+ *
+ * NOTE: Les prix doivent correspondre à lib/plans.ts (PLAN_PRICING).
  */
 
 export const PLAN_PRICES: Record<string, { name: string; monthlyFCFA: number; yearlyFCFA: number }> = {

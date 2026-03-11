@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -300,5 +300,37 @@ export const deleteAccount = mutation({
 
         // 3. Delete user
         await ctx.db.delete(userId);
+    },
+});
+
+/**
+ * Reset onboarding for all users (internal only)
+ */
+export const resetOnboarding = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const users = await ctx.db.query("users").collect();
+        let count = 0;
+        for (const user of users) {
+            await ctx.db.patch(user._id, { onboardingCompleted: undefined });
+            count++;
+        }
+        // Delete userSessions
+        const sessions = await ctx.db.query("userSessions").collect();
+        for (const s of sessions) await ctx.db.delete(s._id);
+        // Delete auto-created dummy orgs and their memberships
+        const orgs = await ctx.db.query("organizations").collect();
+        let orgsDeleted = 0;
+        for (const org of orgs) {
+            if (org.name === "My Organization") {
+                const memberships = await ctx.db.query("memberships")
+                    .withIndex("by_organization", (q: any) => q.eq("organizationId", org._id))
+                    .collect();
+                for (const m of memberships) await ctx.db.delete(m._id);
+                await ctx.db.delete(org._id);
+                orgsDeleted++;
+            }
+        }
+        return { usersReset: count, sessionsDeleted: sessions.length, orgsDeleted };
     },
 });

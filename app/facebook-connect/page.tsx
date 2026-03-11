@@ -3,16 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
-const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-const FB_SDK_VERSION = 'v19.0';
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 
 function getTargetOrigin(): string {
     const isLocalhost = window.location.hostname.includes('localhost');
     if (isLocalhost) {
-        // En dev, le popup est sur localhost:PORT mais l'opener peut être
-        // sur un sous-domaine (ex: be-in-digital-21.localhost:PORT).
-        // On utilise "*" car les sous-domaines localhost ont des origines différentes.
         return "*";
     }
     return `${window.location.protocol}//${ROOT_DOMAIN}`;
@@ -22,6 +17,7 @@ declare global {
     interface Window {
         FB: any;
         fbAsyncInit: () => void;
+        __FB_INITIALIZED__?: boolean;
     }
 }
 
@@ -30,62 +26,56 @@ export default function FacebookConnectPage() {
     const [errorMsg, setErrorMsg] = useState('');
 
     useEffect(() => {
-        // 1. Define fbAsyncInit BEFORE injecting the script
-        window.fbAsyncInit = function () {
-            window.FB.init({
-                appId: FB_APP_ID,
-                cookie: true,
-                xfbml: true,
-                version: FB_SDK_VERSION,
-            });
+        // Wait for FB SDK to be initialized (loaded in layout.tsx)
+        if (window.__FB_INITIALIZED__ && window.FB) {
             setStatus('ready');
-        };
+            return;
+        }
 
-        // 2. Inject Facebook SDK using the official IIFE pattern
-        (function (d: Document, s: string, id: string) {
-            const fjs = d.getElementsByTagName(s)[0];
-            if (d.getElementById(id)) {
-                if (window.FB) {
-                    window.FB.init({
-                        appId: FB_APP_ID,
-                        cookie: true,
-                        xfbml: true,
-                        version: FB_SDK_VERSION,
-                    });
-                    setStatus('ready');
-                }
-                return;
+        // Poll until the SDK is ready
+        const interval = setInterval(() => {
+            if (window.__FB_INITIALIZED__ && window.FB) {
+                clearInterval(interval);
+                setStatus('ready');
             }
-            const js = d.createElement(s) as HTMLScriptElement;
-            js.id = id;
-            js.src = 'https://connect.facebook.net/en_US/sdk.js';
-            js.async = true;
-            js.defer = true;
-            fjs.parentNode?.insertBefore(js, fjs);
-        })(document, 'script', 'facebook-jssdk');
+        }, 100);
+
+        // Timeout after 10s
+        const timeout = setTimeout(() => {
+            clearInterval(interval);
+            if (status === 'loading') {
+                setErrorMsg("Le SDK Facebook n'a pas pu être chargé. Vérifiez votre connexion.");
+                setStatus('error');
+            }
+        }, 10000);
+
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
+        };
     }, []);
 
     const handleLogin = () => {
-        if (!window.FB) {
-            setErrorMsg("Le SDK Facebook n'est pas chargé.");
+        if (!window.FB || !window.__FB_INITIALIZED__) {
+            setErrorMsg("Le SDK Facebook n'est pas initialisé.");
             setStatus('error');
             return;
         }
 
         setStatus('logging-in');
 
-        // Always call FB.init() right before FB.login() as safety net
+        // Re-init FB right before login — required by FB SDK
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
         window.FB.init({
-            appId: FB_APP_ID,
+            appId,
             cookie: true,
             xfbml: true,
-            version: FB_SDK_VERSION,
+            version: 'v22.0',
         });
 
         window.FB.login(
             (response: any) => {
                 if (response.authResponse?.accessToken) {
-                    // Send token back to the opener window (subdomain)
                     if (window.opener) {
                         const targetOrigin = getTargetOrigin();
                         window.opener.postMessage(
@@ -97,7 +87,6 @@ export default function FacebookConnectPage() {
                         );
                     }
                     setStatus('done');
-                    // Close popup after a short delay
                     setTimeout(() => window.close(), 1000);
                 } else {
                     if (window.opener) {
@@ -137,7 +126,7 @@ export default function FacebookConnectPage() {
                 {status === 'ready' && (
                     <button
                         onClick={handleLogin}
-                        className="w-full bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-3 px-6 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors"
+                        className="w-full h-12 bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 flex items-center justify-center gap-2 transition-all duration-300"
                     >
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />

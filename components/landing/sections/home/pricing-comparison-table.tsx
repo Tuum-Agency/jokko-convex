@@ -9,46 +9,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { FadeInView } from '@/components/animations'
-
-const features = [
-    {
-        category: 'Général',
-        items: [
-            { name: 'Utilisateurs inclus', starter: '1 (Vous)', business: '5', pro: '20', help: 'Nombre de personnes pouvant accéder au compte.' },
-            { name: 'Numéros WhatsApp', starter: '1', business: '1', pro: '1', help: 'Nombre de numéros de téléphone connectables.' },
-            { name: 'Contacts', starter: 'Illimité', business: 'Illimité', pro: 'Illimité', help: 'Nombre de contacts dans votre CRM.' },
-            { name: 'Historique des messages', starter: '30 jours', business: 'Illimité', pro: 'Illimité', help: 'Durée de conservation des conversations.' },
-        ]
-    },
-    {
-        category: 'Messagerie & Diffusion',
-        items: [
-            { name: 'Boîte de réception unifiée', starter: true, business: true, pro: true, help: 'Message centralisés au même endroit.' },
-            { name: 'Campagnes Marketing (Broadcast)', starter: false, business: 'Illimité', pro: 'Illimité', help: 'Envoi en masse. Les frais de conversation WhatsApp (Meta) sont à votre charge.' },
-            { name: 'Segmentation avancée', starter: false, business: true, pro: true, help: 'Filtrez vos clients par tags et attributs.' },
-            { name: 'Modèles de messages (Templates)', starter: 'Limité', business: 'Limité', pro: 'Limité', help: 'Modèles pré-approuvés par Meta.' },
-            { name: 'Envoi de médias (Images, Vidéos, Docs)', starter: true, business: true, pro: true, help: 'Support de tous les fichiers.' },
-        ]
-    },
-    {
-        category: 'Automatisation & IA',
-        items: [
-            { name: 'Réponses rapides', starter: true, business: true, pro: true, help: 'Raccourcis clavier pour les messages fréquents.' },
-            { name: 'Chatbot (Règles simples)', starter: false, business: true, pro: true, help: 'Automatisation basique par mots-clés.' },
-            { name: 'Jokko AI (Assistant Intelligent)', starter: false, business: 'Option', pro: 'Inclus', help: 'IA générative qui répond à vos clients.' },
-            { name: 'Flux de conversation (Flows)', starter: false, business: false, pro: true, help: 'Création de parcours clients complexes.' },
-        ]
-    },
-    {
-        category: 'Support & Technique',
-        items: [
-            { name: 'Support Client', starter: 'Email', business: 'Email & Chat', pro: 'Prioritaire 24/7' },
-            { name: 'Onboarding assisté', starter: false, business: false, pro: true, help: 'Configuration initiale par nos experts.' },
-            { name: 'API Access', starter: false, business: false, pro: true, help: 'Connectez Jokko à vos outils.' },
-            { name: 'Webhooks', starter: false, business: true, pro: true, help: 'Recevez les événements en temps réel.' },
-        ]
-    }
-]
+import { COMPARISON_TABLE } from '@/lib/plans'
 
 export function PricingComparisonTable() {
     return (
@@ -70,7 +31,7 @@ export function PricingComparisonTable() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {features.map((section, sIndex) => (
+                            {COMPARISON_TABLE.map((section, sIndex) => (
                                 <React.Fragment key={section.category}>
                                     <tr>
                                         <td colSpan={4} className="py-6 px-6 bg-white">

@@ -49,7 +49,7 @@ export const businessInfoSchema = z.object({
         'TECHNOLOGY',
         'SERVICES',
         'OTHER',
-    ]),
+    ], { message: 'Veuillez sélectionner un secteur d\'activité' }),
     businessLogo: z.string().url().optional().nullable(),
     businessWebsite: z.string().url().optional().or(z.literal('')),
     businessPhone: z.string().optional(),

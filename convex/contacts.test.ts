@@ -12,17 +12,14 @@ describe("Contacts", () => {
     });
 
     it("should create contacts in batch", async () => {
-        // 1. Setup: create user, organization, membership, and session
+        // 1. Setup: create user, org, membership, and session
         const { userId } = await t.run(async (ctx: any) => {
-            const userId = await ctx.db.insert("users", {
-                email: "test@example.com",
-                name: "Test User",
-            });
+            const userId = await ctx.db.insert("users", { email: "test@example.com", name: "Test User" });
             const orgId = await ctx.db.insert("organizations", {
                 name: "Test Org",
                 slug: "test-org",
                 ownerId: userId,
-                plan: "FREE",
+                plan: "BUSINESS",
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             });
@@ -47,11 +44,11 @@ describe("Contacts", () => {
         // 2. Call batchCreate
         const contactsData = [
             { phone: "+221770000001", firstName: "Import", lastName: "One", tags: ["Imported"] },
-            { phone: "+221770000002", firstName: "Import", lastName: "Two", tags: ["Imported", "VIP"] },
+            { phone: "+221770000002", firstName: "Import", lastName: "Two", tags: ["Imported", "VIP"] }
         ];
 
         const result = await t.withIdentity({ subject: userId }).mutation(api.contacts.batchCreate, {
-            contacts: contactsData,
+            contacts: contactsData
         });
 
         // 3. Verify Result
@@ -60,7 +57,7 @@ describe("Contacts", () => {
 
         // 4. Verify Database
         const contacts = await t.withIdentity({ subject: userId }).query(api.contacts.list, {
-            paginationOpts: { numItems: 10, cursor: null },
+            paginationOpts: { numItems: 10, cursor: null }
         });
 
         expect(contacts.page).toHaveLength(2);

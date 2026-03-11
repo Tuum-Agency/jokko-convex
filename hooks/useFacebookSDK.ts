@@ -23,10 +23,10 @@ export function useFacebookSDK() {
 
             let popupUrl: string;
             if (isLocalhost) {
-                // In dev, just use localhost (no subdomain needed for the popup)
+                // In dev, use the same protocol (https if using --experimental-https)
                 popupUrl = `${protocol}//localhost${port}/facebook-connect`;
             } else {
-                popupUrl = `${protocol}//${ROOT_DOMAIN}/facebook-connect`;
+                popupUrl = `https://${ROOT_DOMAIN}/facebook-connect`;
             }
 
             // Open popup

@@ -7,78 +7,38 @@ import { FadeInView, StaggerContainer, StaggerItem, ScaleInView } from '@/compon
 import { Check, DollarSign, Zap, Store, Building2, ShieldCheck, HelpCircle, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { PLANS as PLAN_DEFS, formatLimit } from '@/lib/plans'
 
-const plans = [
-    {
-        name: 'Starter',
-        price: '10 000',
+const PLAN_UI = {
+    STARTER: { icon: Zap, gradient: 'from-slate-50 to-white', border: 'border-slate-200', text: 'text-slate-900', buttonVariant: 'outline' as const, cta: "Démarrer" },
+    BUSINESS: { icon: Store, gradient: 'from-green-50 to-emerald-100/40', border: 'border-green-500 ring-4 ring-green-500/10 shadow-2xl', text: 'text-green-800', buttonVariant: 'default' as const, cta: "Choisir Business" },
+    PRO: { icon: Building2, gradient: 'from-purple-50 to-indigo-50/50', border: 'border-purple-200', text: 'text-purple-900', buttonVariant: 'secondary' as const, cta: "Passer Pro" },
+} as const;
+
+const plans = PLAN_DEFS.map((p) => {
+    const ui = PLAN_UI[p.key as keyof typeof PLAN_UI];
+    return {
+        name: p.name,
+        price: new Intl.NumberFormat('fr-FR').format(p.pricing.monthlyFCFA),
         period: 'mois',
-        description: 'Pour les solopreneurs qui se lancent.',
-        icon: Zap,
-        gradient: 'from-slate-50 to-white',
-        border: 'border-slate-200',
-        text: 'text-slate-900',
-        buttonVariant: 'outline' as const,
+        description: p.description,
+        icon: ui.icon,
+        gradient: ui.gradient,
+        border: ui.border,
+        text: ui.text,
+        buttonVariant: ui.buttonVariant,
         features: [
-            '1 Agent (Vous uniquement)',
-            'Boîte de réception unifiée',
-            'Numéro Business connecté',
-            'Tags & Notes de base',
-            'Support Standard (Email)'
+            `${formatLimit(p.limits.agents)} Agent${p.limits.agents > 1 ? 's' : ''} ${p.limits.agents === 1 ? '(Vous uniquement)' : 'inclus'}`,
+            `${formatLimit(p.limits.whatsappChannels)} Numéro${p.limits.whatsappChannels > 1 ? 's' : ''} WhatsApp`,
+            `${formatLimit(p.limits.conversationsPerMonth)} conversations/mois`,
+            ...p.features.filter(f => f.included).map(f => f.label),
+            `Support ${p.supportLevel}`,
         ],
-        limits: [
-            'Pas de Chatbot',
-            'Pas de Marketing de masse'
-        ],
-        cta: "Démarrer",
-        popular: false
-    },
-    {
-        name: 'Business',
-        price: '30 000',
-        period: 'mois',
-        description: 'Pour les PME en croissance.',
-        icon: Store,
-        gradient: 'from-green-50 to-emerald-100/40',
-        border: 'border-green-500 ring-4 ring-green-500/10 shadow-2xl',
-        text: 'text-green-800',
-        buttonVariant: 'default' as const,
-        features: [
-            '5 Agents inclus',
-            'Marketing WhatsApp (hors coûts Meta)',
-            'Chatbot : Réponses rapides',
-            'Statistiques de base',
-            'Support Prioritaire'
-        ],
-        limits: [
-            'Pas d\'IA Générative',
-            'Max 5 utilisateurs'
-        ],
-        cta: "Choisir Business",
-        popular: true
-    },
-    {
-        name: 'Pro',
-        price: '70 000',
-        period: 'mois',
-        description: 'Pour les leaders du marché.',
-        icon: Building2,
-        gradient: 'from-purple-50 to-indigo-50/50',
-        border: 'border-purple-200',
-        text: 'text-purple-900',
-        buttonVariant: 'secondary' as const,
-        features: [
-            '20 Agents inclus',
-            'Chatbot IA Avancé',
-            'Marketing Avancé & Segments',
-            'API & Intégrations',
-            'Account Manager dédié'
-        ],
-        limits: [],
-        cta: "Passer Pro",
-        popular: false
-    }
-]
+        limits: p.features.filter(f => !f.included).map(f => `Pas de ${f.label.replace(/^Pas de /, '')}`),
+        cta: ui.cta,
+        popular: p.popular || false,
+    };
+});
 
 export function PricingSection() {
     return (

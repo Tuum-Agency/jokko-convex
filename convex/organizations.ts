@@ -101,7 +101,17 @@ export const create = mutation({
                 .first();
 
             if (existing) {
-                throw new Error("Ce nom d'espace (slug) est déjà pris.");
+                // Vérifier si le slug appartient à une org de l'utilisateur
+                const membership = await ctx.db
+                    .query("memberships")
+                    .withIndex("by_user_org", (q) =>
+                        q.eq("userId", userId).eq("organizationId", existing._id)
+                    )
+                    .first();
+
+                if (!membership) {
+                    throw new Error("Ce nom d'espace (slug) est déjà pris.");
+                }
             }
         }
 
@@ -164,12 +174,24 @@ export const create = mutation({
 export const checkSlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-
         const existing = await ctx.db
             .query("organizations")
             .withIndex("by_slug", (q) => q.eq("slug", args.slug))
             .first();
 
-        return !existing;
+        if (!existing) return true;
+
+        // Si le slug appartient déjà à une org de l'utilisateur, c'est OK
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return false;
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", existing._id)
+            )
+            .first();
+
+        return !!membership;
     },
 });

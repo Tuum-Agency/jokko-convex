@@ -22,19 +22,19 @@ export default function LegalPage() {
 
                         <h3>Hébergement</h3>
                         <p>
-                            Ce site et l'application sont hébergés sur des infrastructures cloud sécurisées (Vercel / AWS).
+                            Ce site et l&apos;application sont hébergés sur des infrastructures cloud sécurisées (Vercel / AWS).
                         </p>
 
                         <h3>Propriété Intellectuelle</h3>
                         <p>
-                            L'ensemble de ce site relève de la législation sur le droit d'auteur et la propriété intellectuelle.
+                            L&apos;ensemble de ce site relève de la législation sur le droit d&apos;auteur et la propriété intellectuelle.
                             Tous les droits de reproduction sont réservés.
                         </p>
 
                         <h3>Responsabilité</h3>
                         <p>
-                            Jokko s'efforce d'assurer au mieux de ses possibilités, l'exactitude et la mise à jour des informations diffusées sur ce site.
-                            Toutefois, nous ne pouvons garantir l'exactitude, la précision ou l'exhaustivité des informations mises à la disposition sur ce site.
+                            Jokko s&apos;efforce d&apos;assurer au mieux de ses possibilités, l&apos;exactitude et la mise à jour des informations diffusées sur ce site.
+                            Toutefois, nous ne pouvons garantir l&apos;exactitude, la précision ou l&apos;exhaustivité des informations mises à la disposition sur ce site.
                         </p>
                     </div>
                 </div>

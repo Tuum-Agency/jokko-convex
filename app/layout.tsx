@@ -62,6 +62,32 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.fbAsyncInit = function() {
+                FB.init({
+                  appId: '${process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ''}',
+                  cookie: true,
+                  xfbml: true,
+                  version: 'v22.0'
+                });
+                window.__FB_INITIALIZED__ = true;
+                console.log('[FB] SDK initialized globally');
+              };
+              (function(d, s, id) {
+                var fjs = d.getElementsByTagName(s)[0];
+                if (d.getElementById(id)) return;
+                var js = d.createElement(s); js.id = id;
+                js.src = 'https://connect.facebook.net/en_US/sdk.js';
+                js.async = true; js.defer = true;
+                fjs.parentNode.insertBefore(js, fjs);
+              }(document, 'script', 'facebook-jssdk'));
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

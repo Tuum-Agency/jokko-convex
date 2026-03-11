@@ -17,19 +17,55 @@ export const handleIncomingMessage = internalMutation({
         const from = message.from; // Numéro de téléphone
         const name = args.contact?.profile?.name || from;
 
-        // 1. Trouver l'organisation
+        // 1. Trouver l'organisation via whatsappChannels (nouveau modèle) puis fallback legacy
         if (!phoneNumberId) {
             console.error("[WHATSAPP] Missing phoneNumberId in webhook event");
             return;
         }
 
-        const organization = await ctx.db
-            .query("organizations")
-            .withIndex("by_whatsapp_phone_id", (q) => q.eq("whatsapp.phoneNumberId", phoneNumberId))
+        // Nouveau modèle: lookup via whatsappChannels
+        const channel = await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_phone_id", (q) => q.eq("phoneNumberId", phoneNumberId))
             .first();
 
+        let organizationId: Id<"organizations">;
+        let whatsappChannelId: Id<"whatsappChannels"> | undefined;
+
+        if (channel) {
+            if (channel.status !== "active") {
+                console.log(`[WHATSAPP] Channel ${phoneNumberId} is ${channel.status}, skipping`);
+                return;
+            }
+            organizationId = channel.organizationId;
+            whatsappChannelId = channel._id;
+
+            // Update lastWebhookAt
+            await ctx.db.patch(channel._id, { lastWebhookAt: Date.now() });
+        } else {
+            // Fallback legacy: lookup via organizations
+            const organization = await ctx.db
+                .query("organizations")
+                .withIndex("by_whatsapp_phone_id", (q) => q.eq("whatsapp.phoneNumberId", phoneNumberId))
+                .first();
+
+            if (!organization) {
+                console.error(`[WHATSAPP] No channel or organization found for phoneNumberId: ${phoneNumberId}`);
+                return;
+            }
+            organizationId = organization._id;
+
+            // Try to find default channel for this org (if migration partially done)
+            const defaultChannel = await ctx.db
+                .query("whatsappChannels")
+                .withIndex("by_org_default", (q) => q.eq("organizationId", organizationId).eq("isOrgDefault", true))
+                .first();
+            whatsappChannelId = defaultChannel?._id;
+        }
+
+        const organization = await ctx.db.get(organizationId);
         if (!organization) {
-            console.error(`[WHATSAPP] No organization found for phoneNumberId: ${phoneNumberId}`);
+            console.error(`[WHATSAPP] Organization ${organizationId} not found`);
             return;
         }
 
@@ -43,7 +79,7 @@ export const handleIncomingMessage = internalMutation({
 
         if (!contact) {
             const contactId = await ctx.db.insert("contacts", {
-                organizationId: organization._id,
+                organizationId: organizationId,
                 phone: from,
                 name: name,
                 searchName: `${name} ${from}`,
@@ -74,15 +110,15 @@ export const handleIncomingMessage = internalMutation({
 
         if (!conversation) {
             const conversationId = await ctx.db.insert("conversations", {
-                organizationId: organization._id,
+                organizationId: organizationId,
                 contactId: contact._id,
                 status: "OPEN",
                 unreadCount: 0,
                 lastMessageAt: Date.now(),
                 channel: "WHATSAPP",
+                whatsappChannelId: whatsappChannelId,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
-                // title n'existe pas dans le schema, il est dérivé du contact
             });
             conversation = await ctx.db.get(conversationId);
         }
@@ -140,7 +176,7 @@ export const handleIncomingMessage = internalMutation({
         }
 
         const newMessageId = await ctx.db.insert("messages", {
-            organizationId: organization._id,
+            organizationId: organizationId,
             conversationId: conversation._id,
             contactId: contact._id,
             // senderId: doit être undefined pour les messages entrants (système/contact)
@@ -169,7 +205,7 @@ export const handleIncomingMessage = internalMutation({
 
         // 6. Trigger Automation Engine
         await ctx.scheduler.runAfter(0, internal.engine.processMessage, {
-            organizationId: organization._id,
+            organizationId: organizationId,
             conversationId: conversation._id,
             contactId: contact._id,
             messageText: content,

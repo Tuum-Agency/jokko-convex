@@ -26,7 +26,7 @@
 
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, UserX, Archive, Inbox, Mail, MessageSquare, Users } from 'lucide-react'
+import { Search, UserX, Archive, Inbox, Mail, MessageSquare, Users, Phone } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -36,7 +36,9 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useConversations, type ConversationFilter, type ConversationSummary } from '@/hooks/useConversations'
+import { useChannels } from '@/hooks/useChannels'
 import { AssignmentBadge } from './AssignmentBadge'
 import { cn } from '@/lib/utils'
 
@@ -229,6 +231,7 @@ function ContactListItem({
 
 export function ContactList({ selectedId, onSelect }: ContactListProps) {
     const [searchQuery, setSearchQuery] = useState('')
+    const [channelFilter, setChannelFilter] = useState<string>('all')
 
     const {
         conversations,
@@ -238,17 +241,31 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
         unreadCount: totalUnread,
     } = useConversations()
 
-    // Filter conversations by search query
+    const { channels } = useChannels()
+    const hasMultipleChannels = channels.length > 1
+
+    // Filter conversations by channel and search query
     const filteredConversations = useMemo(() => {
-        if (!searchQuery.trim()) return conversations
-        const query = searchQuery.toLowerCase()
-        return conversations.filter(
-            (conv: ConversationSummary) =>
-                conv.contact.name?.toLowerCase().includes(query) ||
-                conv.contact.phone.includes(query) ||
-                conv.lastMessageText?.toLowerCase().includes(query)
-        )
-    }, [conversations, searchQuery])
+        let result = conversations
+
+        // Channel filter
+        if (channelFilter !== 'all') {
+            result = result.filter((conv: any) => conv.whatsappChannelId === channelFilter)
+        }
+
+        // Search filter
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase()
+            result = result.filter(
+                (conv: ConversationSummary) =>
+                    conv.contact.name?.toLowerCase().includes(query) ||
+                    conv.contact.phone.includes(query) ||
+                    conv.lastMessageText?.toLowerCase().includes(query)
+            )
+        }
+
+        return result
+    }, [conversations, searchQuery, channelFilter])
 
     // Group conversations by category for "all" filter
     const groupedConversations = useMemo(() => {
@@ -283,6 +300,27 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
                         </Badge>
                     )}
                 </div>
+
+                {/* Channel Filter */}
+                {hasMultipleChannels && (
+                    <Select value={channelFilter} onValueChange={setChannelFilter}>
+                        <SelectTrigger className="h-8 text-xs mb-2">
+                            <Phone className="h-3 w-3 mr-1.5" />
+                            <SelectValue placeholder="Tous les canaux" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Tous les canaux</SelectItem>
+                            {channels.map((ch: any) => (
+                                <SelectItem key={ch._id} value={ch._id}>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`h-2 w-2 rounded-full ${ch.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                        {ch.label} — {ch.displayPhoneNumber}
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
 
                 {/* Search */}
                 <div className="relative">

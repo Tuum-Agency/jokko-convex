@@ -41,7 +41,6 @@ import {
 } from '@/components/ui/empty'
 import { useState, useEffect } from 'react'
 import { Id } from '@/convex/_generated/dataModel'
-import { toast } from 'sonner'
 
 export default function AssignmentsClient() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
