@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
-const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-const FB_SDK_VERSION = 'v22.0';
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 
 function getTargetOrigin(): string {
@@ -19,77 +17,49 @@ declare global {
     interface Window {
         FB: any;
         fbAsyncInit: () => void;
+        __FB_INITIALIZED__?: boolean;
     }
 }
 
 export default function FacebookConnectPage() {
     const [status, setStatus] = useState<'loading' | 'ready' | 'logging-in' | 'done' | 'error'>('loading');
     const [errorMsg, setErrorMsg] = useState('');
-    const fbInitialized = useRef(false);
-
-    function initFB() {
-        if (!window.FB || fbInitialized.current) return;
-        window.FB.init({
-            appId: FB_APP_ID,
-            cookie: true,
-            xfbml: true,
-            version: FB_SDK_VERSION,
-        });
-        fbInitialized.current = true;
-        console.log('[FB] SDK initialized, appId:', FB_APP_ID);
-        setStatus('ready');
-    }
 
     useEffect(() => {
-        // If FB is already loaded (hot-reload), init immediately
-        if (window.FB) {
-            initFB();
+        // Wait for FB SDK to be initialized (loaded in layout.tsx)
+        if (window.__FB_INITIALIZED__ && window.FB) {
+            setStatus('ready');
             return;
         }
 
-        // Define fbAsyncInit BEFORE injecting the script
-        window.fbAsyncInit = function () {
-            initFB();
+        // Poll until the SDK is ready
+        const interval = setInterval(() => {
+            if (window.__FB_INITIALIZED__ && window.FB) {
+                clearInterval(interval);
+                setStatus('ready');
+            }
+        }, 100);
+
+        // Timeout after 10s
+        const timeout = setTimeout(() => {
+            clearInterval(interval);
+            if (status === 'loading') {
+                setErrorMsg("Le SDK Facebook n'a pas pu être chargé. Vérifiez votre connexion.");
+                setStatus('error');
+            }
+        }, 10000);
+
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
         };
-
-        // Inject Facebook SDK
-        const existingScript = document.getElementById('facebook-jssdk');
-        if (existingScript) {
-            // Script tag exists but FB not ready yet — wait for it
-            const interval = setInterval(() => {
-                if (window.FB) {
-                    clearInterval(interval);
-                    initFB();
-                }
-            }, 100);
-            return () => clearInterval(interval);
-        }
-
-        const js = document.createElement('script');
-        js.id = 'facebook-jssdk';
-        js.src = 'https://connect.facebook.net/en_US/sdk.js';
-        js.async = true;
-        js.defer = true;
-        document.body.appendChild(js);
     }, []);
 
     const handleLogin = () => {
-        if (!window.FB) {
-            setErrorMsg("Le SDK Facebook n'est pas chargé.");
+        if (!window.FB || !window.__FB_INITIALIZED__) {
+            setErrorMsg("Le SDK Facebook n'est pas initialisé.");
             setStatus('error');
             return;
-        }
-
-        // Facebook exige HTTPS pour FB.login()
-        if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost')) {
-            setErrorMsg("Facebook requiert HTTPS. Utilisez `pnpm dev --experimental-https` en développement.");
-            setStatus('error');
-            return;
-        }
-
-        // Re-init if needed (safety net)
-        if (!fbInitialized.current) {
-            initFB();
         }
 
         setStatus('logging-in');
