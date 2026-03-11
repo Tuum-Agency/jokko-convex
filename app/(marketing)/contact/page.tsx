@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { Mail, MessageCircle, Globe, Clock, CheckCircle, ArrowRight } from 'lucide-react'
+import { Mail, MessageCircle, Globe, Clock, ArrowRight } from 'lucide-react'
 import { ContactForm } from '@/components/landing/sections/contact-form'
 import { FaqSection } from '@/components/landing/sections/home'
 
@@ -21,7 +21,7 @@ export default function ContactPage() {
                             Entrons en contact
                         </h1>
                         <p className="text-lg text-slate-600">
-                            Une question sur nos tarifs, une demande de démo ou besoin d'aide ?
+                            Une question sur nos tarifs, une demande de démo ou besoin d&apos;aide ?
                             Notre équipe est là pour vous répondre rapidement.
                         </p>
                     </div>
@@ -82,7 +82,7 @@ export default function ContactPage() {
                             <div className="mt-8 pt-8 border-t border-slate-200">
                                 <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-slate-500" />
-                                    Horaires d'ouverture
+                                    Horaires d&apos;ouverture
                                 </h4>
                                 <p className="text-sm text-slate-600 mb-2">
                                     <span className="font-medium text-slate-900">Lundi - Vendredi :</span> 09h00 - 18h00
