@@ -20,43 +20,33 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { cn } from "@/lib/utils";
+import { PLANS as PLAN_DEFS, formatLimit } from "@/lib/plans";
 
-const PLANS = [
-    {
-        key: "STARTER" as const,
-        name: "Starter",
-        priceMonthly: "10 000",
-        priceYearly: "96 000",
-        priceYearlyMonthly: "8 000",
-        features: ["3 agents", "1 000 conversations/mois", "Support par email"],
-        color: "border-blue-200 bg-blue-50/30",
-        badge: "bg-blue-100 text-blue-700",
-        btnColor: "bg-blue-600 hover:bg-blue-700",
-    },
-    {
-        key: "BUSINESS" as const,
-        name: "Business",
-        priceMonthly: "30 000",
-        priceYearly: "288 000",
-        priceYearlyMonthly: "24 000",
-        popular: true,
-        features: ["10 agents", "5 000 conversations/mois", "Automatisation", "Support prioritaire"],
-        color: "border-purple-200 bg-purple-50/30",
-        badge: "bg-purple-100 text-purple-700",
-        btnColor: "bg-purple-600 hover:bg-purple-700",
-    },
-    {
-        key: "PRO" as const,
-        name: "Pro",
-        priceMonthly: "70 000",
-        priceYearly: "672 000",
-        priceYearlyMonthly: "56 000",
-        features: ["Agents illimités", "Conversations illimitées", "IA avancée", "Support dédié"],
-        color: "border-orange-200 bg-orange-50/30",
-        badge: "bg-orange-100 text-orange-700",
-        btnColor: "bg-orange-600 hover:bg-orange-700",
-    },
-];
+const PLAN_UI = {
+    STARTER: { color: "border-blue-200 bg-blue-50/30", badge: "bg-blue-100 text-blue-700", btnColor: "bg-blue-600 hover:bg-blue-700" },
+    BUSINESS: { color: "border-purple-200 bg-purple-50/30", badge: "bg-purple-100 text-purple-700", btnColor: "bg-purple-600 hover:bg-purple-700" },
+    PRO: { color: "border-orange-200 bg-orange-50/30", badge: "bg-orange-100 text-orange-700", btnColor: "bg-orange-600 hover:bg-orange-700" },
+} as const;
+
+const PLANS = PLAN_DEFS.map((p) => {
+    const ui = PLAN_UI[p.key as keyof typeof PLAN_UI];
+    return {
+        key: p.key as "STARTER" | "BUSINESS" | "PRO",
+        name: p.name,
+        priceMonthly: new Intl.NumberFormat('fr-FR').format(p.pricing.monthlyFCFA),
+        priceYearly: new Intl.NumberFormat('fr-FR').format(p.pricing.yearlyFCFA),
+        priceYearlyMonthly: new Intl.NumberFormat('fr-FR').format(p.pricing.yearlyMonthlyFCFA),
+        popular: p.popular,
+        features: [
+            `${formatLimit(p.limits.agents)} agent${p.limits.agents > 1 ? 's' : ''}`,
+            `${formatLimit(p.limits.whatsappChannels)} numéro${p.limits.whatsappChannels > 1 ? 's' : ''} WhatsApp`,
+            `${formatLimit(p.limits.conversationsPerMonth)} conversations/mois`,
+            ...p.features.filter(f => f.included).slice(0, 2).map(f => f.label),
+            `Support ${p.supportLevel.toLowerCase()}`,
+        ],
+        ...ui,
+    };
+});
 
 export default function BillingPage() {
     const role = useQuery(api.users.currentUserRole);

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { requireMembership, requirePermission } from "./lib/auth";
-import { getMaxChannels } from "./billing";
+import { getMaxChannels } from "./lib/planLimits";
 
 // ============================================
 // Queries

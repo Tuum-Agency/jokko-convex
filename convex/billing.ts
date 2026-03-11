@@ -1,25 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx } from "./_generated/server";
+import { CONVERSATION_LIMITS, CHANNEL_LIMITS, getMaxChannels, getConversationLimit } from "./lib/planLimits";
 
-const LIMITS = {
-    "FREE": 1000,
-    "STARTER": 1000,
-    "BUSINESS": 3000,
-    "PRO": 10000,
-    "ENTERPRISE": Infinity
-};
-
-const CHANNEL_LIMITS: Record<string, number> = {
-    "FREE": 1,
-    "STARTER": 1,
-    "BUSINESS": 3,
-    "PRO": 10,
-    "ENTERPRISE": Infinity,
-};
-
-export function getMaxChannels(plan: string): number {
-    return CHANNEL_LIMITS[plan] ?? 1;
-}
+export { getMaxChannels } from "./lib/planLimits";
 
 export const getUsageStats = query({
     args: { organizationId: v.id("organizations") },
@@ -54,7 +37,7 @@ export const checkAndIncrementServiceUsage = internalMutation({
             };
         }
 
-        const limit = LIMITS[org.plan as keyof typeof LIMITS] || 1000;
+        const limit = getConversationLimit(org.plan);
 
         if (stats.serviceConversationsCount >= limit) {
             return {
