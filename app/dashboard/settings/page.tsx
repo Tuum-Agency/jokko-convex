@@ -739,7 +739,7 @@ function WhatsAppSettingsTab() {
                         onClick={launchWhatsAppSignup}
                         disabled={!fbReady || status === 'FETCHING'}
                         size="lg"
-                        className="h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-lg shadow-green-600/25 hover:shadow-green-600/40 transition-all duration-300 flex items-center gap-2"
+                        className="h-12 bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 transition-all duration-300 flex items-center gap-2"
                     >
                         {status === 'FETCHING' || !fbReady ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
