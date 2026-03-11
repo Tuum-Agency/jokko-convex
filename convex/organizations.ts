@@ -101,7 +101,17 @@ export const create = mutation({
                 .first();
 
             if (existing) {
-                throw new Error("Ce nom d'espace (slug) est déjà pris.");
+                // Vérifier si le slug appartient à une org de l'utilisateur
+                const membership = await ctx.db
+                    .query("memberships")
+                    .withIndex("by_user_org", (q) =>
+                        q.eq("userId", userId).eq("organizationId", existing._id)
+                    )
+                    .first();
+
+                if (!membership) {
+                    throw new Error("Ce nom d'espace (slug) est déjà pris.");
+                }
             }
         }
 
