@@ -748,10 +748,22 @@ export default defineSchema({
     // Team Members (N:N users <-> teams)
     // ============================================
     teamMembers: defineTable({
-        teamId: v.id("teams"),
-        userId: v.id("users"),
-        role: v.union(v.literal("lead"), v.literal("member")),
-        joinedAt: v.number(),
+        teamId: v.optional(v.id("teams")),
+        userId: v.optional(v.id("users")),
+        role: v.optional(v.string()),
+        joinedAt: v.optional(v.number()),
+        // Legacy fields (from previous team system)
+        email: v.optional(v.string()),
+        name: v.optional(v.string()),
+        storeId: v.optional(v.string()),
+        allStores: v.optional(v.boolean()),
+        permissions: v.optional(v.array(v.string())),
+        invitationStatus: v.optional(v.string()),
+        invitationToken: v.optional(v.string()),
+        invitedAt: v.optional(v.number()),
+        isActive: v.optional(v.boolean()),
+        createdAt: v.optional(v.number()),
+        updatedAt: v.optional(v.number()),
     })
         .index("by_team", ["teamId"])
         .index("by_user", ["userId"])

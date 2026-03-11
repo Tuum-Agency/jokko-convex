@@ -54,6 +54,7 @@ export const getById = query({
         // Enrich members with user info
         const enrichedMembers = await Promise.all(
             members.map(async (m) => {
+                if (!m.userId) return null;
                 const user = await ctx.db.get(m.userId);
                 return {
                     ...m,
@@ -78,6 +79,7 @@ export const listMyTeams = query({
 
         const teams = await Promise.all(
             myMemberships.map(async (m) => {
+                if (!m.teamId) return null;
                 const team = await ctx.db.get(m.teamId);
                 if (!team || team.organizationId !== args.organizationId || team.isArchived) return null;
                 return { ...team, myRole: m.role };
