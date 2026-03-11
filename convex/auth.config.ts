@@ -2,7 +2,7 @@
 export default {
     providers: [
         {
-            domain: "https://befitting-hornet-738.convex.site",
+            domain: process.env.CONVEX_SITE_URL,
             applicationID: "convex",
         },
     ],
