@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-const FB_SDK_VERSION = 'v19.0';
+const FB_SDK_VERSION = 'v22.0';
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co';
 
 function getTargetOrigin(): string {
@@ -68,6 +68,13 @@ export default function FacebookConnectPage() {
     const handleLogin = () => {
         if (!window.FB) {
             setErrorMsg("Le SDK Facebook n'est pas chargé.");
+            setStatus('error');
+            return;
+        }
+
+        // Facebook exige HTTPS pour FB.login()
+        if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost')) {
+            setErrorMsg("Facebook requiert HTTPS. Utilisez `pnpm dev --experimental-https` en développement.");
             setStatus('error');
             return;
         }
@@ -137,7 +144,7 @@ export default function FacebookConnectPage() {
                 {status === 'ready' && (
                     <button
                         onClick={handleLogin}
-                        className="w-full bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold py-3 px-6 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors"
+                        className="w-full h-12 bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 flex items-center justify-center gap-2 transition-all duration-300"
                     >
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
