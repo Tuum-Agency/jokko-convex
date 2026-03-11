@@ -339,7 +339,7 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                 <Button
                     type="submit"
                     size="lg"
-                    disabled={isLoading}
+                    disabled={isLoading || slugStatus === 'taken' || slugStatus === 'checking'}
                     className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-lg shadow-green-600/25 hover:shadow-green-600/40 transition-all duration-300 group"
                 >
                     {isLoading ? (
