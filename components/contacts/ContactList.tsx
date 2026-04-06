@@ -127,18 +127,18 @@ export function ContactList({
                     </div>
                 </div>
 
-                <ButtonGroup>
-                    <Button onClick={onAddNew}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nouveau
+                <ButtonGroup className="flex-wrap">
+                    <Button onClick={onAddNew} className="gap-1.5">
+                        <Plus className="h-4 w-4" />
+                        <span className="hidden sm:inline">Nouveau</span>
                     </Button>
-                    <Button variant="outline" onClick={onImport}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Importer
+                    <Button variant="outline" onClick={onImport} className="gap-1.5">
+                        <Upload className="h-4 w-4" />
+                        <span className="hidden sm:inline">Importer</span>
                     </Button>
-                    <Button variant="outline" onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Exporter
+                    <Button variant="outline" onClick={handleExport} className="gap-1.5">
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">Exporter</span>
                     </Button>
                 </ButtonGroup>
             </div>

@@ -60,12 +60,12 @@ export default function SignInContent() {
     }
 
     return (
-        <div className="w-full min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center">
+        <div className="w-full min-h-screen flex items-center justify-center px-4 py-8 sm:p-4">
+            <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-6 sm:gap-8 items-center">
                 {/* Left Side - Form */}
                 <FadeInView delay={0.1} trigger="mount">
                     <Card className="w-full max-w-md mx-auto lg:ml-auto lg:mr-0 bg-white/80 backdrop-blur-xl shadow-2xl shadow-gray-200/50 border-0 rounded-3xl overflow-hidden">
-                        <CardContent className="p-8 space-y-6">
+                        <CardContent className="p-5 sm:p-8 space-y-5 sm:space-y-6">
 
                             {/* Desktop Title */}
                             <div className="text-center space-y-2">

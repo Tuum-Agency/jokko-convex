@@ -126,7 +126,7 @@ export function NavigationHeader() {
                                                 href={item.href}
                                                 onClick={() => setIsOpen(false)}
                                                 className={cn(
-                                                    "relative text-2xl font-semibold transition-all flex items-center py-2",
+                                                    "relative text-lg sm:text-2xl font-semibold transition-all flex items-center py-2",
                                                     isActive
                                                         ? "text-green-600"
                                                         : "text-slate-900 hover:text-green-600"

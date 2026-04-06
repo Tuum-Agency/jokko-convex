@@ -12,7 +12,7 @@ import { WaitingListDialog } from "@/components/landing/waiting-list-dialog"
 
 export function HeroSection() {
     return (
-        <section id="home" className="relative min-h-[90vh] flex items-center overflow-hidden bg-white pt-36 lg:pt-40">
+        <section id="home" className="relative min-h-[90vh] flex items-center overflow-hidden bg-white pt-24 sm:pt-32 lg:pt-40">
             {/* ====================
                 BACKGROUND ELEMENTS 
                ==================== */}
@@ -65,8 +65,8 @@ export function HeroSection() {
             {/* ====================
                 CONTENT
                ==================== */}
-            <div className="relative max-w-7xl mx-auto px-6 pb-16 lg:pt-0">
-                <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16 lg:pt-0">
+                <div className="grid lg:grid-cols-2 gap-8 lg:gap-8 items-center">
 
                     {/* LEFT: Text Content */}
                     <div className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-8 max-w-2xl mx-auto lg:mx-0">
@@ -83,13 +83,13 @@ export function HeroSection() {
 
                         {/* Title */}
                         <FadeInView delay={0.2} className="space-y-4" trigger="mount">
-                            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
+                            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
                                 Le Futur du <br />
                                 <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-teal-500">
                                     Commerce WhatsApp
                                 </span>
                             </h1>
-                            <p className="text-lg md:text-xl text-slate-600 leading-relaxed max-w-lg mx-auto lg:mx-0">
+                            <p className="text-base sm:text-lg md:text-xl text-slate-600 leading-relaxed max-w-lg mx-auto lg:mx-0">
                                 Automatisez vos ventes, centralisez vos messages et fidélisez vos clients avec la plateforme WhatsApp la plus avancée du Sénégal.
                             </p>
                         </FadeInView>

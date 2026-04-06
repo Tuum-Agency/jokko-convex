@@ -30,10 +30,10 @@ function BackgroundBeams() {
 export function CtaSection() {
 
     return (
-        <section className="relative py-32 overflow-hidden text-white">
+        <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden text-white">
             <BackgroundBeams />
 
-            <div className="container relative z-10 mx-auto px-6 max-w-5xl">
+            <div className="container relative z-10 mx-auto px-4 sm:px-6 max-w-5xl">
                 <div className="text-center space-y-12">
 
                     {/* Badge */}
@@ -46,13 +46,13 @@ export function CtaSection() {
 
                     {/* Headline */}
                     <FadeInView delay={0.4} className="space-y-6">
-                        <h2 className="text-3xl md:text-5xl font-bold tracking-tight leading-tight">
+                        <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight leading-tight">
                             Prêt à révolutionner votre <br className="hidden md:block" />
                             <span className="text-transparent bg-clip-text bg-linear-to-r from-green-400 via-emerald-400 to-teal-400 animate-gradient-x">
                                 Business WhatsApp ?
                             </span>
                         </h2>
-                        <p className="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
                             Ne laissez plus aucune vente vous échapper. Centralisez, Automatisez et Vendez plus. <br />
                             <span className="text-white font-medium">Commencez gratuitement aujourd'hui.</span>
                         </p>

@@ -200,7 +200,7 @@ export function MobileSidebar({
             </SheetTrigger>
             <SheetContent
                 side="left"
-                className="w-[300px] p-0 bg-white/95 backdrop-blur-xl border-r border-gray-200/80"
+                className="w-[min(300px,85vw)] p-0 bg-white/95 backdrop-blur-xl border-r border-gray-200/80"
             >
                 <SheetHeader className="p-4 border-b border-gray-100">
                     <SheetTitle>
