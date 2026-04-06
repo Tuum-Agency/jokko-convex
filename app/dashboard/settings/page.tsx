@@ -132,21 +132,21 @@ export default function SettingsPage() {
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-10">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">Paramètres</h1>
-                <p className="text-gray-500 mt-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Paramètres</h1>
+                <p className="text-sm sm:text-base text-gray-500 mt-2">
                     Gérez les préférences de votre compte professionnel.
                 </p>
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-7 lg:w-[700px]">
-                    <TabsTrigger value="profile">Profil</TabsTrigger>
-                    <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-                    <TabsTrigger value="teams">Équipes</TabsTrigger>
-                    <TabsTrigger value="channels">Canaux</TabsTrigger>
-                    <TabsTrigger value="account">Compte</TabsTrigger>
-                    <TabsTrigger value="notifications">Notifs</TabsTrigger>
-                    <TabsTrigger value="display">Affichage</TabsTrigger>
+                <TabsList className="flex w-full overflow-x-auto no-scrollbar lg:grid lg:grid-cols-7 lg:w-[700px]">
+                    <TabsTrigger value="profile" className="shrink-0">Profil</TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="shrink-0">WhatsApp</TabsTrigger>
+                    <TabsTrigger value="teams" className="shrink-0">Équipes</TabsTrigger>
+                    <TabsTrigger value="channels" className="shrink-0">Canaux</TabsTrigger>
+                    <TabsTrigger value="account" className="shrink-0">Compte</TabsTrigger>
+                    <TabsTrigger value="notifications" className="shrink-0">Notifs</TabsTrigger>
+                    <TabsTrigger value="display" className="shrink-0">Affichage</TabsTrigger>
                 </TabsList>
 
                 {/* Profil Tab */}
@@ -160,7 +160,7 @@ export default function SettingsPage() {
                         </CardHeader>
                         <CardContent className="space-y-8">
                             {/* Avatar Section */}
-                            <div className="flex items-center gap-6">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                                 <div className="relative group">
                                     <Avatar className="h-24 w-24 border-2 border-white shadow-lg ring-2 ring-gray-100">
                                         <AvatarImage src={user.image} alt={user.name} className="object-cover" />
@@ -292,9 +292,9 @@ export default function SettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/30 transition-colors hover:bg-gray-50">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-lg bg-gray-50/30 transition-colors hover:bg-gray-50">
                                 <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-white rounded-full border shadow-sm">
+                                    <div className="p-2 bg-white rounded-full border shadow-sm shrink-0">
                                         <Shield className="h-5 w-5 text-green-600" />
                                     </div>
                                     <div>
@@ -302,7 +302,7 @@ export default function SettingsPage() {
                                         <p className="text-sm text-gray-500">Dernière modification il y a 3 mois</p>
                                     </div>
                                 </div>
-                                <Button variant="outline">Modifier le mot de passe</Button>
+                                <Button variant="outline" className="w-full sm:w-auto shrink-0">Modifier le mot de passe</Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -317,12 +317,12 @@ export default function SettingsPage() {
                         <CardContent>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <div className="flex items-center justify-between border border-red-100 rounded-lg p-4 bg-red-50/30 cursor-pointer hover:bg-red-50 transition-colors">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-red-100 rounded-lg p-4 bg-red-50/30 cursor-pointer hover:bg-red-50 transition-colors">
                                         <div>
                                             <p className="font-medium text-red-900">Supprimer mon compte</p>
                                             <p className="text-sm text-red-700/70">Je veux quitter définitivement l'organisation.</p>
                                         </div>
-                                        <Button variant="destructive" size="sm">
+                                        <Button variant="destructive" size="sm" className="w-full sm:w-auto shrink-0">
                                             <Trash2 className="mr-2 h-4 w-4" />
                                             Supprimer
                                         </Button>
@@ -560,7 +560,7 @@ function WhatsAppSettingsTab() {
                                     <Label htmlFor={`settings-${phone.id}`} className="flex flex-col cursor-pointer w-full p-3 rounded-lg border bg-white hover:border-green-500 transition-colors">
                                         <span className="font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
                                         <span className="text-sm text-gray-500">{phone.display_phone_number}</span>
-                                        <div className="flex items-center gap-3 mt-1">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
                                             <span className={`text-xs ${phone.quality_rating === 'GREEN' ? 'text-green-600' : phone.quality_rating === 'YELLOW' ? 'text-yellow-600' : phone.quality_rating === 'RED' ? 'text-red-600' : 'text-gray-500'}`}>
                                                 Qualité : {phone.quality_rating || 'N/A'}
                                             </span>
@@ -639,12 +639,12 @@ function WhatsAppSettingsTab() {
                 )}
 
                 {/* Current Status */}
-                <div className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${isConnected ? 'bg-green-50/50 border-green-200' : 'bg-orange-50/50 border-orange-200'}`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full border shadow-sm ${isConnected ? 'bg-green-100 border-green-200' : 'bg-orange-100 border-orange-200'}`}>
+                <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-lg transition-colors ${isConnected ? 'bg-green-50/50 border-green-200' : 'bg-orange-50/50 border-orange-200'}`}>
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className={`p-2 rounded-full border shadow-sm shrink-0 ${isConnected ? 'bg-green-100 border-green-200' : 'bg-orange-100 border-orange-200'}`}>
                             <Smartphone className={`h-5 w-5 ${isConnected ? 'text-green-600' : 'text-orange-600'}`} />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <p className="font-medium text-gray-900">
                                 {isConnected ? 'WhatsApp connecté' : 'WhatsApp non connecté'}
                             </p>
@@ -675,7 +675,7 @@ function WhatsAppSettingsTab() {
                 {isConnected && currentOrg?.whatsapp?.businessAccountId && (
                     <div className="p-4 border rounded-lg bg-gray-50/50">
                         <h4 className="text-sm font-medium text-gray-700 mb-2">Détails de la connexion</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             {currentOrg.whatsapp.displayPhoneNumber && (
                                 <div>
                                     <span className="text-gray-500">Numéro</span>

@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 function InboxVisual() {
     return (
-        <div className="absolute inset-x-4 -bottom-2 rounded-t-xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-[280px]">
+        <div className="absolute inset-x-2 sm:inset-x-4 -bottom-2 rounded-t-xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-full max-h-[280px]">
             {/* Fake Header */}
             <div className="h-10 bg-slate-50 border-b border-slate-100 flex items-center px-4 gap-2">
                 <div className="flex gap-1.5">
@@ -87,7 +87,7 @@ function InboxVisual() {
 
 function AIVisual() {
     return (
-        <div className="absolute inset-x-4 bottom-0 h-48 bg-gradient-to-t from-emerald-50 to-transparent p-4 flex flex-col justify-end">
+        <div className="absolute inset-x-2 sm:inset-x-4 bottom-0 h-full max-h-48 bg-gradient-to-t from-emerald-50 to-transparent p-3 sm:p-4 flex flex-col justify-end">
             {/* User message */}
             <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -122,7 +122,7 @@ function AIVisual() {
 
 function StatsVisual() {
     return (
-        <div className="absolute inset-x-4 bottom-4 h-32 flex items-end gap-2 px-2">
+        <div className="absolute inset-x-2 sm:inset-x-4 bottom-4 h-full max-h-32 flex items-end gap-2 px-2">
             {[20, 45, 25, 60, 35, 55].map((h, i) => (
                 <motion.div
                     key={i}
@@ -140,7 +140,7 @@ function StatsVisual() {
 
 function CollabVisual() {
     return (
-        <div className="absolute inset-x-4 bottom-4 bg-white/80 backdrop-blur-sm rounded-xl border border-orange-100 p-4 shadow-sm">
+        <div className="absolute inset-x-2 sm:inset-x-4 bottom-3 sm:bottom-4 bg-white/80 backdrop-blur-sm rounded-xl border border-orange-100 p-3 sm:p-4 shadow-sm">
             <div className="flex -space-x-3 justify-center mb-3">
                 {[1, 2, 3].map(i => (
                     <motion.div
@@ -170,28 +170,28 @@ function CollabVisual() {
 
 export function FeatureSection() {
     return (
-        <section id="features" className="py-32 bg-slate-50 overflow-hidden relative">
+        <section id="features" className="py-16 sm:py-24 lg:py-32 bg-slate-50 overflow-hidden relative">
             {/* Warm Background Blobs */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-orange-100/40 rounded-full blur-[100px] pointer-events-none translate-x-1/3 -translate-y-1/3"></div>
             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -translate-x-1/3 translate-y-1/3"></div>
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
 
                 {/* Header */}
-                <div className="text-center mb-20 max-w-3xl mx-auto">
+                <div className="text-center mb-12 sm:mb-16 lg:mb-20 max-w-3xl mx-auto">
                     <FadeInView>
                         <Eyebrow text="Pourquoi Jokko ?" icon={<Zap className="w-3 h-3 text-orange-500" />} className="bg-orange-50 text-orange-700 border-orange-100" />
                     </FadeInView>
                     <FadeInView delay={0.2} className="mt-6">
-                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
-                            Tout ce dont vous avez besoin pour <br />
+                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+                            Tout ce dont vous avez besoin pour <br className="hidden sm:block" />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-600">
                                 Enchanter vos Clients
                             </span>
                         </h2>
                     </FadeInView>
                     <FadeInView delay={0.4}>
-                        <p className="mt-6 text-xl text-slate-600 leading-relaxed">
+                        <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl text-slate-600 leading-relaxed">
                             Plus qu'un outil, un véritable partenaire de croissance qui travaille 24/7 pour vous.
                         </p>
                     </FadeInView>
@@ -199,25 +199,25 @@ export function FeatureSection() {
 
                 {/* Rich Bento Grid */}
                 <StaggerContainer staggerDelay={0.1}>
-                    <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-8 h-auto md:h-[650px]">
+                    <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 h-auto lg:h-[650px]">
 
                         {/* FEATURE 1: Inbox (Large, Left) */}
-                        <StaggerItem className="md:col-span-6 lg:col-span-7 md:row-span-2 group">
+                        <StaggerItem className="md:col-span-6 lg:col-span-7 lg:row-span-2 group">
                             <motion.div whileHover={{ y: -5 }} className="h-full">
                                 <Card className="h-full border-none shadow-lg hover:shadow-2xl transition-all duration-500 bg-white relative overflow-hidden ring-1 ring-slate-900/5 group-hover:ring-orange-500/20">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-[60px] pointer-events-none"></div>
 
-                                    <CardContent className="p-10 h-full flex flex-col relative z-20">
+                                    <CardContent className="p-6 sm:p-8 lg:p-10 h-full flex flex-col relative z-20">
                                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-blue-200">
                                             <MessageSquare className="w-7 h-7" />
                                         </div>
-                                        <h3 className="text-2xl font-bold text-slate-900 mb-3">Boîte de Réception Unifiée</h3>
-                                        <p className="text-slate-600 text-lg leading-relaxed max-w-md">
+                                        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2 sm:mb-3">Boîte de Réception Unifiée</h3>
+                                        <p className="text-slate-600 text-sm sm:text-lg leading-relaxed max-w-md">
                                             Centralisez tous vos numéros WhatsApp Business. Assignez les conversations et ne perdez plus jamais le fil.
                                         </p>
 
                                         {/* Visual Representation */}
-                                        <div className="flex-1 mt-10 relative h-[280px] w-full perspective-1000">
+                                        <div className="flex-1 mt-6 sm:mt-10 relative h-[240px] sm:h-[280px] w-full perspective-1000">
                                             <InboxVisual />
                                         </div>
                                     </CardContent>
@@ -226,10 +226,10 @@ export function FeatureSection() {
                         </StaggerItem>
 
                         {/* FEATURE 2: AI (Top Right) */}
-                        <StaggerItem className="md:col-span-6 lg:col-span-5 md:row-span-1 group">
+                        <StaggerItem className="md:col-span-6 lg:col-span-5 group">
                             <motion.div whileHover={{ y: -5 }} className="h-full">
                                 <Card className="h-full border-none shadow-lg hover:shadow-2xl transition-all duration-300 bg-white relative overflow-hidden ring-1 ring-slate-900/5 group-hover:ring-emerald-500/20">
-                                    <CardContent className="p-8 pb-0 h-full flex flex-col">
+                                    <CardContent className="p-5 sm:p-8 pb-0 h-full flex flex-col">
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-emerald-200">
@@ -247,8 +247,8 @@ export function FeatureSection() {
                             </motion.div>
                         </StaggerItem>
 
-                        {/* FEATURE 4: Collaboration (Moved to bottom left relative of right col) -> Effectively 3rd visual in structure */}
-                        <StaggerItem className="md:col-span-3 lg:col-span-3 md:row-span-1 group">
+                        {/* FEATURE 4: Collaboration */}
+                        <StaggerItem className="md:col-span-3 lg:col-span-3 group">
                             <motion.div whileHover={{ y: -5 }} className="h-full">
                                 <Card className="h-full border-none shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-orange-50 to-amber-50 relative overflow-hidden ring-1 ring-orange-500/10">
                                     <div className="absolute inset-0 bg-white/40"></div>
@@ -258,7 +258,7 @@ export function FeatureSection() {
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900">Collaboration</h3>
                                         <p className="text-slate-600 text-sm">Travaillez ensemble.</p>
-                                        <div className="flex-1 relative min-h-[80px] mt-2">
+                                        <div className="flex-1 relative min-h-[120px] mt-2">
                                             <CollabVisual />
                                         </div>
                                     </CardContent>
@@ -267,7 +267,7 @@ export function FeatureSection() {
                         </StaggerItem>
 
                         {/* FEATURE 3: Analytics (Smallest) */}
-                        <StaggerItem className="md:col-span-3 lg:col-span-2 md:row-span-1 group">
+                        <StaggerItem className="md:col-span-3 lg:col-span-2 group">
                             <motion.div whileHover={{ y: -5 }} className="h-full">
                                 <Card className="h-full border-none shadow-lg hover:shadow-2xl transition-all duration-300 bg-white relative overflow-hidden ring-1 ring-purple-500/10">
                                     <CardContent className="p-6 h-full flex flex-col">
@@ -276,7 +276,7 @@ export function FeatureSection() {
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900">KPIs</h3>
                                         <p className="text-slate-600 text-sm mb-4">Vue 360°.</p>
-                                        <div className="flex-1 relative min-h-[100px]">
+                                        <div className="flex-1 relative min-h-[120px]">
                                             <StatsVisual />
                                         </div>
                                     </CardContent>

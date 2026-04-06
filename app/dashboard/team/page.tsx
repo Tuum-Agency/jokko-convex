@@ -156,30 +156,30 @@ export default function TeamPage() {
 
             {/* Tabs */}
             <Tabs defaultValue="members" className="w-full">
-                <TabsList className="bg-gray-100/50 p-1 border border-gray-200/50">
-                    <TabsTrigger value="members" className="gap-2 data-[state=active]:bg-white">
+                <TabsList className="flex w-full overflow-x-auto no-scrollbar sm:inline-flex sm:w-auto bg-gray-100/50 p-1 border border-gray-200/50">
+                    <TabsTrigger value="members" className="gap-1.5 sm:gap-2 data-[state=active]:bg-white shrink-0">
                         <Users className="h-4 w-4" />
-                        Membres
+                        <span className="hidden sm:inline">Membres</span>
                         {totalMembers > 0 && (
-                            <Badge variant="secondary" className="ml-1 bg-green-100 text-green-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-green-100 text-green-700">
                                 {totalMembers}
                             </Badge>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="poles" className="gap-2 data-[state=active]:bg-white">
+                    <TabsTrigger value="poles" className="gap-1.5 sm:gap-2 data-[state=active]:bg-white shrink-0">
                         <Building2 className="h-4 w-4" />
-                        Poles
+                        <span className="hidden sm:inline">Poles</span>
                         {polesData?.total ? (
-                            <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-indigo-100 text-indigo-700">
                                 {polesData.total}
                             </Badge>
                         ) : null}
                     </TabsTrigger>
-                    <TabsTrigger value="invitations" className="gap-2 data-[state=active]:bg-white">
+                    <TabsTrigger value="invitations" className="gap-1.5 sm:gap-2 data-[state=active]:bg-white shrink-0">
                         <Mail className="h-4 w-4" />
-                        Invitations
+                        <span className="hidden sm:inline">Invitations</span>
                         {invitationsData?.total ? (
-                            <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-blue-100 text-blue-700">
                                 {invitationsData.total}
                             </Badge>
                         ) : null}

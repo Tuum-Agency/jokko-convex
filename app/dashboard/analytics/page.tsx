@@ -108,22 +108,21 @@ export default function AnalyticsPage() {
     };
 
     return (
-        <div className="flex-1 space-y-8 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
+        <div className="flex-1 space-y-6 sm:space-y-8 p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Analytique</h2>
-                    <p className="text-muted-foreground">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytique</h2>
+                    <p className="text-sm sm:text-base text-muted-foreground">
                         Vue d'ensemble des performances de l'application et des agents.
                     </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                    {/* Date Picker could go here */}
-                    <div className="px-3 py-1 bg-muted rounded-md text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                    <div className="px-3 py-1 bg-muted rounded-md text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                         Derniers 30 jours
                     </div>
-                    <Button onClick={handleExport} variant="outline" size="sm" className="h-8 gap-2">
+                    <Button onClick={handleExport} variant="outline" size="sm" className="h-8 gap-2 shrink-0">
                         <Download className="h-4 w-4" />
-                        Exporter
+                        <span className="hidden sm:inline">Exporter</span>
                     </Button>
                 </div>
             </div>
@@ -212,16 +211,17 @@ export default function AnalyticsPage() {
                             Détails des activités par agent. Les métriques incluent les messages envoyés et les conversations assignées.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-0 sm:px-6">
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[80px]"></TableHead>
+                                    <TableHead className="w-[60px] sm:w-[80px]"></TableHead>
                                     <TableHead>Agent</TableHead>
-                                    <TableHead>Rôle</TableHead>
-                                    <TableHead className="text-right">Messages Envoyés</TableHead>
-                                    <TableHead className="text-right">Assignations</TableHead>
-                                    <TableHead className="text-right">Temps Moyen (Est.)</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Rôle</TableHead>
+                                    <TableHead className="text-right">Messages</TableHead>
+                                    <TableHead className="text-right hidden md:table-cell">Assignations</TableHead>
+                                    <TableHead className="text-right hidden lg:table-cell">Temps Moyen</TableHead>
                                     <TableHead className="text-right">Score</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -238,7 +238,7 @@ export default function AnalyticsPage() {
                                         <TableCell className="font-medium">
                                             {agent.name}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden sm:table-cell">
                                             <Badge variant="secondary" className="text-xs">
                                                 {agent.role}
                                             </Badge>
@@ -246,10 +246,10 @@ export default function AnalyticsPage() {
                                         <TableCell className="text-right font-mono">
                                             {agent.messagesCount}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono">
+                                        <TableCell className="text-right font-mono hidden md:table-cell">
                                             {agent.conversationsCount}
                                         </TableCell>
-                                        <TableCell className="text-right text-muted-foreground">
+                                        <TableCell className="text-right text-muted-foreground hidden lg:table-cell">
                                             {agent.avgResponseTime !== "N/A" ? agent.avgResponseTime : "-"}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -274,6 +274,7 @@ export default function AnalyticsPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

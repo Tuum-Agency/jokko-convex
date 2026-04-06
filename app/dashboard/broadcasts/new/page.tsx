@@ -316,7 +316,7 @@ export default function NewBroadcastPage() {
                                             </PopoverContent>
                                         </Popover>
                                     </div>
-                                    <div className="w-[120px] space-y-2">
+                                    <div className="w-full sm:w-[120px] space-y-2">
                                         <Label>Heure</Label>
                                         <Input
                                             type="time"
@@ -333,7 +333,7 @@ export default function NewBroadcastPage() {
                                 <Button type="button" variant="outline" onClick={() => router.back()}>
                                     Annuler
                                 </Button>
-                                <Button type="submit" disabled={isLoading || !hasTemplates} className="min-w-[150px]">
+                                <Button type="submit" disabled={isLoading || !hasTemplates} className="w-full sm:w-auto sm:min-w-[150px]">
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Lancer la campagne
                                 </Button>
