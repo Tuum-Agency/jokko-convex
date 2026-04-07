@@ -126,6 +126,14 @@ export function MessageBubble({
             return <LocationMessage message={message} />
         }
 
+        // Fallback for media types without resolved media (old messages stored as JSON text)
+        if (!hasMedia && ['AUDIO', 'VIDEO', 'IMAGE', 'DOCUMENT', 'STICKER'].includes(message.type)) {
+            if (message.type === 'AUDIO') {
+                return <AudioPlayer src={null} isOutbound={isOutbound} />
+            }
+            return <p className="text-sm text-gray-500 italic">{message.type === 'VIDEO' ? '🎥 Vidéo non disponible' : message.type === 'IMAGE' ? '📷 Photo non disponible' : message.type === 'DOCUMENT' ? '📄 Document non disponible' : '🎭 Sticker non disponible'}</p>
+        }
+
         // Media messages
         if (hasMedia && media) {
             const isPending = message.status === 'PENDING'
@@ -290,7 +298,8 @@ export function MessageBubble({
     }
 
     // Check if this is a media-only message (no text caption)
-    const isMediaOnly = hasMedia && !message.content
+    // Audio needs regular padding for the player UI, so exclude it
+    const isMediaOnly = hasMedia && !message.content && message.type !== 'AUDIO'
     const isReaction = message.type === 'REACTION'
     const isSticker = message.type === 'STICKER'
 
@@ -384,6 +393,9 @@ export function MessageBubble({
         </DropdownMenu>
     )
 
+    // Media messages always need spacing even when grouped
+    const needsSpacing = !isGrouped || (hasMedia && ['AUDIO', 'IMAGE', 'VIDEO', 'DOCUMENT'].includes(message.type))
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -392,7 +404,7 @@ export function MessageBubble({
             className={cn(
                 'flex',
                 isOutbound ? 'justify-end' : 'justify-start',
-                !isGrouped && 'mt-2'
+                needsSpacing && 'mt-2'
             )}
         >
             {/* Wrapper to position menu button beside bubble */}

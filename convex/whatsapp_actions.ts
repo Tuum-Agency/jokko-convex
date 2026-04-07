@@ -13,6 +13,75 @@ import ffmpegPath from "ffmpeg-static";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Download media from WhatsApp Cloud API and store in Convex Storage.
+ * WhatsApp only sends a media ID in webhooks — the actual file must be fetched
+ * via two API calls:
+ *   1. GET /v20.0/{media_id} → { url }
+ *   2. GET {url} → binary file
+ */
+export const downloadMedia = internalAction({
+    args: {
+        messageId: v.id("messages"),
+        organizationId: v.id("organizations"),
+        whatsappMediaId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
+
+        const accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        if (!accessToken) {
+            console.error(`[MEDIA DL] No access token for org ${args.organizationId}`);
+            return;
+        }
+
+        try {
+            // Step 1: Get media download URL from WhatsApp
+            const metaRes = await fetch(
+                `https://graph.facebook.com/v20.0/${args.whatsappMediaId}`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+
+            if (!metaRes.ok) {
+                console.error(`[MEDIA DL] Failed to get media URL: ${metaRes.status} ${await metaRes.text()}`);
+                return;
+            }
+
+            const metaData = await metaRes.json();
+            const downloadUrl = metaData.url;
+            if (!downloadUrl) {
+                console.error("[MEDIA DL] No URL in media response:", JSON.stringify(metaData));
+                return;
+            }
+
+            // Step 2: Download the actual file
+            const fileRes = await fetch(downloadUrl, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+
+            if (!fileRes.ok) {
+                console.error(`[MEDIA DL] Failed to download file: ${fileRes.status}`);
+                return;
+            }
+
+            const blob = await fileRes.blob();
+
+            // Step 3: Store in Convex Storage
+            const storageId = await ctx.storage.store(blob);
+
+            // Step 4: Update message with storageId
+            await ctx.runMutation(internal.utils.patchMessageMedia, {
+                messageId: args.messageId,
+                mediaStorageId: storageId,
+            });
+
+            console.log(`[MEDIA DL] Stored media for message ${args.messageId} → ${storageId}`);
+        } catch (error) {
+            console.error(`[MEDIA DL] Error downloading media:`, String(error));
+        }
+    },
+});
+
 export const sendMessage = internalAction({
     args: {
         messageId: v.id("messages"),
