@@ -52,16 +52,19 @@ export default function DashboardLayout({
 
         console.log(`[DashboardLayout] Subdomain Check: host=${hostname}, targetSlug=${slug}, root=${rootDomain}`);
 
+        // Preserve query params (critical for payment redirects like ?session=...&status=...)
+        const fullPath = window.location.pathname + window.location.search;
+
         if (hostname.includes('localhost')) {
             if (hostname === 'localhost') {
                 const port = window.location.port ? `:${window.location.port}` : '';
-                const newUrl = `${window.location.protocol}//${slug}.localhost${port}${window.location.pathname}`;
+                const newUrl = `${window.location.protocol}//${slug}.localhost${port}${fullPath}`;
                 console.log(`[DashboardLayout] Redirecting to localhost subdomain: ${newUrl}`);
                 window.location.href = newUrl;
             }
         } else {
             if (hostname === rootDomain || hostname === `www.${rootDomain}`) {
-                const newUrl = `${window.location.protocol}//${slug}.${rootDomain}${window.location.pathname}`;
+                const newUrl = `${window.location.protocol}//${slug}.${rootDomain}${fullPath}`;
                 console.log(`[DashboardLayout] Redirecting to production subdomain: ${newUrl}`);
                 window.location.href = newUrl;
             }

@@ -363,7 +363,9 @@ export default function BillingPage() {
                                 <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
                                     Choisir un plan
                                 </CardTitle>
-                                <p className="text-[11px] text-gray-400 mt-0.5">7 jours d&apos;essai gratuit sur tous les plans</p>
+                                {!currentOrg?.stripe?.trialUsed && (
+                                    <p className="text-[11px] text-gray-400 mt-0.5">7 jours d&apos;essai gratuit sur tous les plans</p>
+                                )}
                             </div>
                             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
                                 <button
@@ -469,7 +471,7 @@ export default function BillingPage() {
                                             ) : isCurrentPlan ? (
                                                 'Plan actuel'
                                             ) : (
-                                                <><ArrowUpRight className="mr-1.5 h-3.5 w-3.5" /> Commencer l&apos;essai</>
+                                                <><ArrowUpRight className="mr-1.5 h-3.5 w-3.5" /> {currentOrg?.stripe?.trialUsed ? 'S\'abonner' : 'Commencer l\'essai'}</>
                                             )}
                                         </Button>
                                     </div>

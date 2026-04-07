@@ -294,14 +294,22 @@ http.route({
 
                         const subscriptionId = session.subscription;
                         const customerId = session.customer;
+                        const priceId = session.metadata?.priceId || "";
+
+                        if (!priceId) {
+                            console.warn("[Stripe Webhook] No priceId in checkout metadata — will be resolved by subscription.created event");
+                        }
+
+                        // Determine status: if subscription has a trial, status is "trialing"
+                        const status = session.subscription_data?.trial_period_days ? "trialing" : "active";
 
                         await ctx.runMutation(internal.stripe.handleCheckoutCompleted, {
                             organizationId: orgId,
                             stripeCustomerId: customerId,
                             subscriptionId: subscriptionId,
-                            priceId: session.metadata?.priceId || "",
+                            priceId,
                             currentPeriodEnd: 0,
-                            status: "active",
+                            status,
                         });
                     }
                     break;
