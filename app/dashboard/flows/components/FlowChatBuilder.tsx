@@ -138,6 +138,7 @@ export function FlowChatBuilder({ initialFlowId, initialNodes = [], initialEdges
                 const flowId = await createFromAI({
                     name: flowName,
                     description: "Généré via l'assistant",
+                    triggerType: 'NEW_CONVERSATION',
                     nodes: JSON.stringify(nodes),
                     edges: JSON.stringify(edges),
                 });

@@ -67,11 +67,18 @@ export const listMembers = query({
             };
         }));
 
+        const validMembers = members.filter(Boolean);
+        // Owner doesn't count against the agent seat limit
+        const nonOwnerCount = validMembers.filter(m => m!.role !== "owner").length;
+        const planName = org?.plan || "FREE";
+
         return {
-            members: members.filter(Boolean),
-            total: members.length,
+            members: validMembers,
+            total: validMembers.length,
+            nonOwnerCount,
             currentUserRole,
-            limit
+            limit,
+            planName,
         };
     }
 });

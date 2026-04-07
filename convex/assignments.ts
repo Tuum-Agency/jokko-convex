@@ -212,6 +212,10 @@ export const getAgentsList = query({
         const context = await getContext(ctx);
         const { organizationId } = context;
 
+        // Fetch org settings for global maxConcurrentChats fallback
+        const org = await ctx.db.get(organizationId);
+        const globalMax = (org as any)?.settings?.assignment?.maxConcurrentChats || 5;
+
         // Fetch memberships for the org
         const memberships = await ctx.db
             .query("memberships")
@@ -243,7 +247,7 @@ export const getAgentsList = query({
             const isOnline = effectiveStatus === 'ONLINE';
             const isBusy = effectiveStatus === 'BUSY';
             const load = m.activeConversations || 0;
-            const maxLoad = m.maxConversations || 5;
+            const maxLoad = m.maxConversations || globalMax;
 
             let statusLabel = 'Hors ligne';
             if (effectiveStatus === 'ONLINE') statusLabel = 'En ligne';
@@ -606,6 +610,18 @@ export const updateAssignmentSettings = mutation({
                 }
             }
         });
+
+        // Sync maxConversations on all memberships that don't have a custom value
+        const memberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect();
+
+        for (const m of memberships) {
+            await ctx.db.patch(m._id, {
+                maxConversations: args.maxConcurrentChats
+            });
+        }
     }
 });
 

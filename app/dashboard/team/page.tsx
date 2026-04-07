@@ -1,33 +1,21 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════╗
- * ║              app/(dashboard)/team/page.tsx                    ║
- * ╠═══════════════════════════════════════════════════════════════╣
- * ║                                                               ║
- * ║     PAGE GESTION D'EQUIPE                                     ║
- * ║                                                               ║
- * ║     - Banniere de limite si necessaire                        ║
- * ║     - Liste des membres avec actions                          ║
- * ║     - Onglet invitations en attente                           ║
- * ║     - Bouton d'invitation avec ButtonGroup                    ║
- * ║                                                               ║
- * ║     Design coherent avec le dashboard:                        ║
- * ║     - Couleurs vertes (green-500, green-600)                  ║
- * ║     - Cards avec bg-white, border-gray-200/80                 ║
- * ║     - Arrondis (rounded-xl)                                   ║
- * ║     - ButtonGroup pour actions groupees                       ║
- * ║                                                               ║
- * ╚═══════════════════════════════════════════════════════════════╝
- */
-
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, Users, Mail, Building2, AlertCircle } from 'lucide-react'
+import {
+    UserPlus,
+    Users,
+    Mail,
+    Building2,
+    AlertCircle,
+    Shield,
+    UserCheck,
+    Clock,
+} from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useQuery } from "convex/react"
+import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -51,7 +39,73 @@ import { api } from "@/convex/_generated/api"
 import { type Role } from '@/lib/team/roles'
 
 // ============================================
-// COMPONENT
+// STAT CARD
+// ============================================
+
+function StatsCard({
+    title,
+    value,
+    description,
+    icon: Icon,
+    gradient,
+}: {
+    title: string
+    value: string
+    description: string
+    icon: React.ElementType
+    gradient: string
+}) {
+    return (
+        <Card className="bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className={cn("h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-br flex items-center justify-center shadow-lg shadow-green-900/20", gradient)} aria-hidden="true">
+                        <Icon className="h-[18px] w-[18px] sm:h-5 sm:w-5 text-white" />
+                    </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">{title}</p>
+                <span className="text-xl sm:text-3xl font-bold text-gray-900 tracking-tight">{value}</span>
+                <p className="text-[11px] text-gray-400 mt-0.5">{description}</p>
+            </CardContent>
+        </Card>
+    )
+}
+
+// ============================================
+// LOADING SKELETON
+// ============================================
+
+function TeamPageSkeleton() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <Skeleton className="h-7 w-48 mb-2" />
+                <Skeleton className="h-4 w-72" />
+            </div>
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                    <Card key={i} className="bg-white border-gray-100 shadow-sm">
+                        <CardContent className="p-5">
+                            <Skeleton className="h-11 w-11 rounded-full mb-4" />
+                            <Skeleton className="h-3 w-20 mb-2" />
+                            <Skeleton className="h-7 w-14 mb-1" />
+                            <Skeleton className="h-2.5 w-28" />
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            <Skeleton className="h-10 w-64" />
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardContent className="p-6">
+                    <MemberListSkeleton count={3} />
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+// ============================================
+// MAIN PAGE
 // ============================================
 
 export default function TeamPage() {
@@ -65,36 +119,25 @@ export default function TeamPage() {
     const invitationsData = useQuery(api.invitations.list, {})
     const polesData = useQuery(api.poles.list, {})
 
-    if (role === undefined) {
-        return (
-            <div className="space-y-6">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-96 w-full" />
-            </div>
-        );
+    if (role === undefined || membersData === undefined) {
+        return <TeamPageSkeleton />
     }
-
-
 
     if (role === 'AGENT') {
         return (
             <div className="p-6">
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Accès refusé</AlertTitle>
+                    <AlertTitle>Acces refuse</AlertTitle>
                     <AlertDescription>
-                        Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
+                        Vous n'avez pas les autorisations necessaires pour acceder a cette page.
                     </AlertDescription>
                 </Alert>
             </div>
         );
     }
 
-
-
     // Loading states
-    const membersLoading = membersData === undefined
     const invitationsLoading = invitationsData === undefined
     const polesLoading = polesData === undefined
 
@@ -105,54 +148,95 @@ export default function TeamPage() {
     const poles = polesData?.poles as Pole[] || []
 
     const totalMembers = membersData?.total || 0
-    const teamLimit = {
-        current: totalMembers,
-        limit: membersData?.limit || 3,
+    const nonOwnerCount = membersData?.nonOwnerCount || 0
+    const memberLimit = membersData?.limit || 1
+    const planName = membersData?.planName || 'FREE'
+
+    // Plan display name
+    const planDisplayNames: Record<string, string> = {
+        FREE: 'Free',
+        STARTER: 'Starter',
+        BUSINESS: 'Business',
+        PRO: 'Pro',
+        ENTERPRISE: 'Enterprise',
     }
 
-    // Can invite?
-    const canInvite = ['owner', 'admin', 'OWNER', 'ADMIN'].includes(currentUserRole)
+    // Stats for cards
+    const pendingInvitations = invitationsData?.total || 0
+    const totalPoles = polesData?.total || 0
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                        Equipe et Roles
-                    </h2>
-                    <p className="text-gray-500">
-                        Gerez les membres de votre equipe, leurs roles et leurs acces.
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        Equipe
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        Gerez les membres, roles et services de votre organisation.
                     </p>
                 </div>
 
-                <ButtonGroup>
+                <div className="flex items-center gap-2">
                     <Button
-                        onClick={() => setCreatePoleModalOpen(true)}
                         variant="outline"
+                        size="sm"
+                        onClick={() => setCreatePoleModalOpen(true)}
+                        className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
                     >
-                        <Building2 className="mr-2 h-4 w-4" />
-                        Nouveau Pôle
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Nouveau Pole</span>
                     </Button>
                     <Button
+                        size="sm"
                         onClick={() => setInviteModalOpen(true)}
+                        className="h-8 gap-1.5 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d] hover:to-[#047857] text-white shadow-sm cursor-pointer"
                     >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Inviter un membre
+                        <UserPlus className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Inviter un membre</span>
                     </Button>
-                </ButtonGroup>
+                </div>
             </div>
 
-            {/* Limit Banner */}
-            {membersLoading ? (
-                <Skeleton className="h-24 w-full rounded-xl" />
-            ) : (
-                <TeamLimitBanner
-                    current={teamLimit.current}
-                    limit={teamLimit.limit}
-                    planName="Starter"
+            {/* Stat Cards */}
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <StatsCard
+                    title="Membres"
+                    value={String(totalMembers)}
+                    description={`${nonOwnerCount}/${memberLimit} places utilisees`}
+                    icon={Users}
+                    gradient="from-[#14532d] to-[#059669]"
                 />
-            )}
+                <StatsCard
+                    title="Admins"
+                    value={String(members.filter(m => m.role === 'admin' || m.role === 'owner').length)}
+                    description="Proprietaires et administrateurs"
+                    icon={Shield}
+                    gradient="from-[#166534] to-[#0d9488]"
+                />
+                <StatsCard
+                    title="Invitations"
+                    value={String(pendingInvitations)}
+                    description="En attente d'acceptation"
+                    icon={Mail}
+                    gradient="from-[#15803d] to-[#10b981]"
+                />
+                <StatsCard
+                    title="Poles"
+                    value={String(totalPoles)}
+                    description="Services et departements"
+                    icon={Building2}
+                    gradient="from-[#14532d] to-[#34d399]"
+                />
+            </div>
+
+            {/* Limit Banner - uses nonOwnerCount vs limit (owner excluded) */}
+            <TeamLimitBanner
+                current={nonOwnerCount}
+                limit={memberLimit}
+                planName={planDisplayNames[planName] || planName}
+            />
 
             {/* Tabs */}
             <Tabs defaultValue="members" className="w-full">
@@ -161,7 +245,7 @@ export default function TeamPage() {
                         <Users className="h-4 w-4" />
                         <span className="hidden sm:inline">Membres</span>
                         {totalMembers > 0 && (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-green-100 text-green-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
                                 {totalMembers}
                             </Badge>
                         )}
@@ -169,28 +253,28 @@ export default function TeamPage() {
                     <TabsTrigger value="poles" className="gap-1.5 sm:gap-2 data-[state=active]:bg-white shrink-0">
                         <Building2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Poles</span>
-                        {polesData?.total ? (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-indigo-100 text-indigo-700">
-                                {polesData.total}
+                        {totalPoles > 0 && (
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
+                                {totalPoles}
                             </Badge>
-                        ) : null}
+                        )}
                     </TabsTrigger>
                     <TabsTrigger value="invitations" className="gap-1.5 sm:gap-2 data-[state=active]:bg-white shrink-0">
                         <Mail className="h-4 w-4" />
                         <span className="hidden sm:inline">Invitations</span>
-                        {invitationsData?.total ? (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-blue-100 text-blue-700">
-                                {invitationsData.total}
+                        {pendingInvitations > 0 && (
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
+                                {pendingInvitations}
                             </Badge>
-                        ) : null}
+                        )}
                     </TabsTrigger>
                 </TabsList>
 
                 {/* Members Tab */}
                 <TabsContent value="members" className="mt-4">
-                    <Card className="bg-white border-gray-200/80 shadow-sm">
+                    <Card className="bg-white border-gray-100 shadow-sm">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-lg font-semibold text-gray-900">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
                                 Membres de l'equipe
                             </CardTitle>
                             <CardDescription>
@@ -198,26 +282,21 @@ export default function TeamPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {membersLoading ? (
-                                <MemberListSkeleton count={3} />
-                            ) : (
-                                <div className="animate-in fade-in duration-300">
-                                    <MemberList
-                                        members={members}
-                                        currentUserRole={currentUserRole}
-                                    // No need for onMemberUpdated as real-time updates are handled by Convex
-                                    />
-                                </div>
-                            )}
+                            <div className="animate-in fade-in duration-300">
+                                <MemberList
+                                    members={members}
+                                    currentUserRole={currentUserRole}
+                                />
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
 
                 {/* Poles Tab */}
                 <TabsContent value="poles" className="mt-4">
-                    <Card className="bg-white border-gray-200/80 shadow-sm">
+                    <Card className="bg-white border-gray-100 shadow-sm">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-lg font-semibold text-gray-900">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
                                 Poles / Services
                             </CardTitle>
                             <CardDescription>
@@ -236,8 +315,6 @@ export default function TeamPage() {
                                     <PolesSection
                                         poles={poles}
                                         currentUserRole={currentUserRole}
-                                    // onDelete/Create are handled inside or we can pass handlers if we want visual feedback
-                                    // But Convex updates are automatic.
                                     />
                                 </div>
                             )}
@@ -247,9 +324,9 @@ export default function TeamPage() {
 
                 {/* Invitations Tab */}
                 <TabsContent value="invitations" className="mt-4">
-                    <Card className="bg-white border-gray-200/80 shadow-sm">
+                    <Card className="bg-white border-gray-100 shadow-sm">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-lg font-semibold text-gray-900">
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
                                 Invitations en attente
                             </CardTitle>
                             <CardDescription>
@@ -277,7 +354,7 @@ export default function TeamPage() {
                 onOpenChange={setInviteModalOpen}
                 onSuccess={() => setInviteModalOpen(false)}
                 currentUserRole={currentUserRole}
-                teamUsage={teamLimit}
+                teamUsage={{ current: nonOwnerCount, limit: memberLimit }}
             />
 
             {/* Create Pole Modal */}

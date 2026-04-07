@@ -10,27 +10,27 @@ interface ContactCardSkeletonProps {
 
 export function ContactCardSkeleton({ className }: ContactCardSkeletonProps) {
     return (
-        <Card className={cn('', className)}>
-            <CardContent className="p-4">
-                <div className="flex items-start gap-4">
+        <Card className={cn('bg-white border-gray-100 shadow-sm', className)}>
+            <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3">
                     {/* Avatar */}
-                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <Skeleton className="h-10 w-10 sm:h-11 sm:w-11 rounded-full shrink-0" />
 
                     {/* Info */}
                     <div className="flex-1 min-w-0 space-y-2">
                         {/* Name */}
-                        <Skeleton className="h-5 w-32" />
-
-                        {/* Phone */}
                         <Skeleton className="h-4 w-28" />
 
+                        {/* Phone */}
+                        <Skeleton className="h-3 w-24" />
+
                         {/* Email */}
-                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-36" />
 
                         {/* Tags */}
-                        <div className="flex gap-1 pt-1">
-                            <Skeleton className="h-5 w-16 rounded-full" />
-                            <Skeleton className="h-5 w-12 rounded-full" />
+                        <div className="flex gap-1 pt-0.5">
+                            <Skeleton className="h-4 w-14 rounded-full" />
+                            <Skeleton className="h-4 w-10 rounded-full" />
                         </div>
                     </div>
                 </div>

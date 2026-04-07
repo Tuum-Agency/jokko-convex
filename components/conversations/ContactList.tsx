@@ -1,45 +1,17 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════╗
- * ║          components/conversations/ContactList.tsx             ║
- * ╠═══════════════════════════════════════════════════════════════╣
- * ║                                                               ║
- * ║     ┌─────────────────────────────────────────────────────┐   ║
- * ║     │  🔍 Search contacts...                              │   ║
- * ║     ├─────────────────────────────────────────────────────┤   ║
- * ║     │  [All] [Unread] [Open] [Archived]                   │   ║
- * ║     ├─────────────────────────────────────────────────────┤   ║
- * ║     │  👤 John Doe                           2m ago       │   ║
- * ║     │     Hey, how are you doing?               ●         │   ║
- * ║     ├─────────────────────────────────────────────────────┤   ║
- * ║     │  👤 Jane Smith                         1h ago       │   ║
- * ║     │     Thanks for the info!                            │   ║
- * ║     └─────────────────────────────────────────────────────┘   ║
- * ║                                                               ║
- * ╠═══════════════════════════════════════════════════════════════╣
- * ║ DESCRIPTION:                                                  ║
- * ║   Liste des conversations avec recherche et filtres.          ║
- * ║   Affiche l'apercu du dernier message et le compteur unread.  ║
- * ╚═══════════════════════════════════════════════════════════════╝
- */
-
 'use client'
 
-import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Search, UserX, Archive, Inbox, Mail, MessageSquare, Users, Phone } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Search, UserX, Archive, Inbox, User, Phone, MessageSquare, X, Mail, Users } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useConversations, type ConversationFilter, type ConversationSummary } from '@/hooks/useConversations'
 import { useChannels } from '@/hooks/useChannels'
-import { AssignmentBadge } from './AssignmentBadge'
 import { cn } from '@/lib/utils'
 
 // ============================================
@@ -51,56 +23,50 @@ interface ContactListProps {
     onSelect: (conversationId: string) => void
 }
 
+type PrimaryScope = 'all' | 'mine'
+type SecondaryFilter = 'none' | 'unread' | 'unassigned' | 'archived'
+
 // ============================================
-// FILTER TABS
+// SECONDARY FILTER CONFIG
 // ============================================
 
-const filterTabs: { value: ConversationFilter; label: string; icon: React.ElementType }[] = [
-    { value: 'all', label: 'Tous', icon: Inbox },
+const secondaryFilters: { value: SecondaryFilter; label: string; icon: React.ElementType; hideWhenMine?: boolean }[] = [
+    { value: 'none', label: 'Tout', icon: Inbox },
     { value: 'unread', label: 'Non lus', icon: Mail },
-    { value: 'unassigned', label: 'Non assignees', icon: UserX },
-    { value: 'archived', label: 'Archives', icon: Archive },
+    { value: 'unassigned', label: 'Non assign\u00e9es', icon: UserX, hideWhenMine: true },
+    { value: 'archived', label: 'Archiv\u00e9es', icon: Archive },
 ]
 
 // ============================================
-// SECTION HEADER
+// HELPERS
 // ============================================
 
-function SectionHeader({
-    title,
-    count,
-    icon: Icon,
-    color,
-}: {
-    title: string
-    count: number
-    icon: React.ElementType
-    color: 'green' | 'orange' | 'gray'
-}) {
-    const colorClasses = {
-        green: 'bg-green-50 text-green-700 border-green-200',
-        orange: 'bg-orange-50 text-orange-700 border-orange-200',
-        gray: 'bg-gray-50 text-gray-600 border-gray-200',
-    }
+function computeBackendFilter(primary: PrimaryScope, secondary: SecondaryFilter): ConversationFilter {
+    if (secondary === 'archived') return 'archived'
+    if (primary === 'mine') return 'mine'
+    if (secondary === 'unread') return 'unread'
+    if (secondary === 'unassigned') return 'unassigned'
+    return 'all'
+}
 
+// ============================================
+// SECTION DIVIDER
+// ============================================
+
+function SectionDivider({ title, count }: { title: string; count: number }) {
     return (
-        <div className={cn(
-            'sticky top-0 z-10 px-4 py-2 border-b flex items-center gap-2',
-            colorClasses[color]
-        )}>
-            <Icon className="h-4 w-4" />
-            <span className="text-xs font-medium">{title}</span>
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50/50">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                {title}
+            </span>
             <Badge
-                variant="outline"
-                className={cn(
-                    'ml-auto text-[10px] px-1.5 py-0 h-4',
-                    color === 'green' && 'bg-green-100 text-green-700 border-green-300',
-                    color === 'orange' && 'bg-orange-100 text-orange-700 border-orange-300',
-                    color === 'gray' && 'bg-gray-100 text-gray-600 border-gray-300'
-                )}
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-500 font-medium"
             >
                 {count}
             </Badge>
+            <div className="h-px flex-1 bg-gray-200" />
         </div>
     )
 }
@@ -113,115 +79,100 @@ function ContactListItem({
     conversation,
     isSelected,
     onClick,
+    showAssignee = true,
 }: {
     conversation: ConversationSummary
     isSelected: boolean
     onClick: () => void
+    showAssignee?: boolean
 }) {
     const { contact, lastMessageText, lastMessageAt, unreadCount, lastMessageType, assignedTo } = conversation
 
-    // Get initials for avatar fallback
     const initials = contact.name
-        ? contact.name
-            .split(' ')
-            .map((n: string) => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2)
+        ? contact.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
         : contact.phone.slice(-2)
 
-    // Format time
     const timeAgo = lastMessageAt
         ? formatDistanceToNow(new Date(lastMessageAt), { addSuffix: false, locale: fr })
         : ''
 
-    // Get message preview
     const messagePreview = useMemo(() => {
         if (!lastMessageText) {
-            if (lastMessageType === 'IMAGE') return '📷 Photo'
-            if (lastMessageType === 'VIDEO') return '🎥 Video'
-            if (lastMessageType === 'AUDIO') return '🎵 Audio'
-            if (lastMessageType === 'DOCUMENT') return '📄 Document'
-            if (lastMessageType === 'LOCATION') return '📍 Position'
-            if (lastMessageType === 'STICKER') return '🎭 Sticker'
-            return 'Nouveau message'
+            const typeMap: Record<string, string> = {
+                IMAGE: 'Photo',
+                VIDEO: 'Vid\u00e9o',
+                AUDIO: 'Audio',
+                DOCUMENT: 'Document',
+                LOCATION: 'Position',
+                STICKER: 'Sticker',
+            }
+            return typeMap[lastMessageType] || 'Nouveau message'
         }
-        return lastMessageText.length > 40
-            ? lastMessageText.slice(0, 40) + '...'
+        return lastMessageText.length > 45
+            ? lastMessageText.slice(0, 45) + '\u2026'
             : lastMessageText
     }, [lastMessageText, lastMessageType])
 
     return (
-        <motion.button
-            layout
+        <button
             onClick={onClick}
             className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-200',
+                'w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer',
                 'hover:bg-gray-50 focus:outline-none focus:bg-gray-50',
-                isSelected && 'bg-green-50 hover:bg-green-50 border-l-4 border-green-500'
+                isSelected
+                    ? 'bg-green-50/70 hover:bg-green-50/70 border-l-2 border-l-green-600'
+                    : 'border-l-2 border-l-transparent'
             )}
-            whileTap={{ scale: 0.98 }}
         >
             {/* Avatar */}
             <div className="relative shrink-0">
-                <Avatar className="h-12 w-12">
-                    {contact.avatarUrl && (
-                        <AvatarImage src={contact.avatarUrl} alt={contact.name || ''} />
-                    )}
-                    <AvatarFallback className="bg-linear-to-br from-green-400 to-green-600 text-white font-medium">
+                <Avatar className="h-11 w-11">
+                    {contact.avatarUrl && <AvatarImage src={contact.avatarUrl} alt={contact.name || ''} />}
+                    <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-sm font-semibold">
                         {initials}
                     </AvatarFallback>
                 </Avatar>
+                {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+                )}
             </div>
 
             {/* Content */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <h3 className={cn(
-                            'font-medium truncate',
-                            unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'
-                        )}>
-                            {contact.name || contact.phone}
-                        </h3>
-                        {/* Assignment badge - show assigned agent or "Non assignee" */}
-                        {assignedTo ? (
-                            <AssignmentBadge
-                                assignedTo={assignedTo}
-                                size="sm"
-                                showAvatar={false}
-                            />
-                        ) : (
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 h-4 bg-orange-50 text-orange-600 border-orange-200"
-                            >
-                                Non assignee
-                            </Badge>
-                        )}
-                    </div>
+                    <h3 className={cn(
+                        'text-sm truncate',
+                        unreadCount > 0 ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
+                    )}>
+                        {contact.name || contact.phone}
+                    </h3>
                     <span className={cn(
-                        'text-xs shrink-0',
-                        unreadCount > 0 ? 'text-green-600 font-medium' : 'text-gray-400'
+                        'text-[11px] shrink-0',
+                        unreadCount > 0 ? 'text-green-600 font-semibold' : 'text-gray-400'
                     )}>
                         {timeAgo}
                     </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p className={cn(
-                        'text-sm truncate',
-                        unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'
+                        'text-[13px] truncate',
+                        unreadCount > 0 ? 'text-gray-600 font-medium' : 'text-gray-400'
                     )}>
                         {messagePreview}
                     </p>
                     {unreadCount > 0 && (
-                        <Badge className="h-5 min-w-[20px] rounded-full bg-green-500 text-white text-xs px-1.5 shrink-0">
+                        <Badge className="h-[18px] min-w-[18px] rounded-full bg-green-500 hover:bg-green-500 text-white text-[10px] px-1 shrink-0 font-semibold">
                             {unreadCount > 99 ? '99+' : unreadCount}
                         </Badge>
                     )}
                 </div>
+                {showAssignee && assignedTo && (
+                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                        Assign\u00e9e \u00e0 {assignedTo.name || assignedTo.email?.split('@')[0]}
+                    </p>
+                )}
             </div>
-        </motion.button>
+        </button>
     )
 }
 
@@ -232,6 +183,8 @@ function ContactListItem({
 export function ContactList({ selectedId, onSelect }: ContactListProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [channelFilter, setChannelFilter] = useState<string>('all')
+    const [primaryScope, setPrimaryScope] = useState<PrimaryScope>('all')
+    const [activeSecondary, setActiveSecondary] = useState<SecondaryFilter>('none')
 
     const {
         conversations,
@@ -239,21 +192,47 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
         setFilter,
         isLoading,
         unreadCount: totalUnread,
+        currentMember,
     } = useConversations()
 
     const { channels } = useChannels()
     const hasMultipleChannels = channels.length > 1
 
-    // Filter conversations by channel and search query
+    // Only owner/admin can toggle between "Toutes" and "Mes conversations"
+    const canToggleScope = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+
+    // Handlers that sync primary + secondary → backend filter
+    const handlePrimaryChange = useCallback((scope: PrimaryScope) => {
+        setPrimaryScope(scope)
+        // Reset incompatible secondary filter
+        const nextSecondary = scope === 'mine' && activeSecondary === 'unassigned'
+            ? 'none'
+            : activeSecondary
+        setActiveSecondary(nextSecondary)
+        setFilter(computeBackendFilter(scope, nextSecondary))
+    }, [activeSecondary, setFilter])
+
+    const handleSecondaryChange = useCallback((sec: SecondaryFilter) => {
+        setActiveSecondary(sec)
+        setFilter(computeBackendFilter(primaryScope, sec))
+    }, [primaryScope, setFilter])
+
+    // Available secondary filters based on primary scope
+    const availableSecondary = useMemo(() => {
+        if (primaryScope === 'mine') {
+            return secondaryFilters.filter(f => !f.hideWhenMine)
+        }
+        return secondaryFilters
+    }, [primaryScope])
+
+    // Client-side filters (channel, search, and combined filters the backend can't handle)
     const filteredConversations = useMemo(() => {
         let result = conversations
 
-        // Channel filter
         if (channelFilter !== 'all') {
-            result = result.filter((conv: any) => conv.whatsappChannelId === channelFilter)
+            result = result.filter((conv: ConversationSummary & { whatsappChannelId?: string }) => conv.whatsappChannelId === channelFilter)
         }
 
-        // Search filter
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase()
             result = result.filter(
@@ -264,214 +243,239 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
             )
         }
 
+        // "mine + unread" → backend gives "mine", we filter unread client-side
+        if (primaryScope === 'mine' && activeSecondary === 'unread') {
+            result = result.filter((conv: ConversationSummary) => conv.unreadCount > 0)
+        }
+
+        // "mine + archived" → backend gives "archived", we filter by assignee client-side
+        if (primaryScope === 'mine' && activeSecondary === 'archived') {
+            result = result.filter((conv: ConversationSummary) => conv.assignedTo?.id === currentMember?.id)
+        }
+
         return result
-    }, [conversations, searchQuery, channelFilter])
+    }, [conversations, searchQuery, channelFilter, primaryScope, activeSecondary, currentMember])
 
-    // Group conversations by category for "all" filter
-    const groupedConversations = useMemo(() => {
-        if (filter !== 'all') return null
+    // Grouped view: only when scope=all + secondary=none (show sections)
+    const showGrouped = primaryScope === 'all' && activeSecondary === 'none' && !searchQuery.trim()
+    const groupedByOwnership = useMemo(() => {
+        if (!showGrouped) return null
 
-        const unread: ConversationSummary[] = []
+        const mine: ConversationSummary[] = []
         const unassigned: ConversationSummary[] = []
-        const others: ConversationSummary[] = []
+        const team: ConversationSummary[] = []
 
         for (const conv of filteredConversations) {
-            if (conv.unreadCount > 0) {
-                unread.push(conv)
+            if (conv.assignedTo?.id === currentMember?.id) {
+                mine.push(conv)
             } else if (!conv.assignedTo) {
                 unassigned.push(conv)
             } else {
-                others.push(conv)
+                team.push(conv)
             }
         }
 
-        return { unread, unassigned, others }
-    }, [filteredConversations, filter])
+        return { mine, unassigned, team }
+    }, [filteredConversations, showGrouped, currentMember])
+
+    const renderList = (items: ConversationSummary[], hideAssignee = false) =>
+        items.map((conv) => (
+            <ContactListItem
+                key={conv.id}
+                conversation={conv}
+                isSelected={selectedId === conv.id}
+                onClick={() => onSelect(conv.id)}
+                showAssignee={!hideAssignee}
+            />
+        ))
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Conversations</h2>
+        <div className="flex flex-col h-full bg-white">
+            {/* ── Header ── */}
+            <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+                        Conversations
+                    </h2>
                     {totalUnread > 0 && (
-                        <Badge className="bg-green-500 text-white">
-                            {totalUnread} non lu{totalUnread > 1 ? 's' : ''}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 border border-green-200">
+                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[11px] font-semibold text-green-700">
+                                {totalUnread} non lu{totalUnread > 1 ? 's' : ''}
+                            </span>
+                        </div>
                     )}
                 </div>
 
-                {/* Channel Filter */}
+                {/* Search */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Rechercher un contact..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-9 pl-9 bg-gray-50/80 border-gray-200 text-sm placeholder:text-gray-400 focus-visible:bg-white"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Level 1: Primary Scope Toggle (owner/admin only) ── */}
+            {canToggleScope && (
+                <div className="px-4 py-2.5 border-b border-gray-100">
+                    <div className="flex bg-gray-100 rounded-lg p-0.5">
+                        <button
+                            onClick={() => handlePrimaryChange('all')}
+                            className={cn(
+                                'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
+                                primaryScope === 'all'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            )}
+                        >
+                            <Users className="h-3.5 w-3.5" />
+                            Toutes les conversations
+                        </button>
+                        <button
+                            onClick={() => handlePrimaryChange('mine')}
+                            className={cn(
+                                'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
+                                primaryScope === 'mine'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            )}
+                        >
+                            <User className="h-3.5 w-3.5" />
+                            Mes conversations
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Level 2: Secondary Filters ── */}
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                {availableSecondary.map((sf) => {
+                    const Icon = sf.icon
+                    const isActive = activeSecondary === sf.value
+                    return (
+                        <button
+                            key={sf.value}
+                            onClick={() => handleSecondaryChange(sf.value)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 cursor-pointer border',
+                                isActive
+                                    ? 'bg-gradient-to-r from-[#14532d] to-[#059669] text-white border-transparent shadow-sm shadow-green-900/20'
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+                            )}
+                        >
+                            <Icon className="h-3 w-3" />
+                            {sf.label}
+                        </button>
+                    )
+                })}
+
+                {/* Channel filter (if multiple) */}
                 {hasMultipleChannels && (
                     <Select value={channelFilter} onValueChange={setChannelFilter}>
-                        <SelectTrigger className="h-8 text-xs mb-2">
-                            <Phone className="h-3 w-3 mr-1.5" />
-                            <SelectValue placeholder="Tous les canaux" />
+                        <SelectTrigger className="h-7 text-[11px] w-auto min-w-[110px] border-gray-200 bg-white rounded-full px-2.5 ml-auto shrink-0">
+                            <Phone className="h-3 w-3 mr-1" />
+                            <SelectValue placeholder="Canal" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tous les canaux</SelectItem>
-                            {channels.map((ch: any) => (
+                            {channels.map((ch: { _id: string; label: string; displayPhoneNumber?: string; status: string }) => (
                                 <SelectItem key={ch._id} value={ch._id}>
                                     <div className="flex items-center gap-2">
-                                        <div className={`h-2 w-2 rounded-full ${ch.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                        {ch.label} — {ch.displayPhoneNumber}
+                                        <div className={cn(
+                                            'h-1.5 w-1.5 rounded-full',
+                                            ch.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                                        )} />
+                                        {ch.label}
                                     </div>
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 )}
-
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <Input
-                        placeholder="Rechercher..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-10 pl-9"
-                    />
-                </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="px-4 py-2 border-b border-gray-100">
-                <ButtonGroup className="w-full">
-                    {filterTabs.map((tab) => {
-                        const Icon = tab.icon
-                        const isActive = filter === tab.value
-                        return (
-                            <Button
-                                key={tab.value}
-                                variant={isActive ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setFilter(tab.value)}
-                                className={cn(
-                                    'flex-1 gap-1.5 text-xs',
-                                    isActive && 'bg-green-500 hover:bg-green-600 border-green-500'
-                                )}
-                            >
-                                <Icon className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">{tab.label}</span>
-                            </Button>
-                        )
-                    })}
-                </ButtonGroup>
-            </div>
-
-            {/* Conversations List */}
+            {/* ── Conversations List ── */}
             <ScrollArea className="flex-1">
                 {isLoading ? (
-                    // Loading skeleton
-                    <div className="p-4 space-y-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
+                    <div className="p-4 space-y-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
                             <div key={i} className="flex items-center gap-3 animate-pulse">
-                                <div className="h-12 w-12 rounded-full bg-gray-200" />
+                                <div className="h-11 w-11 rounded-full bg-gray-100" />
                                 <div className="flex-1 space-y-2">
-                                    <div className="h-4 w-24 bg-gray-200 rounded" />
-                                    <div className="h-3 w-40 bg-gray-100 rounded" />
+                                    <div className="h-3.5 w-28 bg-gray-100 rounded" />
+                                    <div className="h-3 w-44 bg-gray-50 rounded" />
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : filteredConversations.length === 0 ? (
-                    // Empty state
-                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                        <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                            <MessageSquare className="h-8 w-8 text-gray-400" />
+                    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                        <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mb-3">
+                            <MessageSquare className="h-7 w-7 text-gray-300" />
                         </div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-1">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1">
                             Aucune conversation
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs text-gray-400 max-w-[220px]">
                             {searchQuery
-                                ? 'Aucun resultat pour cette recherche'
-                                : 'Les nouvelles conversations apparaitront ici'}
+                                ? 'Aucun r\u00e9sultat pour cette recherche'
+                                : activeSecondary === 'unread'
+                                    ? 'Aucun message non lu'
+                                    : activeSecondary === 'unassigned'
+                                        ? 'Toutes les conversations sont assign\u00e9es'
+                                        : 'Les nouvelles conversations appara\u00eetront ici'}
                         </p>
                     </div>
-                ) : filter === 'all' && groupedConversations ? (
-                    // Grouped view with category separators
+                ) : groupedByOwnership ? (
+                    /* Grouped view: scope=all, secondary=none, no search */
                     <div>
-                        {/* Non lus (Unread) */}
-                        {groupedConversations.unread.length > 0 && (
-                            <div>
-                                <SectionHeader
-                                    title="Non lus"
-                                    count={groupedConversations.unread.length}
-                                    icon={Mail}
-                                    color="green"
+                        {groupedByOwnership.mine.length > 0 && (
+                            <>
+                                <SectionDivider
+                                    title="Mes conversations"
+                                    count={groupedByOwnership.mine.length}
                                 />
-                                <div className="divide-y divide-gray-100">
-                                    {groupedConversations.unread.map((conversation) => (
-                                        <ContactListItem
-                                            key={conversation.id}
-                                            conversation={conversation}
-                                            isSelected={selectedId === conversation.id}
-                                            onClick={() => onSelect(conversation.id)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
+                                {renderList(groupedByOwnership.mine, true)}
+                            </>
                         )}
 
-                        {/* Non assignees (Unassigned) */}
-                        {groupedConversations.unassigned.length > 0 && (
-                            <div>
-                                <SectionHeader
-                                    title="Non assignees"
-                                    count={groupedConversations.unassigned.length}
-                                    icon={UserX}
-                                    color="orange"
+                        {groupedByOwnership.unassigned.length > 0 && (
+                            <>
+                                <SectionDivider
+                                    title="Non assign\u00e9es"
+                                    count={groupedByOwnership.unassigned.length}
                                 />
-                                <div className="divide-y divide-gray-100">
-                                    {groupedConversations.unassigned.map((conversation) => (
-                                        <ContactListItem
-                                            key={conversation.id}
-                                            conversation={conversation}
-                                            isSelected={selectedId === conversation.id}
-                                            onClick={() => onSelect(conversation.id)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
+                                {renderList(groupedByOwnership.unassigned)}
+                            </>
                         )}
 
-                        {/* Assignees (Others - assigned and read) */}
-                        {groupedConversations.others.length > 0 && (
-                            <div>
-                                <SectionHeader
-                                    title="Assignees"
-                                    count={groupedConversations.others.length}
-                                    icon={Users}
-                                    color="gray"
+                        {groupedByOwnership.team.length > 0 && (
+                            <>
+                                <SectionDivider
+                                    title="\u00c9quipe"
+                                    count={groupedByOwnership.team.length}
                                 />
-                                <div className="divide-y divide-gray-100">
-                                    {groupedConversations.others.map((conversation) => (
-                                        <ContactListItem
-                                            key={conversation.id}
-                                            conversation={conversation}
-                                            isSelected={selectedId === conversation.id}
-                                            onClick={() => onSelect(conversation.id)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
+                                {renderList(groupedByOwnership.team)}
+                            </>
                         )}
                     </div>
                 ) : (
-                    // Regular list view (for other filters)
-                    <AnimatePresence initial={false}>
-                        <div className="divide-y divide-gray-100">
-                            {filteredConversations.map((conversation: ConversationSummary) => (
-                                <ContactListItem
-                                    key={conversation.id}
-                                    conversation={conversation}
-                                    isSelected={selectedId === conversation.id}
-                                    onClick={() => onSelect(conversation.id)}
-                                />
-                            ))}
-                        </div>
-                    </AnimatePresence>
+                    /* Flat list for filtered views */
+                    <div>
+                        {renderList(filteredConversations, filter === 'mine')}
+                    </div>
                 )}
             </ScrollArea>
         </div>
