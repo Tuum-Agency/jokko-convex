@@ -19,7 +19,39 @@ function getAppUrl(): string {
 }
 
 /**
+ * Build a redirect URL that includes the org slug as a subdomain
+ * so that Stripe redirects directly to the right tenant context
+ * (avoids losing query params during subdomain redirect in the dashboard layout).
+ */
+function buildRedirectUrl(baseUrl: string, path: string, orgSlug?: string): string {
+    try {
+        const url = new URL(baseUrl);
+        // Only add subdomain if the host is bare (no subdomain already)
+        if (orgSlug) {
+            const hostname = url.hostname;
+            if (hostname === "localhost") {
+                url.hostname = `${orgSlug}.localhost`;
+            } else {
+                const rootDomain = process.env.ROOT_DOMAIN || "jokko.co";
+                if (hostname === rootDomain || hostname === `www.${rootDomain}` || hostname === `app.${rootDomain}`) {
+                    url.hostname = `${orgSlug}.${rootDomain}`;
+                }
+            }
+        }
+        url.pathname = path;
+        return url.toString();
+    } catch {
+        return `${baseUrl}${path}`;
+    }
+}
+
+/**
  * Create a Stripe Checkout Session for upgrading the org's plan.
+ * Guards:
+ * - Blocks if org already has an active/trialing subscription
+ * - Checks trialUsed to prevent unlimited free trials
+ * - Cancels any lingering incomplete subscriptions before creating a new one
+ * - Persists customerId immediately after creation
  */
 export const createCheckoutSession = action({
     args: {
@@ -30,12 +62,21 @@ export const createCheckoutSession = action({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Non authentifié");
 
-        // Get current org
-        const session = await ctx.runQuery(internal.sessions.getCurrentSession, {});
-        if (!session?.organizationId) throw new Error("Aucune organisation active");
+        // Verify role (only OWNER/ADMIN)
+        const role = await ctx.runQuery(internal.sessions.getCurrentSession, {});
+        if (!role?.organizationId) throw new Error("Aucune organisation active");
 
+        const session = role;
         const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: session.organizationId as any });
         if (!org) throw new Error("Organisation introuvable");
+
+        // Guard: block if org already has an active or trialing subscription
+        const existingStatus = org.stripe?.status;
+        if (existingStatus === "active" || existingStatus === "trialing") {
+            throw new Error(
+                "Vous avez déjà un abonnement actif. Utilisez le portail de gestion pour modifier ou annuler votre abonnement."
+            );
+        }
 
         const interval = args.interval || "month";
         const priceId = priceIdFromPlan(args.planKey, interval);
@@ -52,20 +93,50 @@ export const createCheckoutSession = action({
                 metadata: { organizationId: org._id, plan: args.planKey },
             });
             customerId = customer.id;
+
+            // Persist customerId immediately so subsequent calls don't create duplicates
+            await ctx.runMutation(internal.stripe.saveCustomerId, {
+                organizationId: org._id,
+                stripeCustomerId: customerId,
+            });
+        } else {
+            // Cancel any incomplete/past_due subscriptions on this customer to prevent duplicates
+            const existingSubs = await stripe.subscriptions.list({
+                customer: customerId,
+                status: "all",
+            });
+            for (const sub of existingSubs.data) {
+                if (sub.status === "incomplete" || sub.status === "incomplete_expired" || sub.status === "past_due") {
+                    try {
+                        await stripe.subscriptions.cancel(sub.id);
+                    } catch {
+                        // Ignore errors canceling stale subscriptions
+                    }
+                }
+            }
         }
 
+        // Determine trial eligibility: only if never used before
+        const trialUsed = org.stripe?.trialUsed === true;
+        const trialDays = trialUsed ? undefined : 7;
+
         // Create checkout session
+        const successUrl = buildRedirectUrl(appUrl, "/dashboard/billing?success=true", org.slug);
+        const cancelUrl = buildRedirectUrl(appUrl, "/dashboard/billing?canceled=true", org.slug);
+
         const checkoutSession = await stripe.checkout.sessions.create({
             customer: customerId,
             mode: "subscription",
             line_items: [{ price: priceId, quantity: 1 }],
-            success_url: `${appUrl}/dashboard/billing?success=true`,
-            cancel_url: `${appUrl}/dashboard/billing?canceled=true`,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
             subscription_data: {
                 metadata: { organizationId: org._id },
-                trial_period_days: 7,
+                ...(trialDays ? { trial_period_days: trialDays } : {}),
             },
-            metadata: { organizationId: org._id },
+            metadata: { organizationId: org._id, priceId },
+            // Prevent duplicate active subscriptions by allowing only one per customer
+            allow_promotion_codes: true,
         });
 
         if (!checkoutSession.url) throw new Error("Stripe session creation failed");
@@ -94,7 +165,7 @@ export const createPortalSession = action({
 
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: org.stripe.customerId,
-            return_url: `${appUrl}/dashboard/billing`,
+            return_url: buildRedirectUrl(appUrl, "/dashboard/billing", org.slug),
         });
 
         return { url: portalSession.url };
@@ -151,6 +222,12 @@ export const createCreditsCheckoutSession = action({
                 metadata: { organizationId: org._id },
             });
             customerId = customer.id;
+
+            // Persist customerId immediately
+            await ctx.runMutation(internal.stripe.saveCustomerId, {
+                organizationId: org._id,
+                stripeCustomerId: customerId,
+            });
         }
 
         // Create one-time payment checkout session
@@ -170,8 +247,8 @@ export const createCreditsCheckoutSession = action({
                     quantity: 1,
                 },
             ],
-            success_url: `${appUrl}/dashboard/billing/recharge?session=${sessionId}&status=success`,
-            cancel_url: `${appUrl}/dashboard/billing/recharge?session=${sessionId}&status=cancel`,
+            success_url: buildRedirectUrl(appUrl, `/dashboard/billing/recharge?session=${sessionId}&status=success`, org.slug),
+            cancel_url: buildRedirectUrl(appUrl, `/dashboard/billing/recharge?session=${sessionId}&status=cancel`, org.slug),
             metadata: {
                 organizationId: org._id,
                 paymentSessionId: sessionId,
