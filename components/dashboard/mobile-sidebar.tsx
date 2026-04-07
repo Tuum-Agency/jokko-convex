@@ -227,9 +227,14 @@ export function MobileSidebar({
                         <Link
                             href={`${basePath}/help`}
                             onClick={() => setIsOpen(false)}
-                            className="group flex items-center gap-3 rounded-lg px-3 py-3 text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all duration-200"
+                            className={cn(
+                                "group flex items-center gap-3 rounded-lg px-3 py-3 text-[13px] font-medium transition-all duration-200",
+                                isActive('/help')
+                                    ? "text-white bg-white/15"
+                                    : "text-white/60 hover:text-white hover:bg-white/8"
+                            )}
                         >
-                            <HelpCircle className="h-[18px] w-[18px] text-white/50 group-hover:text-white shrink-0 transition-colors duration-200" aria-hidden="true" />
+                            <HelpCircle className={cn("h-[18px] w-[18px] shrink-0 transition-colors duration-200", isActive('/help') ? "text-white" : "text-white/50 group-hover:text-white")} aria-hidden="true" />
                             <span>Aide & Support</span>
                         </Link>
                     </div>

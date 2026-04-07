@@ -35,6 +35,7 @@ import type * as invitations from "../invitations.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_planLimits from "../lib/planLimits.js";
 import type * as lib_stripePlans from "../lib/stripePlans.js";
 import type * as lib_templateBuilder from "../lib/templateBuilder.js";
 import type * as lib_templateTypes from "../lib/templateTypes.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/email": typeof lib_email;
   "lib/permissions": typeof lib_permissions;
+  "lib/planLimits": typeof lib_planLimits;
   "lib/stripePlans": typeof lib_stripePlans;
   "lib/templateBuilder": typeof lib_templateBuilder;
   "lib/templateTypes": typeof lib_templateTypes;

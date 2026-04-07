@@ -4,7 +4,36 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { User, Bell, Shield, Globe, Mail, Upload, Loader2, Save, Trash2, Smartphone, Briefcase, MessageSquare, CheckCircle2, AlertCircle, RefreshCw, Phone, Users, Hash } from 'lucide-react';
+import {
+    User,
+    Bell,
+    Shield,
+    Globe,
+    Mail,
+    Upload,
+    Loader2,
+    Save,
+    Trash2,
+    Smartphone,
+    Briefcase,
+    MessageSquare,
+    CheckCircle2,
+    AlertCircle,
+    RefreshCw,
+    Phone,
+    Users,
+    Hash,
+    Check,
+    Palette,
+    Building2,
+    Clock,
+    Bot,
+    Zap,
+    MapPin,
+    Link,
+} from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamsSettings } from '@/components/settings/TeamsSettings';
 import { ChannelsSettings } from '@/components/settings/ChannelsSettings';
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -20,7 +49,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -53,13 +84,29 @@ export default function SettingsPage() {
     if (user && !isEditing && (name === "" || phone === "")) {
         setName(user.name || "");
         setPhone(user.phone || "");
-        setIsEditing(true); // Prevent re-setting
+        setIsEditing(true);
     }
 
     if (!user) {
         return (
-            <div className="flex items-center justify-center p-20">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+            <div className="space-y-6">
+                <div>
+                    <div className="h-7 w-36 bg-gray-200 rounded animate-pulse mb-2" />
+                    <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+                </div>
+                <div className="h-10 w-full max-w-[700px] bg-gray-100 rounded-lg animate-pulse" />
+                <Card className="bg-white border-gray-100 shadow-sm">
+                    <CardContent className="p-6">
+                        <div className="space-y-4">
+                            <div className="h-24 w-24 rounded-full bg-gray-100 animate-pulse mx-auto sm:mx-0" />
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="h-16 bg-gray-50 rounded-lg animate-pulse" />
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -71,7 +118,7 @@ export default function SettingsPage() {
             toast.success("Profil mis à jour", {
                 description: "Vos informations ont été enregistrées avec succès.",
             });
-        } catch (error) {
+        } catch {
             toast.error("Erreur", {
                 description: "Impossible de mettre à jour le profil.",
             });
@@ -86,21 +133,14 @@ export default function SettingsPage() {
 
         try {
             setIsUploading(true);
-
-            // 1. Get upload URL
             const postUrl = await generateUploadUrl();
-
-            // 2. Upload file
             const result = await fetch(postUrl, {
                 method: "POST",
                 headers: { "Content-Type": file.type },
                 body: file,
             });
             const { storageId } = await result.json();
-
-            // 3. Save storage ID to user profile
             await updateProfile({ imageStorageId: storageId });
-
             toast.success("Avatar mis à jour", {
                 description: "Votre nouvelle photo de profil a été téléchargée.",
             });
@@ -121,8 +161,8 @@ export default function SettingsPage() {
     const handleDeleteAccount = async () => {
         try {
             await deleteAccount();
-            window.location.href = "/sign-in"; // Redirect to login
-        } catch (error) {
+            window.location.href = "/sign-in";
+        } catch {
             toast.error("Erreur", {
                 description: "Impossible de supprimer le compte pour le moment.",
             });
@@ -130,41 +170,79 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto pb-10">
-            <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Paramètres</h1>
-                <p className="text-sm sm:text-base text-gray-500 mt-2">
-                    Gérez les préférences de votre compte professionnel.
-                </p>
+        <div className="space-y-6">
+            {/* ==================== HEADER ==================== */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        Paramètres
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        Gérez les préférences de votre compte professionnel.
+                    </p>
+                </div>
             </div>
 
+            {/* ==================== TABS ==================== */}
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="flex w-full overflow-x-auto no-scrollbar lg:grid lg:grid-cols-7 lg:w-[700px]">
-                    <TabsTrigger value="profile" className="shrink-0">Profil</TabsTrigger>
-                    <TabsTrigger value="whatsapp" className="shrink-0">WhatsApp</TabsTrigger>
-                    <TabsTrigger value="teams" className="shrink-0">Équipes</TabsTrigger>
-                    <TabsTrigger value="channels" className="shrink-0">Canaux</TabsTrigger>
-                    <TabsTrigger value="account" className="shrink-0">Compte</TabsTrigger>
-                    <TabsTrigger value="notifications" className="shrink-0">Notifs</TabsTrigger>
-                    <TabsTrigger value="display" className="shrink-0">Affichage</TabsTrigger>
+                <TabsList className="flex w-full overflow-x-auto no-scrollbar lg:grid lg:grid-cols-7 lg:w-[750px]">
+                    <TabsTrigger value="profile" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <User className="h-3.5 w-3.5" />
+                        Profil
+                    </TabsTrigger>
+                    <TabsTrigger value="organization" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <Building2 className="h-3.5 w-3.5" />
+                        Organisation
+                    </TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        WhatsApp
+                    </TabsTrigger>
+                    <TabsTrigger value="teams" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <Users className="h-3.5 w-3.5" />
+                        Équipes
+                    </TabsTrigger>
+                    <TabsTrigger value="account" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <Shield className="h-3.5 w-3.5" />
+                        Compte
+                    </TabsTrigger>
+                    <TabsTrigger value="notifications" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <Bell className="h-3.5 w-3.5" />
+                        Notifs
+                    </TabsTrigger>
+                    <TabsTrigger value="display" className="shrink-0 gap-1.5 text-xs cursor-pointer">
+                        <Palette className="h-3.5 w-3.5" />
+                        Affichage
+                    </TabsTrigger>
                 </TabsList>
 
-                {/* Profil Tab */}
+                {/* ==================== PROFIL TAB ==================== */}
                 <TabsContent value="profile" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Profil Professionnel</CardTitle>
-                            <CardDescription>
-                                Ces informations sont visibles par votre équipe et vos administrateurs.
-                            </CardDescription>
+                    <Card className="bg-white border-gray-100 shadow-sm">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
+                                        <User className="h-4 w-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                            Profil Professionnel
+                                        </CardTitle>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                            Informations visibles par votre équipe
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="space-y-8">
+                        <CardContent className="space-y-6 pt-4">
                             {/* Avatar Section */}
                             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                                 <div className="relative group">
-                                    <Avatar className="h-24 w-24 border-2 border-white shadow-lg ring-2 ring-gray-100">
+                                    <Avatar className="h-20 w-20 border-2 border-white shadow-lg ring-2 ring-gray-100">
                                         <AvatarImage src={user.image} alt={user.name} className="object-cover" />
-                                        <AvatarFallback className="text-2xl bg-gradient-to-br from-green-500 to-green-600 text-white">
+                                        <AvatarFallback className="text-xl bg-gradient-to-br from-[#14532d] to-[#059669] text-white font-semibold">
                                             {user.name?.charAt(0).toUpperCase()}
                                         </AvatarFallback>
                                     </Avatar>
@@ -172,7 +250,7 @@ export default function SettingsPage() {
                                         onClick={triggerFileInput}
                                         className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                     >
-                                        <Upload className="text-white h-6 w-6" />
+                                        <Upload className="text-white h-5 w-5" />
                                     </div>
                                     <input
                                         type="file"
@@ -183,54 +261,59 @@ export default function SettingsPage() {
                                     />
                                     {isUploading && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-full">
-                                            <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+                                            <Loader2 className="h-5 w-5 animate-spin text-green-600" />
                                         </div>
                                     )}
                                 </div>
-
-                                <div className="flex flex-col gap-2">
-                                    <h3 className="font-medium text-lg text-gray-900">Photo de profil</h3>
-                                    <p className="text-sm text-gray-500 max-w-xs">
-                                        JPG, GIF ou PNG. 1MB max.<br />
-                                        Utilisez une photo professionnelle.
+                                <div className="flex flex-col gap-1.5 text-center sm:text-left">
+                                    <h3 className="text-sm font-semibold text-gray-900">Photo de profil</h3>
+                                    <p className="text-[11px] text-gray-400">
+                                        JPG, GIF ou PNG. 1MB max.
                                     </p>
-                                    <Button variant="outline" size="sm" onClick={triggerFileInput} disabled={isUploading}>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs rounded-full cursor-pointer mt-1"
+                                        onClick={triggerFileInput}
+                                        disabled={isUploading}
+                                    >
                                         {isUploading ? "Upload en cours..." : "Changer la photo"}
                                     </Button>
                                 </div>
                             </div>
 
-                            <Separator />
+                            <Separator className="bg-gray-100" />
 
                             {/* Info Fields */}
-                            <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Nom complet</Label>
+                            <div className="grid gap-5 md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="name" className="text-xs font-medium text-gray-500">Nom complet</Label>
                                     <Input
                                         id="name"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         placeholder="Votre nom complet"
+                                        className="h-9 text-sm"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">Email professionnel</Label>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="email" className="text-xs font-medium text-gray-500">Email professionnel</Label>
                                     <div className="flex">
-                                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-500">
-                                            <Mail className="h-4 w-4" />
+                                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                            <Mail className="h-3.5 w-3.5" />
                                         </span>
                                         <Input
                                             id="email"
                                             defaultValue={user.email}
                                             disabled
-                                            className="rounded-l-none bg-gray-50/50 text-gray-600"
+                                            className="rounded-l-none bg-gray-50/50 text-gray-500 h-9 text-sm"
                                         />
                                     </div>
                                     <p className="text-[11px] text-gray-400">Pour changer votre email, contactez votre administrateur.</p>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="phone">Téléphone</Label>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="phone" className="text-xs font-medium text-gray-500">Téléphone</Label>
                                     <PhoneInput
                                         id="phone"
                                         value={phone}
@@ -239,27 +322,39 @@ export default function SettingsPage() {
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="role">Rôle / Fonction</Label>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="role" className="text-xs font-medium text-gray-500">Rôle / Fonction</Label>
                                     <div className="flex">
-                                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-500">
-                                            <Briefcase className="h-4 w-4" />
+                                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                            <Briefcase className="h-3.5 w-3.5" />
                                         </span>
                                         <Input
                                             id="role"
                                             defaultValue={role || "Membre"}
                                             disabled
-                                            className="rounded-l-none bg-gray-50/50 text-gray-600 capitalize"
+                                            className="rounded-l-none bg-gray-50/50 text-gray-500 capitalize h-9 text-sm"
                                         />
                                     </div>
                                 </div>
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-gray-50/50 border-t p-4">
+                        <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
                             <ButtonGroup>
-                                <Button variant="outline" onClick={() => { setName(user.name || ""); setPhone(user.phone || ""); }}>Annuler</Button>
-                                <Button onClick={handleUpdateProfile} disabled={isLoading} className="bg-green-600 hover:bg-green-700 text-white">
-                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs rounded-full cursor-pointer"
+                                    onClick={() => { setName(user.name || ""); setPhone(user.phone || ""); }}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                                    onClick={handleUpdateProfile}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                                     Enregistrer
                                 </Button>
                             </ButtonGroup>
@@ -267,63 +362,84 @@ export default function SettingsPage() {
                     </Card>
                 </TabsContent>
 
-                {/* WhatsApp Tab */}
-                <TabsContent value="whatsapp" className="space-y-6">
-                    <WhatsAppSettingsTab />
+                {/* ==================== ORGANISATION TAB ==================== */}
+                <TabsContent value="organization" className="space-y-6">
+                    <OrganizationSettingsTab />
                 </TabsContent>
 
-                {/* Teams Tab */}
+                {/* ==================== WHATSAPP TAB ==================== */}
+                <TabsContent value="whatsapp" className="space-y-6">
+                    <WhatsAppSettingsTab />
+                    <ChannelsSettings />
+                </TabsContent>
+
+                {/* ==================== TEAMS TAB ==================== */}
                 <TabsContent value="teams" className="space-y-6">
                     <TeamsSettings />
                 </TabsContent>
 
-                {/* Channels Tab */}
-                <TabsContent value="channels" className="space-y-6">
-                    <ChannelsSettings />
-                </TabsContent>
-
-                {/* Compte Tab */}
+                {/* ==================== COMPTE TAB ==================== */}
                 <TabsContent value="account" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Sécurité & Connexion</CardTitle>
-                            <CardDescription>
-                                Gérez vos identifiants de connexion.
-                            </CardDescription>
+                    <Card className="bg-white border-gray-100 shadow-sm">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#166534] to-[#0d9488] flex items-center justify-center shadow-sm">
+                                    <Shield className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                        Sécurité & Connexion
+                                    </CardTitle>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        Gérez vos identifiants de connexion
+                                    </p>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-lg bg-gray-50/30 transition-colors hover:bg-gray-50">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-white rounded-full border shadow-sm shrink-0">
-                                        <Shield className="h-5 w-5 text-green-600" />
+                        <CardContent className="pt-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm shrink-0">
+                                        <Shield className="h-4 w-4 text-gray-600" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-900">Mot de passe</p>
-                                        <p className="text-sm text-gray-500">Dernière modification il y a 3 mois</p>
+                                        <p className="text-sm font-medium text-gray-900">Mot de passe</p>
+                                        <p className="text-[11px] text-gray-400">Dernière modification il y a 3 mois</p>
                                     </div>
                                 </div>
-                                <Button variant="outline" className="w-full sm:w-auto shrink-0">Modifier le mot de passe</Button>
+                                <Button variant="outline" size="sm" className="h-8 text-xs rounded-full cursor-pointer w-full sm:w-auto shrink-0">
+                                    Modifier le mot de passe
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-red-100">
-                        <CardHeader>
-                            <CardTitle className="text-red-600">Suppression du compte</CardTitle>
-                            <CardDescription>
-                                Cette action est irréversible. Toutes vos données personnelles seront effacées.
-                            </CardDescription>
+                    <Card className="bg-white border-red-100 shadow-sm">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-red-500 to-red-400 flex items-center justify-center shadow-sm">
+                                    <Trash2 className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm sm:text-base font-semibold text-red-700">
+                                        Suppression du compte
+                                    </CardTitle>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        Cette action est irréversible
+                                    </p>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-4">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-red-100 rounded-lg p-4 bg-red-50/30 cursor-pointer hover:bg-red-50 transition-colors">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-red-100 rounded-xl p-4 bg-red-50/30 cursor-pointer hover:bg-red-50 transition-colors">
                                         <div>
-                                            <p className="font-medium text-red-900">Supprimer mon compte</p>
-                                            <p className="text-sm text-red-700/70">Je veux quitter définitivement l'organisation.</p>
+                                            <p className="text-sm font-medium text-red-900">Supprimer mon compte</p>
+                                            <p className="text-[11px] text-red-600/70">Toutes vos données personnelles seront effacées.</p>
                                         </div>
-                                        <Button variant="destructive" size="sm" className="w-full sm:w-auto shrink-0">
-                                            <Trash2 className="mr-2 h-4 w-4" />
+                                        <Button variant="destructive" size="sm" className="h-8 text-xs rounded-full w-full sm:w-auto shrink-0 cursor-pointer">
+                                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                                             Supprimer
                                         </Button>
                                     </div>
@@ -348,91 +464,132 @@ export default function SettingsPage() {
                     </Card>
                 </TabsContent>
 
-                {/* Notifications Tab */}
+                {/* ==================== NOTIFICATIONS TAB ==================== */}
                 <TabsContent value="notifications" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Préférences de notification</CardTitle>
-                            <CardDescription>
-                                Contrôlez quand et comment vous êtes notifié.
-                            </CardDescription>
+                    <Card className="bg-white border-gray-100 shadow-sm">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#15803d] to-[#10b981] flex items-center justify-center shadow-sm">
+                                    <Bell className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                        Préférences de notification
+                                    </CardTitle>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        Contrôlez quand et comment vous êtes notifié
+                                    </p>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="flex items-center justify-between space-x-2">
-                                <Label htmlFor="new-messages" className="flex flex-col space-y-1">
-                                    <span className="font-medium">Nouveaux messages assignés</span>
-                                    <span className="font-normal text-xs text-muted-foreground">Recevoir une notification push / email lorsqu'une nouvelle conversation m'est assignée.</span>
-                                </Label>
-                                <Switch id="new-messages" defaultChecked />
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between space-x-2">
-                                <Label htmlFor="mentions" className="flex flex-col space-y-1">
-                                    <span className="font-medium">Mentions & Commentaires</span>
-                                    <span className="font-normal text-xs text-muted-foreground">Être notifié quand un membre de l'équipe me mentionne dans une note interne.</span>
-                                </Label>
-                                <Switch id="mentions" defaultChecked />
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between space-x-2 opacity-50">
-                                <Label htmlFor="security-alerts" className="flex flex-col space-y-1">
-                                    <span className="font-medium">Alertes système critique</span>
-                                    <span className="font-normal text-xs text-muted-foreground">Ces notifications sont obligatoires pour la sécurité de votre compte.</span>
-                                </Label>
-                                <Switch id="security-alerts" defaultChecked disabled />
-                            </div>
+                        <CardContent className="space-y-0 pt-4">
+                            {[
+                                {
+                                    id: "new-messages",
+                                    title: "Nouveaux messages assignés",
+                                    description: "Recevoir une notification push / email lorsqu’une nouvelle conversation m’est assignée.",
+                                    enabled: true,
+                                    disabled: false,
+                                },
+                                {
+                                    id: "mentions",
+                                    title: "Mentions & Commentaires",
+                                    description: "Être notifié quand un membre de l’équipe me mentionne dans une note interne.",
+                                    enabled: true,
+                                    disabled: false,
+                                },
+                                {
+                                    id: "security-alerts",
+                                    title: "Alertes système critique",
+                                    description: "Ces notifications sont obligatoires pour la sécurité de votre compte.",
+                                    enabled: true,
+                                    disabled: true,
+                                },
+                            ].map((notif, index) => (
+                                <div key={notif.id}>
+                                    {index > 0 && <Separator className="bg-gray-100" />}
+                                    <div className={cn(
+                                        "flex items-center justify-between gap-4 py-4",
+                                        notif.disabled && "opacity-50"
+                                    )}>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">{notif.title}</p>
+                                            <p className="text-[11px] text-gray-400 mt-0.5">{notif.description}</p>
+                                        </div>
+                                        <Switch id={notif.id} defaultChecked={notif.enabled} disabled={notif.disabled} />
+                                    </div>
+                                </div>
+                            ))}
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-gray-50/50 border-t p-4">
-                            <Button className="bg-green-600 hover:bg-green-700">Enregistrer les préférences</Button>
+                        <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
+                            <Button
+                                size="sm"
+                                className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                            >
+                                Enregistrer les préférences
+                            </Button>
                         </CardFooter>
                     </Card>
                 </TabsContent>
 
-                {/* Affichage Tab */}
+                {/* ==================== AFFICHAGE TAB ==================== */}
                 <TabsContent value="display" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Interface & Apparence</CardTitle>
-                            <CardDescription>
-                                Personnalisez votre environnement de travail.
-                            </CardDescription>
+                    <Card className="bg-white border-gray-100 shadow-sm">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#34d399] flex items-center justify-center shadow-sm">
+                                    <Palette className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                        Interface & Apparence
+                                    </CardTitle>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        Personnalisez votre environnement de travail
+                                    </p>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6 pt-4">
                             <div className="space-y-2">
-                                <Label>Thème</Label>
+                                <Label className="text-xs font-medium text-gray-500">Thème</Label>
                                 <div className="flex items-center gap-4">
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="h-20 w-32 rounded-lg bg-gray-100 border-2 border-gray-900 shadow-sm cursor-pointer p-2 flex items-center justify-center relative overflow-hidden">
-                                            <div className="space-y-1 w-full p-2 bg-white rounded shadow-sm h-full border border-gray-200 z-10 relative">
-                                                <div className="h-2 w-1/2 bg-gray-200 rounded"></div>
-                                                <div className="h-2 w-3/4 bg-gray-200 rounded"></div>
+                                        <div className="h-20 w-32 rounded-xl bg-gray-50 border-2 border-gray-900 shadow-sm cursor-pointer p-2 flex items-center justify-center relative overflow-hidden">
+                                            <div className="space-y-1 w-full p-2 bg-white rounded-lg shadow-sm h-full border border-gray-200 z-10 relative">
+                                                <div className="h-2 w-1/2 bg-gray-200 rounded-full" />
+                                                <div className="h-2 w-3/4 bg-gray-200 rounded-full" />
                                             </div>
                                             <div className="absolute top-2 right-2 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                                                <Check className="h-3 w-3 text-white" />
+                                                <Check className="h-2.5 w-2.5 text-white" />
                                             </div>
                                         </div>
-                                        <span className="text-sm font-medium">Clair</span>
+                                        <span className="text-xs font-medium text-gray-900">Clair</span>
                                     </div>
-                                    <div className="flex flex-col items-center gap-2 opacity-50 cursor-not-allowed">
-                                        <div className="h-20 w-32 rounded-lg bg-gray-900 border border-gray-700 shadow-sm p-2 flex items-center justify-center">
-                                            <div className="space-y-1 w-full p-2 bg-gray-800 rounded shadow-sm h-full border border-gray-700">
-                                                <div className="h-2 w-1/2 bg-gray-600 rounded"></div>
-                                                <div className="h-2 w-3/4 bg-gray-600 rounded"></div>
+                                    <div className="flex flex-col items-center gap-2 opacity-40 cursor-not-allowed">
+                                        <div className="h-20 w-32 rounded-xl bg-gray-900 border border-gray-700 shadow-sm p-2 flex items-center justify-center">
+                                            <div className="space-y-1 w-full p-2 bg-gray-800 rounded-lg shadow-sm h-full border border-gray-700">
+                                                <div className="h-2 w-1/2 bg-gray-600 rounded-full" />
+                                                <div className="h-2 w-3/4 bg-gray-600 rounded-full" />
                                             </div>
                                         </div>
-                                        <span className="text-sm font-medium">Sombre (Bientôt)</span>
+                                        <span className="text-xs font-medium text-gray-500">Sombre (Bientôt)</span>
                                     </div>
                                 </div>
                             </div>
-                            <Separator className="my-4" />
+
+                            <Separator className="bg-gray-100" />
+
                             <div className="space-y-2">
-                                <Label>Langue de l'interface</Label>
-                                <div className="flex items-center justify-between p-3 border rounded-lg max-w-sm bg-white">
+                                <Label className="text-xs font-medium text-gray-500">Langue de l&apos;interface</Label>
+                                <div className="flex items-center justify-between p-3 border border-gray-100 rounded-xl max-w-sm bg-gray-50/50 hover:bg-gray-50 transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <Globe className="h-4 w-4 text-gray-500" />
+                                        <Globe className="h-4 w-4 text-gray-400" />
                                         <span className="text-sm text-gray-900 font-medium">Français</span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded">Défaut</span>
+                                    <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600 font-medium">
+                                        Défaut
+                                    </Badge>
                                 </div>
                             </div>
                         </CardContent>
@@ -440,6 +597,518 @@ export default function SettingsPage() {
                 </TabsContent>
             </Tabs>
         </div>
+    );
+}
+
+// ============================================
+// ORGANISATION SETTINGS TAB
+// ============================================
+
+const TIMEZONES = [
+    { value: "Africa/Dakar", label: "Dakar (GMT+0)" },
+    { value: "Africa/Abidjan", label: "Abidjan (GMT+0)" },
+    { value: "Africa/Lagos", label: "Lagos (GMT+1)" },
+    { value: "Africa/Douala", label: "Douala (GMT+1)" },
+    { value: "Africa/Casablanca", label: "Casablanca (GMT+1)" },
+    { value: "Europe/Paris", label: "Paris (GMT+1)" },
+    { value: "Africa/Johannesburg", label: "Johannesburg (GMT+2)" },
+    { value: "Africa/Nairobi", label: "Nairobi (GMT+3)" },
+    { value: "Europe/London", label: "Londres (GMT+0)" },
+    { value: "America/New_York", label: "New York (GMT-5)" },
+];
+
+const DAYS = [
+    { key: "monday", label: "Lundi" },
+    { key: "tuesday", label: "Mardi" },
+    { key: "wednesday", label: "Mercredi" },
+    { key: "thursday", label: "Jeudi" },
+    { key: "friday", label: "Vendredi" },
+    { key: "saturday", label: "Samedi" },
+    { key: "sunday", label: "Dimanche" },
+];
+
+const DEFAULT_BUSINESS_HOURS: Record<string, { enabled: boolean; open: string; close: string }> = {
+    monday: { enabled: true, open: "08:00", close: "18:00" },
+    tuesday: { enabled: true, open: "08:00", close: "18:00" },
+    wednesday: { enabled: true, open: "08:00", close: "18:00" },
+    thursday: { enabled: true, open: "08:00", close: "18:00" },
+    friday: { enabled: true, open: "08:00", close: "18:00" },
+    saturday: { enabled: false, open: "09:00", close: "13:00" },
+    sunday: { enabled: false, open: "09:00", close: "13:00" },
+};
+
+function OrganizationSettingsTab() {
+    const orgSettings = useQuery(api.organizations.getOrgSettings);
+    const updateOrg = useMutation(api.organizations.updateOrganization);
+    const updateSettings = useMutation(api.organizations.updateOrgSettings);
+    const assignmentSettings = useQuery(api.assignments.getAssignmentSettings);
+    const updateAssignment = useMutation(api.assignments.updateAssignmentSettings);
+
+    // Org profile state
+    const [orgName, setOrgName] = useState("");
+    const [sector, setSector] = useState("");
+    const [website, setWebsite] = useState("");
+    const [orgPhone, setOrgPhone] = useState("");
+    const [address, setAddress] = useState("");
+    const [timezone, setTimezone] = useState("");
+    const [orgInitialized, setOrgInitialized] = useState(false);
+
+    // Auto-reply state
+    const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+    const [autoReplyMessage, setAutoReplyMessage] = useState("");
+    const [autoReplyInitialized, setAutoReplyInitialized] = useState(false);
+
+    // Business hours state
+    const [businessHours, setBusinessHours] = useState(DEFAULT_BUSINESS_HOURS);
+    const [hoursInitialized, setHoursInitialized] = useState(false);
+
+    // Assignment state
+    const [autoAssignEnabled, setAutoAssignEnabled] = useState(true);
+    const [maxConcurrentChats, setMaxConcurrentChats] = useState(5);
+    const [excludeOfflineAgents, setExcludeOfflineAgents] = useState(true);
+    const [assignmentInitialized, setAssignmentInitialized] = useState(false);
+
+    // Loading states
+    const [savingOrg, setSavingOrg] = useState(false);
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [savingAssignment, setSavingAssignment] = useState(false);
+
+    // Initialize org profile
+    if (orgSettings && !orgInitialized) {
+        setOrgName(orgSettings.name || "");
+        setSector(orgSettings.businessSector || "");
+        setWebsite(orgSettings.website || "");
+        setOrgPhone(orgSettings.phone || "");
+        setAddress(orgSettings.address || "");
+        setTimezone(orgSettings.timezone || "Africa/Dakar");
+        setOrgInitialized(true);
+    }
+
+    // Initialize auto-reply
+    if (orgSettings?.settings && !autoReplyInitialized) {
+        setAutoReplyEnabled(orgSettings.settings.autoReplyEnabled || false);
+        setAutoReplyMessage(orgSettings.settings.autoReplyMessage || "Merci pour votre message. Un agent vous répondra dans les plus brefs délais.");
+        setAutoReplyInitialized(true);
+    }
+
+    // Initialize business hours
+    if (orgSettings?.settings && !hoursInitialized) {
+        if (orgSettings.settings.businessHours) {
+            setBusinessHours({ ...DEFAULT_BUSINESS_HOURS, ...orgSettings.settings.businessHours });
+        }
+        setHoursInitialized(true);
+    }
+
+    // Initialize assignment
+    if (assignmentSettings && !assignmentInitialized) {
+        setAutoAssignEnabled(assignmentSettings.autoAssignEnabled ?? true);
+        setMaxConcurrentChats(assignmentSettings.maxConcurrentChats ?? 5);
+        setExcludeOfflineAgents(assignmentSettings.excludeOfflineAgents ?? true);
+        setAssignmentInitialized(true);
+    }
+
+    const handleSaveOrg = async () => {
+        try {
+            setSavingOrg(true);
+            await updateOrg({
+                name: orgName,
+                businessSector: sector,
+                website: website || undefined,
+                phone: orgPhone || undefined,
+                address: address || undefined,
+                timezone,
+            });
+            toast.success("Organisation mise à jour", {
+                description: "Les informations de votre organisation ont été enregistrées.",
+            });
+        } catch {
+            toast.error("Erreur", { description: "Impossible de mettre à jour l'organisation." });
+        } finally {
+            setSavingOrg(false);
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        try {
+            setSavingSettings(true);
+            await updateSettings({
+                autoReplyEnabled,
+                autoReplyMessage,
+                businessHours,
+            });
+            toast.success("Paramètres mis à jour", {
+                description: "Les paramètres de réponse automatique et horaires ont été enregistrés.",
+            });
+        } catch {
+            toast.error("Erreur", { description: "Impossible de mettre à jour les paramètres." });
+        } finally {
+            setSavingSettings(false);
+        }
+    };
+
+    const handleSaveAssignment = async () => {
+        try {
+            setSavingAssignment(true);
+            await updateAssignment({
+                autoAssignEnabled,
+                maxConcurrentChats,
+                excludeOfflineAgents,
+            });
+            toast.success("Attribution mise à jour", {
+                description: "Les règles d'attribution automatique ont été enregistrées.",
+            });
+        } catch {
+            toast.error("Erreur", { description: "Impossible de mettre à jour les règles d'attribution." });
+        } finally {
+            setSavingAssignment(false);
+        }
+    };
+
+    const updateDayHours = (day: string, field: string, value: any) => {
+        setBusinessHours(prev => ({
+            ...prev,
+            [day]: { ...prev[day], [field]: value },
+        }));
+    };
+
+    if (!orgSettings) {
+        return (
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardContent className="p-6">
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="h-16 bg-gray-50 rounded-lg animate-pulse" />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <>
+            {/* ---- PROFIL DE L'ORGANISATION ---- */}
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
+                            <Building2 className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                Profil de l'organisation
+                            </CardTitle>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                Informations générales de votre entreprise
+                            </p>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-5 pt-4">
+                    <div className="grid gap-5 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-name" className="text-xs font-medium text-gray-500">Nom de l'organisation</Label>
+                            <div className="flex">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                    <Building2 className="h-3.5 w-3.5" />
+                                </span>
+                                <Input
+                                    id="org-name"
+                                    value={orgName}
+                                    onChange={(e) => setOrgName(e.target.value)}
+                                    placeholder="Nom de votre entreprise"
+                                    className="rounded-l-none h-9 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-sector" className="text-xs font-medium text-gray-500">Secteur d'activité</Label>
+                            <div className="flex">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                    <Briefcase className="h-3.5 w-3.5" />
+                                </span>
+                                <Input
+                                    id="org-sector"
+                                    value={sector}
+                                    onChange={(e) => setSector(e.target.value)}
+                                    placeholder="Ex: E-commerce, Santé, Éducation..."
+                                    className="rounded-l-none h-9 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-website" className="text-xs font-medium text-gray-500">Site web</Label>
+                            <div className="flex">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                    <Link className="h-3.5 w-3.5" />
+                                </span>
+                                <Input
+                                    id="org-website"
+                                    value={website}
+                                    onChange={(e) => setWebsite(e.target.value)}
+                                    placeholder="https://votresite.com"
+                                    className="rounded-l-none h-9 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-phone" className="text-xs font-medium text-gray-500">Téléphone</Label>
+                            <PhoneInput
+                                id="org-phone"
+                                value={orgPhone}
+                                onChange={(val) => setOrgPhone(val)}
+                                placeholder="+221 77 123 45 67"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-address" className="text-xs font-medium text-gray-500">Adresse</Label>
+                            <div className="flex">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-200 bg-gray-50 text-gray-400">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                </span>
+                                <Input
+                                    id="org-address"
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    placeholder="Adresse de votre entreprise"
+                                    className="rounded-l-none h-9 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="org-timezone" className="text-xs font-medium text-gray-500">Fuseau horaire</Label>
+                            <Select value={timezone} onValueChange={setTimezone}>
+                                <SelectTrigger className="h-9 text-sm">
+                                    <SelectValue placeholder="Sélectionnez un fuseau horaire" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {TIMEZONES.map((tz) => (
+                                        <SelectItem key={tz.value} value={tz.value} className="text-sm">
+                                            {tz.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
+                    <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                        onClick={handleSaveOrg}
+                        disabled={savingOrg}
+                    >
+                        {savingOrg && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Enregistrer
+                    </Button>
+                </CardFooter>
+            </Card>
+
+            {/* ---- RÉPONSE AUTOMATIQUE ---- */}
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#166534] to-[#10b981] flex items-center justify-center shadow-sm">
+                                <Bot className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                    Réponse automatique
+                                </CardTitle>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                    Message envoyé automatiquement quand aucun agent n'est disponible
+                                </p>
+                            </div>
+                        </div>
+                        <Switch
+                            checked={autoReplyEnabled}
+                            onCheckedChange={setAutoReplyEnabled}
+                        />
+                    </div>
+                </CardHeader>
+                {autoReplyEnabled && (
+                    <CardContent className="pt-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="auto-reply-msg" className="text-xs font-medium text-gray-500">
+                                Message de réponse automatique
+                            </Label>
+                            <Textarea
+                                id="auto-reply-msg"
+                                value={autoReplyMessage}
+                                onChange={(e) => setAutoReplyMessage(e.target.value)}
+                                placeholder="Merci pour votre message. Un agent vous répondra dans les plus brefs délais."
+                                rows={3}
+                                className="text-sm resize-none"
+                            />
+                            <p className="text-[11px] text-gray-400">
+                                Ce message sera envoyé aux clients en dehors des horaires d'ouverture ou quand aucun agent n'est en ligne.
+                            </p>
+                        </div>
+                    </CardContent>
+                )}
+                <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
+                    <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                        onClick={handleSaveSettings}
+                        disabled={savingSettings}
+                    >
+                        {savingSettings && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Enregistrer
+                    </Button>
+                </CardFooter>
+            </Card>
+
+            {/* ---- HORAIRES D'OUVERTURE ---- */}
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#15803d] to-[#34d399] flex items-center justify-center shadow-sm">
+                            <Clock className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                Horaires d'ouverture
+                            </CardTitle>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                Définissez les heures de disponibilité de votre équipe
+                            </p>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                    <div className="space-y-0">
+                        {DAYS.map((day, index) => (
+                            <div key={day.key}>
+                                {index > 0 && <Separator className="bg-gray-100" />}
+                                <div className="flex items-center justify-between gap-4 py-3">
+                                    <div className="flex items-center gap-3 min-w-[120px]">
+                                        <Switch
+                                            checked={businessHours[day.key]?.enabled ?? false}
+                                            onCheckedChange={(checked) => updateDayHours(day.key, "enabled", checked)}
+                                        />
+                                        <span className={cn(
+                                            "text-sm font-medium",
+                                            businessHours[day.key]?.enabled ? "text-gray-900" : "text-gray-400"
+                                        )}>
+                                            {day.label}
+                                        </span>
+                                    </div>
+                                    {businessHours[day.key]?.enabled ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="time"
+                                                value={businessHours[day.key]?.open || "08:00"}
+                                                onChange={(e) => updateDayHours(day.key, "open", e.target.value)}
+                                                className="h-8 w-28 text-xs"
+                                            />
+                                            <span className="text-xs text-gray-400">à</span>
+                                            <Input
+                                                type="time"
+                                                value={businessHours[day.key]?.close || "18:00"}
+                                                onChange={(e) => updateDayHours(day.key, "close", e.target.value)}
+                                                className="h-8 w-28 text-xs"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-500 font-medium">
+                                            Fermé
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+                <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
+                    <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                        onClick={handleSaveSettings}
+                        disabled={savingSettings}
+                    >
+                        {savingSettings && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Enregistrer les horaires
+                    </Button>
+                </CardFooter>
+            </Card>
+
+            {/* ---- RÈGLES D'ATTRIBUTION ---- */}
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
+                                <Zap className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                    Attribution automatique
+                                </CardTitle>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                    Distribuer automatiquement les conversations aux agents disponibles
+                                </p>
+                            </div>
+                        </div>
+                        <Switch
+                            checked={autoAssignEnabled}
+                            onCheckedChange={setAutoAssignEnabled}
+                        />
+                    </div>
+                </CardHeader>
+                {autoAssignEnabled && (
+                    <CardContent className="pt-4 space-y-5">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="max-chats" className="text-xs font-medium text-gray-500">
+                                Conversations simultanées max par agent
+                            </Label>
+                            <div className="flex items-center gap-3">
+                                <Input
+                                    id="max-chats"
+                                    type="number"
+                                    min={1}
+                                    max={50}
+                                    value={maxConcurrentChats}
+                                    onChange={(e) => setMaxConcurrentChats(parseInt(e.target.value) || 5)}
+                                    className="h-9 w-24 text-sm"
+                                />
+                                <p className="text-[11px] text-gray-400">
+                                    Limite le nombre de conversations actives qu'un agent peut gérer en parallèle.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Separator className="bg-gray-100" />
+
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <p className="text-sm font-medium text-gray-900">Exclure les agents hors ligne</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                    Ne pas attribuer de conversations aux agents qui ne sont pas en ligne.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={excludeOfflineAgents}
+                                onCheckedChange={setExcludeOfflineAgents}
+                            />
+                        </div>
+                    </CardContent>
+                )}
+                <CardFooter className="flex justify-end border-t border-gray-100 p-4 bg-gray-50/30">
+                    <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
+                        onClick={handleSaveAssignment}
+                        disabled={savingAssignment}
+                    >
+                        {savingAssignment && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Enregistrer les règles
+                    </Button>
+                </CardFooter>
+            </Card>
+        </>
     );
 }
 
@@ -461,7 +1130,6 @@ function WhatsAppSettingsTab() {
     const { isReady: fbReady, login: fbLogin } = useFacebookSDK();
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
     const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
-
     const getPhoneStatus = useAction(api.whatsapp.getPhoneNumberStatus);
 
     const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'SUCCESS' | 'ERROR'>('IDLE');
@@ -506,8 +1174,7 @@ function WhatsAppSettingsTab() {
                 setErrorMessage("Aucun numéro WhatsApp trouvé sur ce compte.");
                 setStatus('ERROR');
             }
-        } catch (error: any) {
-            console.error("Fetch failed", error);
+        } catch {
             setErrorMessage("Impossible de récupérer vos numéros. Vérifiez vos permissions.");
             setStatus('ERROR');
         }
@@ -531,8 +1198,7 @@ function WhatsAppSettingsTab() {
             toast.success("WhatsApp connecté", {
                 description: "Votre numéro WhatsApp a été mis à jour avec succès.",
             });
-        } catch (error) {
-            console.error("Finalize failed", error);
+        } catch {
             setErrorMessage("Erreur lors de la sauvegarde de la configuration.");
             setStatus('ERROR');
         }
@@ -541,35 +1207,54 @@ function WhatsAppSettingsTab() {
     // SELECTING STATE - Show number picker
     if (status === 'SELECTING' || status === 'SAVING') {
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Phone className="h-5 w-5 text-green-600" />
-                        Choisissez votre numéro
-                    </CardTitle>
-                    <CardDescription>
-                        Sélectionnez le numéro WhatsApp Business à connecter à Jokko.
-                    </CardDescription>
+            <Card className="bg-white border-gray-100 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
+                            <Phone className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                Choisissez votre numéro
+                            </CardTitle>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                Sélectionnez le numéro WhatsApp Business à connecter
+                            </p>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="max-h-[300px] overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                <CardContent className="pt-4">
+                    <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-xl p-3 bg-gray-50/50">
                         <RadioGroup value={selectedPhoneId || ''} onValueChange={setSelectedPhoneId}>
                             {phoneNumbers.map((phone) => (
                                 <div key={phone.id} className="flex items-center space-x-2 mb-2 last:mb-0">
                                     <RadioGroupItem value={phone.id} id={`settings-${phone.id}`} />
-                                    <Label htmlFor={`settings-${phone.id}`} className="flex flex-col cursor-pointer w-full p-3 rounded-lg border bg-white hover:border-green-500 transition-colors">
-                                        <span className="font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
-                                        <span className="text-sm text-gray-500">{phone.display_phone_number}</span>
-                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
-                                            <span className={`text-xs ${phone.quality_rating === 'GREEN' ? 'text-green-600' : phone.quality_rating === 'YELLOW' ? 'text-yellow-600' : phone.quality_rating === 'RED' ? 'text-red-600' : 'text-gray-500'}`}>
+                                    <Label htmlFor={`settings-${phone.id}`} className="flex flex-col cursor-pointer w-full p-3 rounded-xl border border-gray-100 bg-white hover:border-green-300 transition-colors">
+                                        <span className="text-sm font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
+                                        <span className="text-xs text-gray-500">{phone.display_phone_number}</span>
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5">
+                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
+                                                'bg-green-50 text-green-700': phone.quality_rating === 'GREEN',
+                                                'bg-yellow-50 text-yellow-700': phone.quality_rating === 'YELLOW',
+                                                'bg-red-50 text-red-700': phone.quality_rating === 'RED',
+                                                'bg-gray-100 text-gray-500': !phone.quality_rating || !['GREEN', 'YELLOW', 'RED'].includes(phone.quality_rating),
+                                            })}>
                                                 Qualité : {phone.quality_rating || 'N/A'}
-                                            </span>
-                                            <span className={`text-xs ${phone.status === 'CONNECTED' ? 'text-green-600' : phone.status === 'PENDING' ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                                Statut : {phone.status || 'N/A'}
-                                            </span>
-                                            <span className={`text-xs ${phone.platform_type === 'CLOUD_API' ? 'text-blue-600' : 'text-orange-500'}`}>
+                                            </Badge>
+                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
+                                                'bg-green-50 text-green-700': phone.status === 'CONNECTED',
+                                                'bg-yellow-50 text-yellow-700': phone.status === 'PENDING',
+                                                'bg-gray-100 text-gray-500': !phone.status || !['CONNECTED', 'PENDING'].includes(phone.status),
+                                            })}>
+                                                {phone.status || 'N/A'}
+                                            </Badge>
+                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
+                                                'bg-blue-50 text-blue-700': phone.platform_type === 'CLOUD_API',
+                                                'bg-orange-50 text-orange-600': phone.platform_type && phone.platform_type !== 'CLOUD_API',
+                                                'bg-gray-100 text-gray-500': !phone.platform_type,
+                                            })}>
                                                 {phone.platform_type === 'CLOUD_API' ? 'Cloud API' : phone.platform_type || 'Non enregistré'}
-                                            </span>
+                                            </Badge>
                                         </div>
                                     </Label>
                                 </div>
@@ -577,17 +1262,23 @@ function WhatsAppSettingsTab() {
                         </RadioGroup>
                     </div>
                 </CardContent>
-                <CardFooter className="flex justify-between bg-gray-50/50 border-t p-4">
-                    <Button variant="outline" onClick={() => { setStatus('IDLE'); setPhoneNumbers([]); }}>
+                <CardFooter className="flex justify-between border-t border-gray-100 p-4 bg-gray-50/30">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs rounded-full cursor-pointer"
+                        onClick={() => { setStatus('IDLE'); setPhoneNumbers([]); }}
+                    >
                         Annuler
                     </Button>
                     <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
                         onClick={handleConfirmSelection}
-                        className="bg-green-600 hover:bg-green-700 text-white"
                         disabled={status === 'SAVING'}
                     >
                         {status === 'SAVING' ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connexion...</>
+                            <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Connexion...</>
                         ) : (
                             "Confirmer ce numéro"
                         )}
@@ -600,16 +1291,21 @@ function WhatsAppSettingsTab() {
     // SUCCESS STATE
     if (status === 'SUCCESS') {
         return (
-            <Card>
+            <Card className="bg-white border-gray-100 shadow-sm">
                 <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
-                    <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                        <CheckCircle2 className="h-8 w-8 text-green-600" />
+                    <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center">
+                        <CheckCircle2 className="h-7 w-7 text-green-600" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900">Numéro mis à jour !</h3>
-                    <p className="text-gray-500 text-sm text-center max-w-md">
+                    <h3 className="text-base font-bold text-gray-900">Numéro mis à jour !</h3>
+                    <p className="text-sm text-gray-500 text-center max-w-md">
                         Votre numéro WhatsApp a été connecté avec succès. Les messages seront envoyés et reçus via ce numéro.
                     </p>
-                    <Button variant="outline" onClick={() => setStatus('IDLE')}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs rounded-full cursor-pointer"
+                        onClick={() => setStatus('IDLE')}
+                    >
                         Retour aux paramètres
                     </Button>
                 </CardContent>
@@ -617,19 +1313,25 @@ function WhatsAppSettingsTab() {
         );
     }
 
-    // DEFAULT STATE - Show current config + reconnect button
+    // DEFAULT STATE
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-green-600" />
-                    Intégration WhatsApp
-                </CardTitle>
-                <CardDescription>
-                    Gérez la connexion de votre numéro WhatsApp Business.
-                </CardDescription>
+        <Card className="bg-white border-gray-100 shadow-sm">
+            <CardHeader className="pb-2">
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
+                        <MessageSquare className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                            Intégration WhatsApp
+                        </CardTitle>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            Gérez la connexion de votre numéro WhatsApp Business
+                        </p>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5 pt-4">
                 {errorMessage && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
@@ -639,97 +1341,120 @@ function WhatsAppSettingsTab() {
                 )}
 
                 {/* Current Status */}
-                <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-lg transition-colors ${isConnected ? 'bg-green-50/50 border-green-200' : 'bg-orange-50/50 border-orange-200'}`}>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className={`p-2 rounded-full border shadow-sm shrink-0 ${isConnected ? 'bg-green-100 border-green-200' : 'bg-orange-100 border-orange-200'}`}>
-                            <Smartphone className={`h-5 w-5 ${isConnected ? 'text-green-600' : 'text-orange-600'}`} />
+                <div className={cn(
+                    "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-xl transition-colors",
+                    isConnected ? 'bg-green-50/30 border-green-200' : 'bg-orange-50/30 border-orange-200'
+                )}>
+                    <div className="flex items-center gap-3">
+                        <div className={cn(
+                            "h-9 w-9 rounded-full flex items-center justify-center shadow-sm shrink-0",
+                            isConnected ? 'bg-green-100' : 'bg-orange-100'
+                        )}>
+                            <Smartphone className={cn("h-4 w-4", isConnected ? 'text-green-600' : 'text-orange-600')} />
                         </div>
                         <div className="min-w-0">
-                            <p className="font-medium text-gray-900">
+                            <p className="text-sm font-medium text-gray-900">
                                 {isConnected ? 'WhatsApp connecté' : 'WhatsApp non connecté'}
                             </p>
                             {isConnected ? (
-                                <div className="text-sm text-gray-500">
+                                <div>
                                     {currentOrg?.whatsapp?.displayPhoneNumber && (
-                                        <p className="font-medium text-gray-700">{currentOrg.whatsapp.displayPhoneNumber}</p>
+                                        <p className="text-xs font-medium text-gray-700">{currentOrg.whatsapp.displayPhoneNumber}</p>
                                     )}
                                     {currentOrg?.whatsapp?.verifiedName && (
-                                        <p className="text-xs text-gray-400">{currentOrg.whatsapp.verifiedName}</p>
+                                        <p className="text-[11px] text-gray-400">{currentOrg.whatsapp.verifiedName}</p>
                                     )}
                                     {!currentOrg?.whatsapp?.displayPhoneNumber && (
-                                        <p>Phone ID : {currentOrg?.whatsapp?.phoneNumberId}</p>
+                                        <p className="text-xs text-gray-500">Phone ID : {currentOrg?.whatsapp?.phoneNumberId}</p>
                                     )}
                                 </div>
                             ) : (
-                                <p className="text-sm text-orange-600">
+                                <p className="text-[11px] text-orange-600">
                                     Connectez un numéro pour envoyer et recevoir des messages.
                                 </p>
                             )}
                         </div>
                     </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${isConnected ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                    <Badge variant="secondary" className={cn("text-[10px] font-medium shrink-0", {
+                        'bg-green-50 text-green-700': isConnected,
+                        'bg-orange-50 text-orange-700': !isConnected,
+                    })}>
                         {isConnected ? 'Actif' : 'Inactif'}
-                    </div>
+                    </Badge>
                 </div>
 
+                {/* Connection Details */}
                 {isConnected && currentOrg?.whatsapp?.businessAccountId && (
-                    <div className="p-4 border rounded-lg bg-gray-50/50">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Détails de la connexion</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/30">
+                        <h4 className="text-xs font-semibold text-gray-500 mb-3">Détails de la connexion</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             {currentOrg.whatsapp.displayPhoneNumber && (
-                                <div>
-                                    <span className="text-gray-500">Numéro</span>
-                                    <p className="font-mono text-gray-900">{currentOrg.whatsapp.displayPhoneNumber}</p>
+                                <div className="p-3 rounded-lg bg-white border border-gray-100">
+                                    <span className="text-[11px] text-gray-400">Numéro</span>
+                                    <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.displayPhoneNumber}</p>
                                 </div>
                             )}
                             {currentOrg.whatsapp.verifiedName && (
-                                <div>
-                                    <span className="text-gray-500">Nom vérifié</span>
-                                    <p className="font-mono text-gray-900">{currentOrg.whatsapp.verifiedName}</p>
+                                <div className="p-3 rounded-lg bg-white border border-gray-100">
+                                    <span className="text-[11px] text-gray-400">Nom vérifié</span>
+                                    <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.verifiedName}</p>
                                 </div>
                             )}
-                            <div>
-                                <span className="text-gray-500">WABA ID</span>
-                                <p className="font-mono text-gray-900">{currentOrg.whatsapp.businessAccountId}</p>
+                            <div className="p-3 rounded-lg bg-white border border-gray-100">
+                                <span className="text-[11px] text-gray-400">WABA ID</span>
+                                <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.businessAccountId}</p>
                             </div>
-                            <div>
-                                <span className="text-gray-500">Phone Number ID</span>
-                                <p className="font-mono text-gray-900">{currentOrg.whatsapp.phoneNumberId}</p>
+                            <div className="p-3 rounded-lg bg-white border border-gray-100">
+                                <span className="text-[11px] text-gray-400">Phone Number ID</span>
+                                <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.phoneNumberId}</p>
                             </div>
                         </div>
                         {phoneStatus && !phoneStatus.error && (
-                            <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                    <span className="text-gray-500">Qualité</span>
-                                    <p className={`font-semibold ${phoneStatus.quality_rating === 'GREEN' ? 'text-green-600' : phoneStatus.quality_rating === 'YELLOW' ? 'text-yellow-600' : phoneStatus.quality_rating === 'RED' ? 'text-red-600' : 'text-gray-500'}`}>
+                            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-3">
+                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
+                                    <p className={cn("text-sm font-bold", {
+                                        'text-green-600': phoneStatus.quality_rating === 'GREEN',
+                                        'text-yellow-600': phoneStatus.quality_rating === 'YELLOW',
+                                        'text-red-600': phoneStatus.quality_rating === 'RED',
+                                        'text-gray-500': !phoneStatus.quality_rating,
+                                    })}>
                                         {phoneStatus.quality_rating || 'N/A'}
                                     </p>
+                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Qualité</p>
                                 </div>
-                                <div>
-                                    <span className="text-gray-500">Statut</span>
-                                    <p className={`font-semibold ${phoneStatus.status === 'CONNECTED' ? 'text-green-600' : phoneStatus.status === 'PENDING' ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
+                                    <p className={cn("text-sm font-bold", {
+                                        'text-green-600': phoneStatus.status === 'CONNECTED',
+                                        'text-yellow-600': phoneStatus.status === 'PENDING',
+                                        'text-gray-500': !phoneStatus.status,
+                                    })}>
                                         {phoneStatus.status || 'N/A'}
                                     </p>
+                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Statut</p>
                                 </div>
-                                <div>
-                                    <span className="text-gray-500">Plateforme</span>
-                                    <p className={`font-semibold ${phoneStatus.platform_type === 'CLOUD_API' ? 'text-blue-600' : 'text-orange-500'}`}>
-                                        {phoneStatus.platform_type === 'CLOUD_API' ? 'Cloud API' : phoneStatus.platform_type || 'Non enregistré'}
+                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
+                                    <p className={cn("text-sm font-bold", {
+                                        'text-blue-600': phoneStatus.platform_type === 'CLOUD_API',
+                                        'text-orange-500': phoneStatus.platform_type && phoneStatus.platform_type !== 'CLOUD_API',
+                                        'text-gray-500': !phoneStatus.platform_type,
+                                    })}>
+                                        {phoneStatus.platform_type === 'CLOUD_API' ? 'Cloud API' : phoneStatus.platform_type || 'N/A'}
                                     </p>
+                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Plateforme</p>
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
 
-                <Separator />
+                <Separator className="bg-gray-100" />
 
                 {/* Action */}
-                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                    <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                    <h3 className="text-sm font-bold text-blue-900 mb-1">
                         {isConnected ? 'Changer de numéro' : 'Connecter WhatsApp Business'}
                     </h3>
-                    <p className="text-blue-700 text-sm mb-4">
+                    <p className="text-[11px] text-blue-700/70 mb-4">
                         {isConnected
                             ? 'Vous pouvez remplacer le numéro actuel en vous reconnectant via Facebook.'
                             : 'Connectez votre compte Facebook pour lier un numéro WhatsApp Business à Jokko.'}
@@ -738,34 +1463,26 @@ function WhatsAppSettingsTab() {
                     <Button
                         onClick={launchWhatsAppSignup}
                         disabled={!fbReady || status === 'FETCHING'}
-                        size="lg"
-                        className="h-12 bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 transition-all duration-300 flex items-center gap-2"
+                        size="sm"
+                        className="h-9 text-xs font-semibold rounded-full bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white shadow-md shadow-blue-600/20 cursor-pointer gap-2"
                     >
                         {status === 'FETCHING' || !fbReady ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : isConnected ? (
-                            <RefreshCw className="w-5 h-5" />
+                            <RefreshCw className="h-3.5 w-3.5" />
                         ) : (
-                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                             </svg>
                         )}
                         {status === 'FETCHING' ? "Récupération..." : !fbReady ? "Chargement..." : isConnected ? "Reconnecter WhatsApp" : "Connecter WhatsApp Business"}
                     </Button>
 
-                    <p className="text-xs text-gray-500 mt-2">
-                        Une fenêtre popup va s'ouvrir. Assurez-vous de désactiver votre bloqueur de popups.
+                    <p className="text-[11px] text-gray-400 mt-2">
+                        Une fenêtre popup va s&apos;ouvrir. Assurez-vous de désactiver votre bloqueur de popups.
                     </p>
                 </div>
             </CardContent>
         </Card>
     );
-}
-
-function Check({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
-    )
 }

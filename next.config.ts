@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      { source: '/dashboard/flows', destination: '/dashboard/automatisations', permanent: true },
+      { source: '/dashboard/flows/:path*', destination: '/dashboard/automatisations/:path*', permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       {

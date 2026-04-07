@@ -348,9 +348,14 @@ export function Sidebar({
                                             variant="ghost"
                                             size="sm"
                                             aria-label="Aide et support"
-                                            className="w-full justify-start gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/8 rounded-lg cursor-pointer"
+                                            className={cn(
+                                                "w-full justify-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
+                                                isActive('/help')
+                                                    ? "text-white bg-white/15"
+                                                    : "text-white/60 hover:text-white hover:bg-white/8"
+                                            )}
                                         >
-                                            <HelpCircle className="h-[18px] w-[18px] text-white/50" aria-hidden="true" />
+                                            <HelpCircle className={cn("h-[18px] w-[18px]", isActive('/help') ? "text-white" : "text-white/50")} aria-hidden="true" />
                                         </Button>
                                     </Link>
                                 </TooltipTrigger>
@@ -361,9 +366,14 @@ export function Sidebar({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="w-full justify-start gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/8 rounded-lg text-[13px] font-medium cursor-pointer"
+                                    className={cn(
+                                        "w-full justify-start gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer",
+                                        isActive('/help')
+                                            ? "text-white bg-white/15"
+                                            : "text-white/60 hover:text-white hover:bg-white/8"
+                                    )}
                                 >
-                                    <HelpCircle className="h-[18px] w-[18px] text-white/50" aria-hidden="true" />
+                                    <HelpCircle className={cn("h-[18px] w-[18px]", isActive('/help') ? "text-white" : "text-white/50")} aria-hidden="true" />
                                     <span>Aide & Support</span>
                                 </Button>
                             </Link>

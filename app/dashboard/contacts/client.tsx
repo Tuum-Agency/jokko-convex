@@ -59,6 +59,7 @@ export function ContactsPageClient() {
         company: c.company || null,
         jobTitle: c.jobTitle || null,
         notes: c.notes || null,
+        countryCode: c.countryCode || null,
         tags: c.tags?.map((t: any) => ({
             id: t._id,
             name: t.name,
@@ -165,7 +166,7 @@ export function ContactsPageClient() {
     };
 
     return (
-        <div className="p-6">
+        <div>
             <ContactList
                 contacts={contacts}
                 tags={tags}
