@@ -1,6 +1,6 @@
 'use client'
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
     Check,
@@ -44,6 +44,7 @@ import { useCurrentOrg } from "@/hooks/use-current-org";
 import { cn } from "@/lib/utils";
 import { PLANS as PLAN_DEFS, PLAN_LIMITS, formatLimit, type PlanKey } from "@/lib/plans";
 import { Progress } from "@/components/ui/progress";
+import { RechargeDialog } from "./_components/recharge-dialog";
 
 // ============================================
 // PLAN CONFIG
@@ -142,13 +143,13 @@ export default function BillingPage() {
     const { currentOrg } = useCurrentOrg();
     const usageStats = useQuery(api.billing.getUsageStats, currentOrg?._id ? { organizationId: currentOrg._id } : "skip");
 
-    const addCredits = useMutation(api.credits.debugAddCredits);
     const createCheckout = useAction(api.stripe_actions.createCheckoutSession);
     const createPortal = useAction(api.stripe_actions.createPortalSession);
 
     const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
     const [loadingPortal, setLoadingPortal] = useState(false);
     const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+    const [rechargeOpen, setRechargeOpen] = useState(false);
 
     const handleUpgrade = async (planKey: "STARTER" | "BUSINESS" | "PRO") => {
         setLoadingPlan(planKey);
@@ -170,14 +171,6 @@ export default function BillingPage() {
             toast.error("Erreur", { description: error.message || "Impossible d'accéder au portail." });
             setLoadingPortal(false);
         }
-    };
-
-    const handleRecharge = () => {
-        addCredits({ amount: 5000 }).then(() => {
-            toast.success("5 000 FCFA ajoutés (Simulation)");
-        }).catch(() => {
-            toast.error("Erreur lors de la recharge");
-        });
     };
 
     if (role === undefined || creditBalance === undefined) {
@@ -265,11 +258,12 @@ export default function BillingPage() {
                         <Button
                             size="sm"
                             className="w-full mt-4 h-8 gap-1.5 text-xs bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
-                            onClick={handleRecharge}
+                            onClick={() => setRechargeOpen(true)}
                         >
                             <Plus className="h-3.5 w-3.5" />
-                            Recharger (Simuler)
+                            Recharger
                         </Button>
+                        <RechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} />
                     </CardContent>
                 </Card>
 

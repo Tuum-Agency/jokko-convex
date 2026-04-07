@@ -22,4 +22,7 @@ crons.interval("check-presence-timeouts", { minutes: 1 }, internal.presence.chec
 // Process scheduled broadcasts every minute
 crons.interval("process-scheduled-broadcasts", { minutes: 1 }, internal.broadcasts.processScheduled);
 
+// Expire stale payment sessions every 5 minutes
+crons.interval("expire-payment-sessions", { minutes: 5 }, internal.payments.expirePaymentSessions);
+
 export default crons;

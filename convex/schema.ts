@@ -140,6 +140,55 @@ export default defineSchema({
         .index("by_org_type", ["organizationId", "type"])
         .index("by_org_date", ["organizationId", "createdAt"]),
 
+    // ============================================
+    // Payment Sessions (Pay-As-You-Go Recharge)
+    // ============================================
+    paymentSessions: defineTable({
+        organizationId: v.id("organizations"),
+        userId: v.id("users"),
+
+        // Montant et crédits
+        amount: v.number(),              // Montant en FCFA (unités majeures)
+        credits: v.number(),             // Crédits à accorder
+        provider: v.union(
+            v.literal("WAVE"),
+            v.literal("ORANGE_MONEY"),
+            v.literal("STRIPE")
+        ),
+
+        // Lifecycle
+        status: v.union(
+            v.literal("PENDING"),
+            v.literal("COMPLETED"),
+            v.literal("FAILED"),
+            v.literal("EXPIRED")
+        ),
+
+        // Provider references
+        providerSessionId: v.optional(v.string()),
+        providerTransactionId: v.optional(v.string()),
+        checkoutUrl: v.optional(v.string()),
+        publicReference: v.string(),      // Référence lisible (ex: "PAY-XXXX")
+
+        // Idempotency & debug
+        idempotencyKey: v.string(),
+        providerMetadata: v.optional(v.any()),
+        failureReason: v.optional(v.string()),
+
+        // Webhook tracking
+        lastWebhookAt: v.optional(v.number()),
+        webhookEventId: v.optional(v.string()),
+
+        // Timestamps
+        createdAt: v.number(),
+        completedAt: v.optional(v.number()),
+        expiresAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_provider_session", ["providerSessionId"])
+        .index("by_idempotency", ["idempotencyKey"])
+        .index("by_status", ["status"])
+        .index("by_public_ref", ["publicReference"]),
 
     // ============================================
     // Tickets (Support)

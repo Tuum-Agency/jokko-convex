@@ -45,6 +45,8 @@ import type * as messages from "../messages.js";
 import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
+import type * as payment_actions from "../payment_actions.js";
+import type * as payments from "../payments.js";
 import type * as poles from "../poles.js";
 import type * as presence from "../presence.js";
 import type * as search from "../search.js";
@@ -113,6 +115,8 @@ declare const fullApi: ApiFromModules<{
   migration: typeof migration;
   notifications: typeof notifications;
   organizations: typeof organizations;
+  payment_actions: typeof payment_actions;
+  payments: typeof payments;
   poles: typeof poles;
   presence: typeof presence;
   search: typeof search;
