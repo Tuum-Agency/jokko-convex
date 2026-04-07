@@ -5,15 +5,15 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-    BarChart3,
+    LayoutDashboard,
     MessageSquare,
-    ClipboardList,
+    UserCheck,
     Users,
     FileText,
     Send,
     TrendingUp,
     Workflow,
-    Building,
+    UsersRound,
     CreditCard,
     Settings,
     ChevronLeft,
@@ -23,10 +23,7 @@ import {
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { cn } from '@/lib/utils'
-import { Logo } from '@/components/ui/logo'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCurrentOrg } from '@/hooks/use-current-org'
 import {
@@ -35,83 +32,36 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { StaggerContainer, StaggerItem } from '@/components/animations'
 
 // Navigation items
 const mainNavigation = [
-    {
-        name: 'Overview',
-        href: '',
-        icon: BarChart3,
-    },
-    {
-        name: 'Conversations',
-        href: '/conversations',
-        icon: MessageSquare,
-    },
-    {
-        name: 'Assignments',
-        href: '/assignments',
-        icon: ClipboardList,
-    },
-    {
-        name: 'Contacts',
-        href: '/contacts',
-        icon: Users,
-    },
-    {
-        name: 'Templates',
-        href: '/templates',
-        icon: FileText,
-    },
-    {
-        name: 'Broadcasts',
-        href: '/broadcasts',
-        icon: Send,
-    },
-    {
-        name: 'Analytics',
-        href: '/analytics',
-        icon: TrendingUp,
-    },
-    {
-        name: 'Automatisation',
-        href: '/flows',
-        icon: Workflow,
-    },
-    {
-        name: 'Team',
-        href: '/team',
-        icon: Building,
-    },
+    { name: 'Dashboard', href: '', icon: LayoutDashboard },
+    { name: 'Conversations', href: '/conversations', icon: MessageSquare },
+    { name: 'Attribution', href: '/assignments', icon: UserCheck },
+    { name: 'Contacts', href: '/contacts', icon: Users },
+    { name: 'Modèles', href: '/modeles', icon: FileText },
+    { name: 'Campagnes', href: '/campagnes', icon: Send },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+    { name: 'Automatisation', href: '/automatisations', icon: Workflow },
+    { name: 'Team', href: '/team', icon: UsersRound },
 ]
 
 const bottomNavigation = [
-    {
-        name: 'Facturation',
-        href: '/billing',
-        icon: CreditCard,
-    },
-    {
-        name: 'Paramètres',
-        href: '/settings',
-        icon: Settings,
-    },
+    { name: 'Facturation', href: '/billing', icon: CreditCard },
+    { name: 'Paramètres', href: '/settings', icon: Settings },
 ]
 
 const PLAN_LABELS: Record<string, string> = {
     FREE: 'Gratuit', STARTER: 'Starter', BUSINESS: 'Business', PRO: 'Pro', ENTERPRISE: 'Enterprise',
-};
+}
 const PLAN_INITIALS: Record<string, string> = {
     FREE: 'F', STARTER: 'S', BUSINESS: 'B', PRO: 'P', ENTERPRISE: 'E',
-};
+}
+const MAX_PLAN = 'ENTERPRISE'
 
 interface SidebarProps {
-    /** Base path for the dashboard (e.g., /dashboard) */
     basePath?: string
-    /** Whether the sidebar is collapsed */
     isCollapsed?: boolean
-    /** Callback when the collapse state should toggle */
     onToggleCollapse?: () => void
 }
 
@@ -125,39 +75,28 @@ export function Sidebar({
     const role = useQuery(api.users.currentUserRole)
     const { currentOrg } = useCurrentOrg()
 
-    const restrictedForAgents = ['Assignments', 'Templates', 'Broadcasts', 'Analytics', 'Automatisation', 'Team'];
+    const restrictedForAgents = ['Attribution', 'Modèles', 'Campagnes', 'Analytics', 'Automatisation', 'Team']
 
     const filteredNavigation = mainNavigation.filter(item => {
-        if (role === 'AGENT') {
-            return !restrictedForAgents.includes(item.name);
-        }
-        return true;
-    });
+        if (role === 'AGENT') return !restrictedForAgents.includes(item.name)
+        return true
+    })
 
     const filteredBottomNavigation = bottomNavigation.filter(item => {
-        if (role === 'AGENT') {
-            return item.name !== 'Facturation';
-        }
-        return true;
-    });
+        if (role === 'AGENT') return item.name !== 'Facturation'
+        return true
+    })
 
     const navItems = filteredNavigation.map(item => {
         const itemWithBadge = { ...item, badge: undefined as number | undefined }
-        if (item.name === 'Conversations') {
-            itemWithBadge.badge = stats?.unread || undefined
-        }
-        if (item.name === 'Assignments') {
-            itemWithBadge.badge = stats?.unassigned || undefined
-        }
+        if (item.name === 'Conversations') itemWithBadge.badge = stats?.unread || undefined
+        if (item.name === 'Attribution') itemWithBadge.badge = stats?.unassigned || undefined
         return itemWithBadge
     })
 
-    // Check if a nav item is active
     const isActive = (href: string) => {
         const fullPath = `${basePath}${href}`
-        if (href === '') {
-            return pathname === basePath || pathname === `${basePath}/`
-        }
+        if (href === '') return pathname === basePath || pathname === `${basePath}/`
         return pathname.startsWith(fullPath)
     }
 
@@ -165,12 +104,9 @@ export function Sidebar({
         <TooltipProvider delayDuration={0}>
             <motion.aside
                 initial={false}
-                animate={{ width: isCollapsed ? 80 : 280 }}
+                animate={{ width: isCollapsed ? 80 : 260 }}
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                className={cn(
-                    'relative flex h-screen flex-col border-r border-gray-200/80 bg-white/80 backdrop-blur-xl',
-                    'shadow-xl shadow-gray-200/20'
-                )}
+                className="relative flex h-screen flex-col bg-gradient-to-b from-[#1a5c35] via-[#14532d] to-[#0c3b20] overflow-hidden"
             >
                 {/* Header */}
                 <div className="flex h-16 items-center justify-between px-4">
@@ -182,8 +118,16 @@ export function Sidebar({
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
+                                className="flex items-center gap-2.5"
                             >
-                                <Logo width={120} height={33} />
+                                <Image
+                                    src="/logo.png"
+                                    alt="Jokko"
+                                    width={32}
+                                    height={32}
+                                    className="object-contain brightness-0 invert"
+                                />
+                                <span className="text-lg font-bold text-white tracking-tight">Jokko</span>
                             </motion.div>
                         ) : (
                             <motion.div
@@ -197,9 +141,9 @@ export function Sidebar({
                                 <Image
                                     src="/logo.png"
                                     alt="Jokko"
-                                    width={40}
-                                    height={40}
-                                    className="object-contain"
+                                    width={32}
+                                    height={32}
+                                    className="object-contain brightness-0 invert"
                                 />
                             </motion.div>
                         )}
@@ -211,129 +155,118 @@ export function Sidebar({
                             size="icon"
                             onClick={onToggleCollapse}
                             aria-label="Réduire le menu"
-                            className="h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                            className="h-7 w-7 text-white/50 hover:text-white hover:bg-white/10 cursor-pointer"
                         >
                             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
                     )}
                 </div>
 
-                <Separator className="bg-gray-100" />
+                {/* Divider */}
+                <div className="mx-4 h-px bg-white/10" />
 
                 {/* Main Navigation */}
                 <ScrollArea className="flex-1 px-3 py-4">
                     <nav className="space-y-1">
-                        <StaggerContainer staggerDelay={0.05} delayChildren={0.1} trigger="mount">
-                            {navItems.map((item) => {
-                                const active = isActive(item.href)
-                                const Icon = item.icon
+                        {navItems.map((item) => {
+                            const active = isActive(item.href)
+                            const Icon = item.icon
 
-                                const linkContent = (
-                                    <Link
-                                        href={`${basePath}${item.href}`}
+                            const linkContent = (
+                                <Link
+                                    href={`${basePath}${item.href}`}
+                                    className={cn(
+                                        'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
+                                        active
+                                            ? 'text-white bg-white/15'
+                                            : 'text-white/60 hover:text-white hover:bg-white/8'
+                                    )}
+                                >
+                                    <Icon
                                         className={cn(
-                                            'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                                            active
-                                                ? 'text-green-700 bg-green-50'
-                                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            'h-[18px] w-[18px] shrink-0 transition-colors duration-200',
+                                            active ? 'text-white' : 'text-white/50 group-hover:text-white'
                                         )}
-                                    >
+                                        aria-hidden="true"
+                                    />
 
-                                        <span className="relative z-10 flex items-center gap-3">
-                                            <Icon
-                                                className={cn(
-                                                    'h-5 w-5 shrink-0 transition-colors duration-200',
-                                                    active ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-600'
-                                                )}
-                                                aria-hidden="true"
-                                            />
-
-                                            <AnimatePresence>
-                                                {!isCollapsed && (
-                                                    <motion.span
-                                                        initial={{ opacity: 0, width: 0 }}
-                                                        animate={{ opacity: 1, width: 'auto' }}
-                                                        exit={{ opacity: 0, width: 0 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="whitespace-nowrap"
-                                                    >
-                                                        {item.name}
-                                                    </motion.span>
-                                                )}
-                                            </AnimatePresence>
-                                        </span>
-
-                                        {/* Badge */}
-                                        {item.badge && !isCollapsed && (
+                                    <AnimatePresence>
+                                        {!isCollapsed && (
                                             <motion.span
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700"
+                                                initial={{ opacity: 0, width: 0 }}
+                                                animate={{ opacity: 1, width: 'auto' }}
+                                                exit={{ opacity: 0, width: 0 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="whitespace-nowrap"
                                             >
-                                                {item.badge}
+                                                {item.name}
                                             </motion.span>
                                         )}
+                                    </AnimatePresence>
 
-                                        {/* Badge dot when collapsed */}
-                                        {item.badge && isCollapsed && (
-                                            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-green-500" />
-                                        )}
-                                    </Link>
-                                )
+                                    {/* Badge */}
+                                    {item.badge && !isCollapsed && (
+                                        <motion.span
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            className="ml-auto rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white"
+                                        >
+                                            {item.badge}
+                                        </motion.span>
+                                    )}
 
-                                return (
-                                    <StaggerItem key={item.name}>
-                                        {isCollapsed ? (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                                                <TooltipContent side="right" className="flex items-center gap-2">
-                                                    {item.name}
-                                                    {item.badge && (
-                                                        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-semibold text-green-700">
-                                                            {item.badge}
-                                                        </span>
-                                                    )}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        ) : (
-                                            linkContent
+                                    {/* Badge dot when collapsed */}
+                                    {item.badge && isCollapsed && (
+                                        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    )}
+                                </Link>
+                            )
+
+                            return isCollapsed ? (
+                                <Tooltip key={item.name}>
+                                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                                    <TooltipContent side="right" className="flex items-center gap-2">
+                                        {item.name}
+                                        {item.badge && (
+                                            <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-xs font-semibold text-white">
+                                                {item.badge}
+                                            </span>
                                         )}
-                                    </StaggerItem>
-                                )
-                            })}
-                        </StaggerContainer>
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                <div key={item.name}>{linkContent}</div>
+                            )
+                        })}
                     </nav>
                 </ScrollArea>
 
-                {/* Subscription Info */}
-                {currentOrg && !isCollapsed && (
-                    <div className="px-3 pb-2">
-                        <Link
-                            href={`${basePath}/billing`}
-                            className="block rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/80 border border-gray-200/60 p-3 hover:border-green-200 transition-colors"
-                        >
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-gray-500">Abonnement</span>
-                                <Badge
-                                    variant="secondary"
-                                    className={cn("text-[10px] px-1.5 py-0", {
-                                        'bg-gray-100 text-gray-600': currentOrg.plan === 'FREE',
-                                        'bg-blue-100 text-blue-700': currentOrg.plan === 'STARTER',
-                                        'bg-purple-100 text-purple-700': currentOrg.plan === 'BUSINESS',
-                                        'bg-orange-100 text-orange-700': currentOrg.plan === 'PRO',
-                                        'bg-amber-100 text-amber-700': currentOrg.plan === 'ENTERPRISE',
-                                    })}
-                                >
-                                    {PLAN_LABELS[currentOrg.plan] || currentOrg.plan}
-                                </Badge>
+                {/* Plan Badge */}
+                {currentOrg && !isCollapsed && (() => {
+                    const plan = currentOrg.plan || 'FREE'
+                    const showUpgrade = plan !== MAX_PLAN
+
+                    return (
+                        <div className="px-3 pb-2">
+                            <div className="flex items-center gap-2 rounded-lg bg-white/8 border border-white/10 px-3 py-2.5">
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Plan</span>
+                                    <p className="text-sm font-bold text-white truncate">{PLAN_LABELS[plan] || plan}</p>
+                                </div>
+                                {showUpgrade && (
+                                    <Link href={`${basePath}/billing`}>
+                                        <Button
+                                            size="sm"
+                                            className="h-7 px-2.5 text-[11px] font-semibold bg-emerald-500 hover:bg-emerald-400 text-white rounded-md cursor-pointer"
+                                        >
+                                            Upgrade
+                                        </Button>
+                                    </Link>
+                                )}
                             </div>
-                            <p className="text-xs text-gray-900 font-semibold mt-1 truncate">{currentOrg.name}</p>
-                            {currentOrg.plan === 'FREE' && (
-                                <p className="text-[10px] text-green-600 mt-1 font-medium">Passer au plan supérieur →</p>
-                            )}
-                        </Link>
-                    </div>
-                )}
+                        </div>
+                    )
+                })()}
 
                 {currentOrg && isCollapsed && (
                     <div className="px-3 pb-2 flex justify-center">
@@ -341,16 +274,7 @@ export function Sidebar({
                             <TooltipTrigger asChild>
                                 <Link
                                     href={`${basePath}/billing`}
-                                    className={cn(
-                                        "h-8 w-8 rounded-lg flex items-center justify-center text-[10px] font-bold border transition-colors",
-                                        {
-                                            'bg-gray-100 text-gray-600 border-gray-200': currentOrg.plan === 'FREE',
-                                            'bg-blue-100 text-blue-700 border-blue-200': currentOrg.plan === 'STARTER',
-                                            'bg-purple-100 text-purple-700 border-purple-200': currentOrg.plan === 'BUSINESS',
-                                            'bg-orange-100 text-orange-700 border-orange-200': currentOrg.plan === 'PRO',
-                                            'bg-amber-100 text-amber-700 border-amber-200': currentOrg.plan === 'ENTERPRISE',
-                                        }
-                                    )}
+                                    className="h-9 w-9 rounded-lg flex items-center justify-center text-[11px] font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-400/30 hover:bg-emerald-500/35 transition-colors"
                                 >
                                     {PLAN_INITIALS[currentOrg.plan] || '?'}
                                 </Link>
@@ -364,9 +288,8 @@ export function Sidebar({
 
                 {/* Bottom Section */}
                 <div className="mt-auto">
-                    <Separator className="bg-gray-100" />
+                    <div className="mx-4 h-px bg-white/10" />
 
-                    {/* Bottom Navigation */}
                     <div className="px-3 py-3 space-y-1">
                         {filteredBottomNavigation.map((item) => {
                             const active = isActive(item.href)
@@ -376,16 +299,16 @@ export function Sidebar({
                                 <Link
                                     href={`${basePath}${item.href}`}
                                     className={cn(
-                                        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                                        'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
                                         active
-                                            ? 'text-green-700 bg-green-50'
-                                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            ? 'text-white bg-white/15'
+                                            : 'text-white/60 hover:text-white hover:bg-white/8'
                                     )}
                                 >
                                     <Icon
                                         className={cn(
-                                            'h-5 w-5 shrink-0 transition-colors duration-200',
-                                            active ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-600'
+                                            'h-[18px] w-[18px] shrink-0 transition-colors duration-200',
+                                            active ? 'text-white' : 'text-white/50 group-hover:text-white'
                                         )}
                                         aria-hidden="true"
                                     />
@@ -425,9 +348,9 @@ export function Sidebar({
                                             variant="ghost"
                                             size="sm"
                                             aria-label="Aide et support"
-                                            className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
+                                            className="w-full justify-start gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/8 rounded-lg cursor-pointer"
                                         >
-                                            <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                            <HelpCircle className="h-[18px] w-[18px] text-white/50" aria-hidden="true" />
                                         </Button>
                                     </Link>
                                 </TooltipTrigger>
@@ -438,9 +361,9 @@ export function Sidebar({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="w-full justify-start gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl"
+                                    className="w-full justify-start gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/8 rounded-lg text-[13px] font-medium cursor-pointer"
                                 >
-                                    <HelpCircle className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                    <HelpCircle className="h-[18px] w-[18px] text-white/50" aria-hidden="true" />
                                     <span>Aide & Support</span>
                                 </Button>
                             </Link>
