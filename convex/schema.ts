@@ -98,6 +98,7 @@ export default defineSchema({
             priceId: v.optional(v.string()),
             status: v.optional(v.string()), // active, canceled, past_due, trialing
             currentPeriodEnd: v.optional(v.number()),
+            trialUsed: v.optional(v.boolean()),
         })),
 
         // Fair Usage Policy (Limits)
