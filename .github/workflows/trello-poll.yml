@@ -1,0 +1,36 @@
+name: Trello Poll
+
+on:
+  schedule:
+    # Poll every 5 minutes
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    # Allow manual trigger for testing
+
+permissions:
+  issues: write
+
+concurrency:
+  group: trello-poll
+  cancel-in-progress: false # Let dispatches finish
+
+jobs:
+  poll:
+    name: Poll Trello for new tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Poll Trello and dispatch workflows
+        env:
+          TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
+          TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
+          TRELLO_BOARD_ID: ${{ secrets.TRELLO_BOARD_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/trello-poll.mjs

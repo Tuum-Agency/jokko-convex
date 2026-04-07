@@ -1,18 +1,16 @@
-
 'use client'
 
 import React, { useState } from 'react';
-import { useQuery, usePaginatedQuery, useAction } from "convex/react";
+import { usePaginatedQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import { SearchInput } from '../ui/search-input';
 import { Skeleton } from '../ui/skeleton';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { TEMPLATE_TYPE_CONFIGS, TemplateType } from '@/convex/lib/templateTypes';
-import { Edit, Trash2, FileStack, MoreHorizontal, Search, Plus, RefreshCcw } from 'lucide-react';
+import { Edit, Trash2, FileStack, MoreHorizontal, Plus, RefreshCcw } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -66,27 +64,35 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
 
     if (status === "LoadingFirstPage") {
         return (
-            <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
+            <div className="space-y-3">
+                <Skeleton className="h-9 w-full rounded-lg" />
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <Skeleton className="h-16 w-full rounded-lg" />
             </div>
         );
     }
 
-    if (templates?.length === 0) {
+    if (templates?.length === 0 && !searchTerm) {
         return (
             <Empty>
                 <EmptyMedia variant="icon">
                     <FileStack className="size-6" />
                 </EmptyMedia>
                 <EmptyHeader>
-                    <EmptyTitle>Aucun template trouvé</EmptyTitle>
+                    <EmptyTitle>Aucun modele trouve</EmptyTitle>
                     <EmptyDescription>
-                        Vous n'avez pas encore créé de modèles de messages.
-                        Commencez par en créer un nouveau pour engager vos clients.
+                        Vous n&apos;avez pas encore cree de modeles de messages.
+                        Commencez par en creer un nouveau pour engager vos clients.
                     </EmptyDescription>
                 </EmptyHeader>
+                <Button
+                    onClick={onCreate}
+                    className="mt-4 bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d] hover:to-[#047857] text-white shadow-sm"
+                >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Creer un modele
+                </Button>
             </Empty>
         );
     }
@@ -104,61 +110,78 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'APPROVED': return 'Approuvé';
-            case 'REJECTED': return 'Rejeté';
+            case 'APPROVED': return 'Approuve';
+            case 'REJECTED': return 'Rejete';
             case 'PAUSED': return 'En pause';
             case 'DRAFT': return 'Brouillon';
             case 'PENDING': return 'En attente';
-            case 'DELETED': return 'Supprimé';
+            case 'DELETED': return 'Supprime';
             default: return status;
         }
     };
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
                 <SearchInput
-                    placeholder="Rechercher un template..."
+                    placeholder="Rechercher un modele..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <div className="flex gap-2 ml-4">
-                    <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-                        <RefreshCcw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                        Sync Status
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                        className="h-8 gap-1.5 text-xs"
+                    >
+                        <RefreshCcw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Synchroniser</span>
                     </Button>
-                    <Button onClick={onCreate}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nouveau Template
+                    <Button
+                        size="sm"
+                        onClick={onCreate}
+                        className="h-8 gap-1.5 text-xs bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d] hover:to-[#047857] text-white shadow-sm"
+                    >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Nouveau modele</span>
                     </Button>
                 </div>
             </div>
 
-            <div className="rounded-md border">
+            <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[300px]">Nom</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Statut</TableHead>
-                            <TableHead>Langue</TableHead>
-                            <TableHead>Catégorie</TableHead>
-                            <TableHead className="text-right">Dernière mise à jour</TableHead>
+                        <TableRow className="bg-gray-50/50">
+                            <TableHead className="w-[300px] text-xs font-medium text-gray-500">Nom</TableHead>
+                            <TableHead className="text-xs font-medium text-gray-500">Type</TableHead>
+                            <TableHead className="text-xs font-medium text-gray-500">Statut</TableHead>
+                            <TableHead className="text-xs font-medium text-gray-500">Langue</TableHead>
+                            <TableHead className="text-xs font-medium text-gray-500">Categorie</TableHead>
+                            <TableHead className="text-right text-xs font-medium text-gray-500">Mise a jour</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
+                        {templates?.length === 0 && searchTerm && (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-32 text-center">
+                                    <p className="text-sm text-gray-400">Aucun resultat pour &quot;{searchTerm}&quot;</p>
+                                </TableCell>
+                            </TableRow>
+                        )}
                         {templates?.map((template) => {
                             const config = TEMPLATE_TYPE_CONFIGS[template.type as TemplateType];
                             const StatusBadgeVariant = getStatusColor(template.status) as "default" | "destructive" | "outline" | "secondary";
 
                             return (
-                                <TableRow key={template._id}>
+                                <TableRow key={template._id} className="hover:bg-gray-50/50 transition-colors">
                                     <TableCell className="font-medium">
                                         <div className="flex flex-col">
-                                            <span className="truncate max-w-[250px]" title={template.name}>{template.name}</span>
+                                            <span className="truncate max-w-[250px] text-sm text-gray-900" title={template.name}>{template.name}</span>
                                             {template.name !== template.slug && (
-                                                <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                                <span className="text-[11px] text-gray-400 truncate max-w-[250px]">
                                                     {template.slug}
                                                 </span>
                                             )}
@@ -166,21 +189,19 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2" title={config?.labelFr}>
-                                            <div className="text-lg">{config?.icon || '📄'}</div>
-                                            <span className="hidden xl:inline text-sm text-muted-foreground">
+                                            <div className="text-base">{config?.icon || '\uD83D\uDCC4'}</div>
+                                            <span className="hidden xl:inline text-xs text-gray-500">
                                                 {config?.labelFr}
                                             </span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant={StatusBadgeVariant} className="gap-1 pr-2.5">
-                                                {template.status === 'APPROVED' && <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />}
-                                                {template.status === 'PENDING' && <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />}
-                                                {template.status === 'REJECTED' && <div className="h-1.5 w-1.5 rounded-full bg-red-500" />}
-                                                {getStatusLabel(template.status)}
-                                            </Badge>
-                                        </div>
+                                        <Badge variant={StatusBadgeVariant} className="gap-1 pr-2.5 text-[10px]">
+                                            {template.status === 'APPROVED' && <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />}
+                                            {template.status === 'PENDING' && <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />}
+                                            {template.status === 'REJECTED' && <div className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+                                            {getStatusLabel(template.status)}
+                                        </Badge>
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className="uppercase text-[10px]">
@@ -188,31 +209,31 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <span className="text-sm capitalize text-muted-foreground">
+                                        <span className="text-xs capitalize text-gray-500">
                                             {template.category.toLowerCase()}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right text-sm text-muted-foreground">
+                                    <TableCell className="text-right text-xs text-gray-400">
                                         {format(new Date(template.updatedAt || template.createdAt), 'dd MMM yyyy', { locale: fr })}
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Open menu</span>
-                                                    <MoreHorizontal className="h-4 w-4" />
+                                                <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-gray-100">
+                                                    <span className="sr-only">Menu</span>
+                                                    <MoreHorizontal className="h-4 w-4 text-gray-400" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuLabel className="text-xs text-gray-500">Actions</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => onEdit(template._id, template.type as TemplateType)}>
-                                                    <Edit className="mr-2 h-4 w-4" /> Modifier
+                                                    <Edit className="mr-2 h-3.5 w-3.5" /> Modifier
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="text-destructive focus:text-destructive"
                                                     onClick={() => onDelete(template._id)}
                                                 >
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                                                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Supprimer
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -223,8 +244,8 @@ export const TemplateList: React.FC<TemplateListProps> = ({ onCreate, onEdit, on
                     </TableBody>
                 </Table>
                 {status === "CanLoadMore" && (
-                    <div className="flex justify-center p-4 border-t">
-                        <Button variant="outline" onClick={() => loadMore(15)}>
+                    <div className="flex justify-center p-3 border-t border-gray-100">
+                        <Button variant="ghost" size="sm" onClick={() => loadMore(15)} className="text-xs text-gray-500 hover:text-gray-700">
                             Charger plus
                         </Button>
                     </div>

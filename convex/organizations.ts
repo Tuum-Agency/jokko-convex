@@ -171,6 +171,140 @@ export const create = mutation({
     },
 });
 
+// ============================================
+// Update Organization Profile
+// ============================================
+export const updateOrganization = mutation({
+    args: {
+        name: v.optional(v.string()),
+        businessSector: v.optional(v.string()),
+        website: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        address: v.optional(v.string()),
+        timezone: v.optional(v.string()),
+        logo: v.optional(v.id("_storage")),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Non authentifié");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        const orgId = session?.currentOrganizationId;
+        if (!orgId) throw new Error("Aucune organisation active");
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", orgId)
+            )
+            .first();
+
+        if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+            throw new Error("Permissions insuffisantes");
+        }
+
+        const updates: Record<string, any> = { updatedAt: Date.now() };
+        if (args.name !== undefined) updates.name = args.name;
+        if (args.businessSector !== undefined) updates.businessSector = args.businessSector;
+        if (args.website !== undefined) updates.website = args.website;
+        if (args.phone !== undefined) updates.phone = args.phone;
+        if (args.address !== undefined) updates.address = args.address;
+        if (args.timezone !== undefined) updates.timezone = args.timezone;
+        if (args.logo !== undefined) updates.logo = args.logo;
+
+        await ctx.db.patch(orgId, updates);
+        return { success: true };
+    },
+});
+
+// ============================================
+// Update Organization Settings (auto-reply, business hours)
+// ============================================
+export const updateOrgSettings = mutation({
+    args: {
+        autoReplyEnabled: v.optional(v.boolean()),
+        autoReplyMessage: v.optional(v.string()),
+        businessHours: v.optional(v.any()),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Non authentifié");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        const orgId = session?.currentOrganizationId;
+        if (!orgId) throw new Error("Aucune organisation active");
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", orgId)
+            )
+            .first();
+
+        if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+            throw new Error("Permissions insuffisantes");
+        }
+
+        const org = await ctx.db.get(orgId);
+        if (!org) throw new Error("Organisation introuvable");
+
+        const currentSettings = org.settings || {};
+        const newSettings: Record<string, any> = { ...currentSettings };
+
+        if (args.autoReplyEnabled !== undefined) newSettings.autoReplyEnabled = args.autoReplyEnabled;
+        if (args.autoReplyMessage !== undefined) newSettings.autoReplyMessage = args.autoReplyMessage;
+        if (args.businessHours !== undefined) newSettings.businessHours = args.businessHours;
+
+        await ctx.db.patch(orgId, {
+            settings: newSettings,
+            updatedAt: Date.now(),
+        });
+
+        return { success: true };
+    },
+});
+
+// ============================================
+// Get Organization Settings
+// ============================================
+export const getOrgSettings = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        const orgId = session?.currentOrganizationId;
+        if (!orgId) return null;
+
+        const org = await ctx.db.get(orgId);
+        if (!org) return null;
+
+        return {
+            name: org.name,
+            businessSector: org.businessSector,
+            website: org.website,
+            phone: org.phone,
+            address: org.address,
+            timezone: org.timezone,
+            logo: org.logo,
+            settings: org.settings,
+        };
+    },
+});
+
 export const checkSlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {

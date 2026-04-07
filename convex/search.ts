@@ -38,8 +38,8 @@ export const searchGlobal = query({
         const allPages = [
             { name: "Conversations", href: "/dashboard/conversations", icon: "MessageSquare" },
             { name: "Contacts", href: "/dashboard/contacts", icon: "Users" },
-            { name: "Templates", href: "/dashboard/templates", icon: "FileText" },
-            { name: "Broadcasts", href: "/dashboard/broadcasts", icon: "Send" },
+            { name: "Modèles", href: "/dashboard/modeles", icon: "FileText" },
+            { name: "Broadcasts", href: "/dashboard/campagnes", icon: "Send" },
             { name: "Analytics", href: "/dashboard/analytics", icon: "TrendingUp" },
             { name: "Automatisation", href: "/dashboard/flows", icon: "Workflow" },
             { name: "Team", href: "/dashboard/team", icon: "Building" },

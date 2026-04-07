@@ -77,7 +77,7 @@ export function OnboardingWizard() {
     };
 
     return (
-        <div className="w-full max-w-3xl mx-auto px-4 py-8">
+        <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
             {/* Progress Bar */}
             <OnboardingProgress
                 steps={ONBOARDING_STEPS}
@@ -87,7 +87,7 @@ export function OnboardingWizard() {
 
             {/* Page Header */}
             <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">{currentStep?.title}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{currentStep?.title}</h1>
                 <p className="mt-2 text-gray-500">{currentStep?.description}</p>
             </div>
 

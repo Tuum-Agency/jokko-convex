@@ -289,7 +289,7 @@ export function DashboardHeader({
                             <span className="sr-only">Nouvelles notifications</span>
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-80 rounded-xl shadow-xl border-gray-200/80">
+                    <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm rounded-xl shadow-xl border-gray-200/80">
                         <DropdownMenuLabel className="flex items-center justify-between">
                             <span>Notifications</span>
                             {(unreadCount || 0) > 0 && (

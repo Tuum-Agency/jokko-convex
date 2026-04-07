@@ -44,7 +44,6 @@ export const getDashboardStats = query({
         // Map members to simple objects
         const agentsMap = new Map();
         for (const m of memberships) {
-            // We include all members to track who sent what, but purely for display we might filter later
             const user = await ctx.db.get(m.userId);
             agentsMap.set(m.userId, {
                 id: m.userId,
@@ -54,6 +53,7 @@ export const getDashboardStats = query({
                 messages: 0,
                 responseTimeSum: 0,
                 responseCount: 0,
+                handledConversations: new Set<string>(),
             });
         }
 
@@ -69,6 +69,9 @@ export const getDashboardStats = query({
         let totalMessages = 0;
         let inboundCount = 0;
         let outboundCount = 0;
+        let marketingOutbound = 0;
+        let conversationInbound = 0;
+        let conversationOutbound = 0;
 
         for (const msg of messages) {
             // Filter for global stats
@@ -76,12 +79,24 @@ export const getDashboardStats = query({
 
             if (inRange) {
                 totalMessages++;
-                if (msg.direction === 'INBOUND') inboundCount++;
-                else outboundCount++;
+                const isBroadcast = !!msg.broadcastId;
+
+                if (msg.direction === 'INBOUND') {
+                    inboundCount++;
+                    conversationInbound++;
+                } else {
+                    outboundCount++;
+                    if (isBroadcast) {
+                        marketingOutbound++;
+                    } else {
+                        conversationOutbound++;
+                    }
+                }
 
                 if (msg.senderId && agentsMap.has(msg.senderId)) {
                     const agent = agentsMap.get(msg.senderId);
                     agent.messages++;
+                    agent.handledConversations.add(msg.conversationId);
                 }
             }
 
@@ -184,9 +199,10 @@ export const getDashboardStats = query({
                     role: a.role,
                     messagesCount: a.messages,
                     conversationsCount: a.conversations,
+                    handledConversations: a.handledConversations.size,
+                    responseCount: a.responseCount,
                     avgResponseTime,
-                    // Raw for sorting if needed
-                    _avgMs: avgMs
+                    _avgMs: avgMs,
                 };
             });
 
@@ -211,17 +227,96 @@ export const getDashboardStats = query({
             }
         }
 
+        // ── Daily Activity Chart ──
+        const dayMs = 24 * 60 * 60 * 1000;
+        const dailyActivity: { date: string; label: string; inbound: number; outbound: number; marketing: number }[] = [];
+
+        const chartStartDate = new Date(start);
+        chartStartDate.setHours(0, 0, 0, 0);
+
+        for (let d = chartStartDate.getTime(); d <= end; d += dayMs) {
+            const dayStart = d;
+            const dayEnd = d + dayMs;
+            const dayDate = new Date(d);
+            let dayInbound = 0;
+            let dayOutbound = 0;
+            let dayMarketing = 0;
+
+            for (const msg of messages) {
+                if (msg.createdAt >= dayStart && msg.createdAt < dayEnd) {
+                    if (msg.direction === 'INBOUND') {
+                        dayInbound++;
+                    } else if (msg.broadcastId) {
+                        dayMarketing++;
+                    } else {
+                        dayOutbound++;
+                    }
+                }
+            }
+
+            const dayNum = dayDate.getDate();
+            const monthNames = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+            dailyActivity.push({
+                date: dayDate.toISOString().split('T')[0],
+                label: `${dayNum} ${monthNames[dayDate.getMonth()]}`,
+                inbound: dayInbound,
+                outbound: dayOutbound,
+                marketing: dayMarketing,
+            });
+        }
+
+        // ── Trends (compare with previous period of same duration) ──
+        const periodDuration = end - start;
+        const prevStart = start - periodDuration;
+
+        let prevTotalMessages = 0;
+        for (const msg of messages) {
+            if (msg.createdAt >= prevStart && msg.createdAt < start) {
+                prevTotalMessages++;
+            }
+        }
+
+        let currentNewConvs = 0;
+        let prevNewConvs = 0;
+        for (const conv of conversations) {
+            if (conv.createdAt >= start && conv.createdAt <= end) currentNewConvs++;
+            else if (conv.createdAt >= prevStart && conv.createdAt < start) prevNewConvs++;
+        }
+
+        const formatTrend = (current: number, prev: number) => {
+            if (prev === 0 && current === 0) return { trend: 'up' as const, value: '0%' };
+            if (prev === 0) return { trend: 'up' as const, value: `+${current}` };
+            const percent = ((current - prev) / prev) * 100;
+            return {
+                trend: percent >= 0 ? 'up' as const : 'down' as const,
+                value: `${percent > 0 ? '+' : ''}${Math.round(percent)}%`,
+            };
+        };
+
+        const responseRate = conversationInbound > 0
+            ? Math.min(100, Math.round((conversationOutbound / conversationInbound) * 100))
+            : 0;
+
         return {
             global: {
                 totalMessages,
                 inboundCount,
                 outboundCount,
+                conversationInbound,
+                conversationOutbound,
+                marketingOutbound,
                 totalConversations,
                 openConversations,
                 closedConversations,
-                avgResponseTime: globalAvgResponseTime // Added field
+                avgResponseTime: globalAvgResponseTime,
+                responseRate,
             },
-            agents: agents.sort((a, b) => b.messagesCount - a.messagesCount)
+            agents: agents.sort((a, b) => b.messagesCount - a.messagesCount),
+            dailyActivity,
+            trends: {
+                messages: formatTrend(totalMessages, prevTotalMessages),
+                conversations: formatTrend(currentNewConvs, prevNewConvs),
+            },
         };
     }
 });
@@ -349,6 +444,41 @@ export const getAppDashboardStats = query({
         const prevRate = calcRate(previousPeriod.messagesSent, previousPeriod.messagesInbound);
         const rateTrend = formatTrend(currentRate, prevRate, true);
 
+        // --- 3. Weekly Activity (last 7 days) ---
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const weekStart = now - sevenDaysMs;
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        const weeklyActivity: { day: string; inbound: number; outbound: number }[] = [];
+
+        for (let i = 6; i >= 0; i--) {
+            const dayStart = now - (i * 24 * 60 * 60 * 1000);
+            const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+            const dayDate = new Date(dayStart);
+            let inbound = 0;
+            let outbound = 0;
+
+            for (const m of messages) {
+                if (m.createdAt >= dayStart && m.createdAt < dayEnd) {
+                    if (m.direction === 'INBOUND') inbound++;
+                    else outbound++;
+                }
+            }
+
+            weeklyActivity.push({
+                day: dayNames[dayDate.getDay()],
+                inbound,
+                outbound,
+            });
+        }
+
+        // --- 4. Conversation breakdown ---
+        let openConversations = 0;
+        let resolvedConversations = 0;
+        for (const c of allConversations) {
+            if (c.status === 'OPEN') openConversations++;
+            else resolvedConversations++;
+        }
+
         return {
             stats: [
                 {
@@ -388,10 +518,123 @@ export const getAppDashboardStats = query({
                     iconBg: "bg-orange-50",
                 },
             ],
-            recentConversations
+            recentConversations,
+            chartData: {
+                weeklyActivity,
+                inboundMessages: currentPeriod.messagesInbound,
+                outboundMessages: currentPeriod.messagesSent,
+                responseRate: Math.round(currentRate),
+                totalConversations: totalConversationsCount,
+                openConversations,
+                resolvedConversations,
+            },
         };
     }
 });
 
-// End of file update
+export const getDashboardOverview = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const organizationId = await getOrganizationId(ctx, userId);
+        if (!organizationId) return null;
+
+        // --- 1. Contacts by tag (étiquettes) ---
+        const tags = await ctx.db
+            .query("tags")
+            .withIndex("by_organization", (q: any) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const contacts = await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", (q: any) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const totalContacts = contacts.length;
+
+        // Count contacts per tag
+        const tagCounts = new Map<string, number>();
+        for (const tag of tags) {
+            tagCounts.set(tag._id, 0);
+        }
+        for (const contact of contacts) {
+            if (contact.tags && Array.isArray(contact.tags)) {
+                for (const tagId of contact.tags) {
+                    tagCounts.set(tagId, (tagCounts.get(tagId) || 0) + 1);
+                }
+            }
+        }
+
+        const tagStats = tags.map((tag) => ({
+            id: tag._id,
+            name: tag.name,
+            color: tag.color || '#10b981',
+            count: tagCounts.get(tag._id) || 0,
+            percentage: totalContacts > 0
+                ? Math.round(((tagCounts.get(tag._id) || 0) / totalContacts) * 10000) / 100
+                : 0,
+        }));
+
+        // --- 2. Contacts by assignment (via conversations) ---
+        const conversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_organization", (q: any) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const contactsWithOpenConv = new Set<string>();
+        const contactsAssigned = new Set<string>();
+        const contactsUnassigned = new Set<string>();
+
+        for (const conv of conversations) {
+            if (conv.status === 'OPEN' && conv.contactId) {
+                contactsWithOpenConv.add(conv.contactId);
+                if (conv.assignedTo) {
+                    contactsAssigned.add(conv.contactId);
+                } else {
+                    contactsUnassigned.add(conv.contactId);
+                }
+            }
+        }
+
+        const contactBreakdown = {
+            open: contactsWithOpenConv.size,
+            assigned: contactsAssigned.size,
+            unassigned: contactsUnassigned.size,
+        };
+
+        // --- 3. Team members with assignment counts ---
+        const memberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q: any) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const teamMembers = await Promise.all(
+            memberships.map(async (m) => {
+                const user = await ctx.db.get(m.userId);
+                const assignedCount = conversations.filter(
+                    (c) => c.assignedTo === m.userId && c.status === 'OPEN'
+                ).length;
+
+                return {
+                    id: m._id,
+                    userId: m.userId,
+                    name: user?.name || 'Inconnu',
+                    email: user?.email || '',
+                    avatar: user?.image,
+                    role: m.role,
+                    assignedConversations: assignedCount,
+                };
+            })
+        );
+
+        return {
+            tagStats,
+            totalContacts,
+            contactBreakdown,
+            teamMembers: teamMembers.sort((a, b) => b.assignedConversations - a.assignedConversations),
+        };
+    },
+});
 

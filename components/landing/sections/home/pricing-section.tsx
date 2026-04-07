@@ -42,16 +42,16 @@ const plans = PLAN_DEFS.map((p) => {
 
 export function PricingSection() {
     return (
-        <section id="pricing" className="py-24 relative overflow-hidden bg-slate-50">
+        <section id="pricing" className="py-16 sm:py-20 lg:py-24 relative overflow-hidden bg-slate-50">
             {/* Background Decoration */}
             <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-slate-300 to-transparent"></div>
             <div className="absolute top-[10%] left-[-10%] w-[500px] h-[500px] bg-green-200/20 rounded-full blur-[100px] pointer-events-none"></div>
             <div className="absolute bottom-[10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/20 rounded-full blur-[100px] pointer-events-none"></div>
 
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
                 {/* Header */}
-                <div className="text-center mb-20 max-w-3xl mx-auto">
+                <div className="text-center mb-12 sm:mb-16 lg:mb-20 max-w-3xl mx-auto">
                     <FadeInView>
                         <Eyebrow
                             text="Tarification Simple"
@@ -60,15 +60,15 @@ export function PricingSection() {
                         />
                     </FadeInView>
                     <FadeInView delay={0.2} className="mt-6">
-                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
-                            Investissez dans votre <br />
+                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+                            Investissez dans votre <br className="hidden sm:block" />
                             <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-teal-600">
                                 Machine à Vendre
                             </span>
                         </h2>
                     </FadeInView>
                     <FadeInView delay={0.4}>
-                        <p className="mt-6 text-xl text-slate-600 max-w-2xl mx-auto">
+                        <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto">
                             Rejoignez les entreprises innovantes qui préparent leur succès sur WhatsApp avec Jokko.
                             <br />
                             <span className="text-sm text-slate-500 mt-2 block">(Prix hors coûts de conversation Meta)</span>
@@ -85,7 +85,7 @@ export function PricingSection() {
 
                 {/* Pricing Cards */}
                 <StaggerContainer staggerDelay={0.1} delayChildren={0.4}>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
                         {plans.map((plan, index) => (
                             <StaggerItem key={plan.name} className={plan.popular ? 'lg:-mt-4' : ''}>
                                 <div className={`relative group h-full ${plan.popular ? 'lg:scale-105 z-10' : 'z-0'}`}>
@@ -93,7 +93,7 @@ export function PricingSection() {
                                         {/* Hover Effect */}
                                         <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none"></div>
 
-                                        <CardHeader className="pb-8 pt-8 px-8 relative z-10">
+                                        <CardHeader className="pb-6 sm:pb-8 pt-6 sm:pt-8 px-5 sm:px-8 relative z-10">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white shadow-sm border border-slate-100 ${plan.popular ? 'text-green-600' : 'text-slate-600'}`}>
                                                     <plan.icon className="w-7 h-7" />
@@ -108,9 +108,9 @@ export function PricingSection() {
                                             <p className="text-slate-600 mt-2 text-sm font-medium">{plan.description}</p>
                                         </CardHeader>
 
-                                        <CardContent className="px-8 flex-1 relative z-10">
-                                            <div className="flex items-end mb-8">
-                                                <span className={`text-5xl font-extrabold tracking-tight ${plan.text}`}>
+                                        <CardContent className="px-5 sm:px-8 flex-1 relative z-10">
+                                            <div className="flex items-end mb-6 sm:mb-8">
+                                                <span className={`text-3xl sm:text-5xl font-extrabold tracking-tight ${plan.text}`}>
                                                     {plan.price}
                                                 </span>
                                                 <span className="text-slate-500 font-medium ml-2 mb-1">F CFA /mois</span>
@@ -139,7 +139,7 @@ export function PricingSection() {
                                             </div>
                                         </CardContent>
 
-                                        <CardFooter className="px-8 pb-8 pt-0 relative z-10 mt-auto">
+                                        <CardFooter className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0 relative z-10 mt-auto">
                                             {/* Action buttons hidden until public launch
                                             <Button
                                                 className={`w-full h-12 text-base rounded-xl transition-all duration-300 ${plan.popular

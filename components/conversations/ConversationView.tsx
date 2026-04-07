@@ -205,7 +205,7 @@ function ConversationHeader({
     }
 
     return (
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/80 bg-white">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white">
             {/* Back button (mobile) */}
             {onBack && (
                 <Button
@@ -223,7 +223,7 @@ function ConversationHeader({
                 {contact.avatarUrl && (
                     <AvatarImage src={contact.avatarUrl} alt={contact.name || ''} />
                 )}
-                <AvatarFallback className="bg-linear-to-br from-green-400 to-green-600 text-white font-semibold">
+                <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white font-semibold">
                     {initials}
                 </AvatarFallback>
             </Avatar>
@@ -592,7 +592,7 @@ export function ConversationView({
         return (
             <div className="flex flex-col h-full">
                 {/* Header skeleton */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/80 bg-white">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white">
                     <div className="h-10 w-10 rounded-full bg-gray-200 animate-pulse" />
                     <div className="flex-1 space-y-2">
                         <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
@@ -619,7 +619,7 @@ export function ConversationView({
                     ))}
                 </div>
                 {/* Input skeleton */}
-                <div className="border-t border-gray-200/80 bg-white p-4">
+                <div className="border-t border-gray-100 bg-white p-4">
                     <div className="h-11 rounded-2xl bg-gray-100 animate-pulse" />
                 </div>
             </div>

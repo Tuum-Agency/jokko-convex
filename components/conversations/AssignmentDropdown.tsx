@@ -1,19 +1,12 @@
 /**
- * ╔═══════════════════════════════════════════════════════════════╗
- * ║ components/conversations/AssignmentDropdown.tsx
- * ╠═══════════════════════════════════════════════════════════════╣
- * ║                                                               ║
- * ║     Dropdown avec actions d'assignation rapides               ║
- * ║                                                               ║
- * ║     Menu:                                                     ║
- * ║       - M'assigner                                            ║
- * ║       - Assigner a...                                         ║
- * ║       - Desassigner                                           ║
- * ║                                                               ║
- * ╠═══════════════════════════════════════════════════════════════╣
- * ║ DESCRIPTION:                                                  ║
- * ║   Menu dropdown pour les actions d'assignation rapides.       ║
- * ╚═══════════════════════════════════════════════════════════════╝
+ * Dropdown avec actions d'attribution rapides
+ *
+ * Menu:
+ *   - M'assigner
+ *   - Assigner a...
+ *   - Desassigner
+ *
+ * Note: Le composant est masque si l'equipe ne compte qu'un seul membre.
  */
 
 'use client'
@@ -36,6 +29,8 @@ import { useAssignment } from '@/hooks/useAssignment'
 import type { Role } from '@/lib/team/roles'
 import type { Assignee } from './AssignmentBadge'
 import { cn } from '@/lib/utils'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 
 // ============================================
 // TYPES
@@ -69,9 +64,13 @@ export function AssignmentDropdown({
         },
     })
 
+    // Check team member count
+    const agentsData = useQuery(api.assignments.getAgentsList)
+    const hasOnlyOneMember = agentsData !== undefined && agentsData.length <= 1
+
     const isAssignedToMe = currentAssignee?.id === currentUserMemberId
     const canAssignToOthers =
-        currentUserRole === 'owner' || currentUserRole === 'admin'
+        !hasOnlyOneMember && (currentUserRole === 'owner' || currentUserRole === 'admin')
     const canUnassign =
         canAssignToOthers || (currentUserRole === 'agent' && isAssignedToMe)
 
@@ -85,8 +84,13 @@ export function AssignmentDropdown({
         toast.success('Cette conversation est maintenant disponible')
     }
 
-    // New Logic: If agent and unassigned, show direct "M'assigner" button
-    if (currentUserRole === 'agent' && !currentAssignee) {
+    // If only 1 member and already assigned to me, hide completely (no one else to reassign to)
+    if (hasOnlyOneMember && isAssignedToMe) {
+        return null
+    }
+
+    // If only 1 member and unassigned (or agent and unassigned), show direct "M'attribuer" button
+    if ((hasOnlyOneMember && !currentAssignee) || (currentUserRole === 'agent' && !currentAssignee)) {
         return (
             <Button
                 variant="outline"

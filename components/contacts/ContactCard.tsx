@@ -39,6 +39,7 @@ export interface Contact {
     company?: string | null
     jobTitle?: string | null
     avatarUrl?: string | null
+    countryCode?: string | null
     tags: ContactTag[]
     lastContactedAt?: Date | string | null
     createdAt: Date | string | number
@@ -57,7 +58,7 @@ interface ContactCardProps {
 // HELPERS
 // ============================================
 
-function getInitials(name: string | null, firstName?: string | null, lastName?: string | null): string {
+export function getInitials(name: string | null, firstName?: string | null, lastName?: string | null): string {
     if (name) {
         const parts = name.split(' ')
         return parts.map(p => p[0]).slice(0, 2).join('').toUpperCase()
@@ -84,13 +85,13 @@ export function ContactCard({
     const formattedPhone = formatPhoneDisplay(contact.phone, 'international')
 
     return (
-        <Card className={cn('hover:shadow-md transition-shadow', className)}>
-            <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                    {/* Avatar */}
-                    <Avatar className="h-12 w-12">
+        <Card className={cn('bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow', className)}>
+            <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                    {/* Avatar - green gradient like overview */}
+                    <Avatar className="h-10 w-10 sm:h-11 sm:w-11 shrink-0">
                         <AvatarImage src={contact.avatarUrl || undefined} alt={displayName} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                        <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-sm font-semibold shadow-sm">
                             {initials}
                         </AvatarFallback>
                     </Avatar>
@@ -98,25 +99,25 @@ export function ContactCard({
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-medium text-foreground truncate">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">
                                 {displayName}
                             </h3>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer">
                                         <MoreVertical className="h-4 w-4" />
                                         <span className="sr-only">Actions</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     {onMessage && (
-                                        <DropdownMenuItem onClick={() => onMessage(contact)}>
+                                        <DropdownMenuItem onClick={() => onMessage(contact)} className="cursor-pointer">
                                             <MessageCircle className="mr-2 h-4 w-4" />
                                             Envoyer un message
                                         </DropdownMenuItem>
                                     )}
                                     {onEdit && (
-                                        <DropdownMenuItem onClick={() => onEdit(contact)}>
+                                        <DropdownMenuItem onClick={() => onEdit(contact)} className="cursor-pointer">
                                             <Pencil className="mr-2 h-4 w-4" />
                                             Modifier
                                         </DropdownMenuItem>
@@ -126,7 +127,7 @@ export function ContactCard({
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={() => onDelete(contact)}
-                                                className="text-red-600 focus:text-red-600"
+                                                className="text-red-600 focus:text-red-600 cursor-pointer"
                                             >
                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                 Supprimer
@@ -138,23 +139,23 @@ export function ContactCard({
                         </div>
 
                         {/* Phone */}
-                        <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
-                            <Phone className="h-3.5 w-3.5" />
+                        <div className="flex items-center gap-1.5 mt-1 text-[11px] sm:text-xs text-gray-500">
+                            <Phone className="h-3 w-3 text-gray-400" />
                             <span className="font-mono">{formattedPhone}</span>
                         </div>
 
                         {/* Email */}
                         {contact.email && (
-                            <div className="flex items-center gap-1.5 mt-0.5 text-sm text-muted-foreground">
-                                <Mail className="h-3.5 w-3.5" />
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] sm:text-xs text-gray-500">
+                                <Mail className="h-3 w-3 text-gray-400" />
                                 <span className="truncate">{contact.email}</span>
                             </div>
                         )}
 
                         {/* Company */}
                         {contact.company && (
-                            <div className="flex items-center gap-1.5 mt-0.5 text-sm text-muted-foreground">
-                                <Building2 className="h-3.5 w-3.5" />
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] sm:text-xs text-gray-500">
+                                <Building2 className="h-3 w-3 text-gray-400" />
                                 <span className="truncate">
                                     {contact.company}
                                     {contact.jobTitle && ` - ${contact.jobTitle}`}
@@ -169,18 +170,18 @@ export function ContactCard({
                                     <Badge
                                         key={tag.id}
                                         variant="secondary"
-                                        className="text-xs"
+                                        className="text-[10px] font-medium px-1.5 py-0"
                                         style={{
-                                            backgroundColor: `${tag.color}20`,
+                                            backgroundColor: `${tag.color}15`,
                                             color: tag.color,
-                                            borderColor: tag.color,
+                                            borderColor: `${tag.color}40`,
                                         }}
                                     >
                                         {tag.name}
                                     </Badge>
                                 ))}
                                 {contact.tags.length > 3 && (
-                                    <Badge variant="secondary" className="text-xs">
+                                    <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600 font-medium px-1.5 py-0">
                                         +{contact.tags.length - 3}
                                     </Badge>
                                 )}
@@ -189,7 +190,7 @@ export function ContactCard({
                     </div>
                 </div>
             </CardContent>
-        </Card >
+        </Card>
     )
 }
 

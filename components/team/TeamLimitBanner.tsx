@@ -101,7 +101,7 @@ export function TeamLimitBanner({
                                     : 'bg-amber-600 hover:bg-amber-700'
                             }
                         >
-                            <Link href="/billing/plans">
+                            <Link href="/dashboard/billing">
                                 Voir les plans
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
