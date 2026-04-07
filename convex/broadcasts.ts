@@ -232,8 +232,9 @@ export const sendSingleToContact = internalMutation({
                 organizationId: args.organizationId,
                 contactId: args.contactId,
                 channel: "WHATSAPP",
-                status: "OPEN",
+                status: "RESOLVED", // Broadcast-initiated: don't show as assignable
                 lastMessageAt: Date.now(),
+                lastMessageDirection: "OUTBOUND",
                 unreadCount: 0,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -285,7 +286,8 @@ export const sendSingleToContact = internalMutation({
         // 5. Update Conversation preview
         await ctx.db.patch(conversation._id, {
             lastMessageAt: Date.now(),
-            preview: `📷 ${args.templateName}`, // Icon or just name
+            lastMessageDirection: "OUTBOUND",
+            preview: `📤 ${args.templateName}`,
             updatedAt: Date.now()
         });
     }

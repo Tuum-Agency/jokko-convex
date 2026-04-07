@@ -879,12 +879,16 @@ export default defineSchema({
 
         // Metadata
         lastMessageAt: v.number(),
+        lastMessageDirection: v.optional(v.string()), // "INBOUND" | "OUTBOUND"
         unreadCount: v.number(),
         preview: v.optional(v.string()),
         priority: v.optional(v.string()), // "urgent", "high", "normal", "low"
 
         // Tags
         tags: v.optional(v.array(v.string())),
+
+        // Pinned
+        isPinned: v.optional(v.boolean()),
 
         createdAt: v.number(),
         updatedAt: v.number(),

@@ -308,7 +308,47 @@ export const markAsRead = mutation({
         await ctx.db.patch(args.id, { unreadCount: 0 });
     }
 });
-// ... (existing code)
+
+export const togglePin = mutation({
+    args: { id: v.id("conversations") },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.id);
+        if (!conversation) throw new Error("Conversation not found");
+
+        await requireMembership(ctx, conversation.organizationId);
+
+        await ctx.db.patch(args.id, {
+            isPinned: !conversation.isPinned,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const assignToMe = mutation({
+    args: { id: v.id("conversations") },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.id);
+        if (!conversation) throw new Error("Conversation not found");
+
+        const { userId, membership } = await requireMembership(ctx, conversation.organizationId);
+
+        // Already assigned to someone
+        if (conversation.assignedTo) {
+            throw new Error("Conversation already assigned");
+        }
+
+        await ctx.db.patch(args.id, {
+            assignedTo: userId,
+            assignedAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        // Increment active conversations for the assignee
+        await ctx.db.patch(membership._id, {
+            activeConversations: (membership.activeConversations || 0) + 1,
+        });
+    },
+});
 
 export const getSidebarStats = query({
     args: {},

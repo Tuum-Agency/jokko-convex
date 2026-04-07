@@ -28,6 +28,9 @@ export interface ConversationSummary {
     tags: string[];
     channel: string;
     status: string;
+    windowExpiresAt?: number;
+    lastMessageDirection?: string;
+    isPinned?: boolean;
 }
 
 export function useConversations() {
@@ -67,7 +70,10 @@ export function useConversations() {
             } : undefined,
             tags: c.tags || [],
             channel: c.channel,
-            status: c.status
+            status: c.status,
+            windowExpiresAt: c.windowExpiresAt,
+            lastMessageDirection: c.lastMessageDirection,
+            isPinned: c.isPinned,
         }));
     }, [conversationsData]);
 
@@ -80,6 +86,8 @@ export function useConversations() {
     const reopenMutation = useMutation(api.conversations.reopen);
     const archiveMutation = useMutation(api.conversations.archive);
     const markAsReadMutation = useMutation(api.conversations.markAsRead);
+    const assignToMeMutation = useMutation(api.conversations.assignToMe);
+    const togglePinMutation = useMutation(api.conversations.togglePin);
     const toggleBlockMutation = useMutation(api.contacts.toggleBlock);
 
     // Status state for actions
@@ -112,6 +120,14 @@ export function useConversations() {
         }
     };
 
+    const assignToMe = async (id: string) => {
+        await assignToMeMutation({ id: id as Id<"conversations"> });
+    };
+
+    const togglePin = async (id: string) => {
+        await togglePinMutation({ id: id as Id<"conversations"> });
+    };
+
     const blockContact = async (contactId: string) => {
         await toggleBlockMutation({ id: contactId as Id<"contacts"> });
     }
@@ -140,6 +156,8 @@ export function useConversations() {
         resolveConversation,
         reopenResolvedConversation,
         archiveConversation,
+        assignToMe,
+        togglePin,
         blockContact,
         markAsRead,
         isResolving,

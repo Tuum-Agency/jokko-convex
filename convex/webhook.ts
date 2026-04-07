@@ -115,6 +115,7 @@ export const handleIncomingMessage = internalMutation({
                 status: "OPEN",
                 unreadCount: 0,
                 lastMessageAt: Date.now(),
+                lastMessageDirection: "INBOUND",
                 channel: "WHATSAPP",
                 whatsappChannelId: whatsappChannelId,
                 createdAt: Date.now(),
@@ -235,6 +236,7 @@ export const handleIncomingMessage = internalMutation({
         const preview = content || MEDIA_PREVIEW[type] || `[${type}]`;
         await ctx.db.patch(conversation._id, {
             lastMessageAt: Date.now(),
+            lastMessageDirection: "INBOUND",
             preview,
             unreadCount: (conversation.unreadCount || 0) + 1,
             updatedAt: Date.now(),

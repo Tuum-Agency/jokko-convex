@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { Search, UserX, Archive, Inbox, User, Phone, MessageSquare, X, Mail, Users } from 'lucide-react'
+import { Search, UserX, Archive, Inbox, User, Phone, MessageSquare, X, Mail, Users, Clock, UserPlus, CheckCheck, Pin, ArrowUpDown, SortAsc, CheckSquare } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -12,6 +12,11 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useConversations, type ConversationFilter, type ConversationSummary } from '@/hooks/useConversations'
 import { useChannels } from '@/hooks/useChannels'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
 
 // ============================================
@@ -25,6 +30,7 @@ interface ContactListProps {
 
 type PrimaryScope = 'all' | 'mine'
 type SecondaryFilter = 'none' | 'unread' | 'unassigned' | 'archived'
+type SortOption = 'recent' | 'oldest' | 'unread' | 'name'
 
 // ============================================
 // SECONDARY FILTER CONFIG
@@ -40,6 +46,17 @@ const secondaryFilters: { value: SecondaryFilter; label: string; icon: React.Ele
 // ============================================
 // HELPERS
 // ============================================
+
+function getWindowStatus(expiresAt?: number): { color: 'green' | 'orange' | 'red'; label: string } | null {
+    if (!expiresAt) return null
+    const remaining = expiresAt - Date.now()
+    if (remaining <= 0) return { color: 'red', label: 'Fenêtre expirée' }
+    const hours = Math.floor(remaining / 3_600_000)
+    const minutes = Math.floor((remaining % 3_600_000) / 60_000)
+    const timeLabel = hours > 0 ? `${hours}h${minutes.toString().padStart(2, '0')} restantes` : `${minutes}min restantes`
+    if (remaining < 4 * 3_600_000) return { color: 'orange', label: timeLabel }
+    return { color: 'green', label: timeLabel }
+}
 
 function computeBackendFilter(primary: PrimaryScope, secondary: SecondaryFilter): ConversationFilter {
     if (secondary === 'archived') return 'archived'
@@ -80,11 +97,21 @@ function ContactListItem({
     isSelected,
     onClick,
     showAssignee = true,
+    onArchive,
+    onMarkAsRead,
+    onAssignToMe,
+    onTogglePin,
+    isTyping = false,
 }: {
     conversation: ConversationSummary
     isSelected: boolean
     onClick: () => void
     showAssignee?: boolean
+    onArchive?: (id: string) => void
+    onMarkAsRead?: (id: string) => void
+    onAssignToMe?: (id: string) => void
+    onTogglePin?: (id: string) => void
+    isTyping?: boolean
 }) {
     const { contact, lastMessageText, lastMessageAt, unreadCount, lastMessageType, assignedTo } = conversation
 
@@ -100,7 +127,7 @@ function ContactListItem({
         if (!lastMessageText) {
             const typeMap: Record<string, string> = {
                 IMAGE: 'Photo',
-                VIDEO: 'Vid\u00e9o',
+                VIDEO: 'Vidéo',
                 AUDIO: 'Audio',
                 DOCUMENT: 'Document',
                 LOCATION: 'Position',
@@ -113,11 +140,13 @@ function ContactListItem({
             : lastMessageText
     }, [lastMessageText, lastMessageType])
 
+    const windowStatus = getWindowStatus(conversation.windowExpiresAt)
+
     return (
         <button
             onClick={onClick}
             className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer',
+                'w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer relative group',
                 'hover:bg-gray-50 focus:outline-none focus:bg-gray-50',
                 isSelected
                     ? 'bg-green-50/70 hover:bg-green-50/70 border-l-2 border-l-green-600'
@@ -146,33 +175,211 @@ function ContactListItem({
                     )}>
                         {contact.name || contact.phone}
                     </h3>
-                    <span className={cn(
-                        'text-[11px] shrink-0',
-                        unreadCount > 0 ? 'text-green-600 font-semibold' : 'text-gray-400'
-                    )}>
-                        {timeAgo}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {windowStatus && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className={cn(
+                                        'inline-block h-2 w-2 rounded-full',
+                                        windowStatus.color === 'green' && 'bg-green-500',
+                                        windowStatus.color === 'orange' && 'bg-orange-500',
+                                        windowStatus.color === 'red' && 'bg-red-500',
+                                    )} />
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                    <div className="flex items-center gap-1.5">
+                                        <Clock className="h-3 w-3" />
+                                        <span className="text-xs">{windowStatus.label}</span>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+                        <span className={cn(
+                            'text-[11px]',
+                            unreadCount > 0 ? 'text-green-600 font-semibold' : 'text-gray-400'
+                        )}>
+                            {timeAgo}
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className={cn(
-                        'text-[13px] truncate',
-                        unreadCount > 0 ? 'text-gray-600 font-medium' : 'text-gray-400'
-                    )}>
-                        {messagePreview}
-                    </p>
-                    {unreadCount > 0 && (
-                        <Badge className="h-[18px] min-w-[18px] rounded-full bg-green-500 hover:bg-green-500 text-white text-[10px] px-1 shrink-0 font-semibold">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </Badge>
+                    {isTyping ? (
+                        <span className="flex items-center gap-1 text-[13px] text-green-600 font-medium">
+                            <span className="flex gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </span>
+                            En train d'écrire...
+                        </span>
+                    ) : (
+                        <p className={cn(
+                            'text-[13px] truncate',
+                            unreadCount > 0 ? 'text-gray-600 font-medium' : 'text-gray-400'
+                        )}>
+                            {messagePreview}
+                        </p>
                     )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Response time indicator */}
+                        {unreadCount > 0 && conversation.lastMessageDirection === 'INBOUND' && lastMessageAt && (
+                            (() => {
+                                const waitMs = Date.now() - lastMessageAt
+                                const waitHours = Math.floor(waitMs / 3_600_000)
+                                const waitMin = Math.floor((waitMs % 3_600_000) / 60_000)
+                                if (waitMin < 5) return null
+                                return (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className={cn(
+                                                'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                                                waitHours >= 4 ? 'text-red-500' : waitHours >= 1 ? 'text-orange-500' : 'text-gray-400'
+                                            )}>
+                                                <Clock className="h-3 w-3" />
+                                                {waitHours > 0 ? `${waitHours}h` : `${waitMin}m`}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <span className="text-xs">En attente depuis {waitHours > 0 ? `${waitHours}h${waitMin.toString().padStart(2, '0')}` : `${waitMin} min`}</span>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )
+                            })()
+                        )}
+                        {unreadCount > 0 && (
+                            <Badge className="h-[18px] min-w-[18px] rounded-full bg-green-500 hover:bg-green-500 text-white text-[10px] px-1 shrink-0 font-semibold">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </Badge>
+                        )}
+                    </div>
                 </div>
+                {/* Tags */}
+                {conversation.tags.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                        {conversation.tags.slice(0, 3).map((tag, i) => (
+                            <Tooltip key={i}>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className="inline-block w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: typeof tag === 'object' && (tag as any).color ? (tag as any).color : '#9ca3af' }}
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <span className="text-xs">{typeof tag === 'object' ? (tag as any).name : tag}</span>
+                                </TooltipContent>
+                            </Tooltip>
+                        ))}
+                        {conversation.tags.length > 3 && (
+                            <span className="text-[10px] text-gray-400">+{conversation.tags.length - 3}</span>
+                        )}
+                    </div>
+                )}
                 {showAssignee && assignedTo && (
                     <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-                        Assign\u00e9e \u00e0 {assignedTo.name || assignedTo.email?.split('@')[0]}
+                        Assignée à {assignedTo.name || assignedTo.email?.split('@')[0]}
                     </p>
                 )}
             </div>
+
+            {/* Hover quick actions */}
+            <div className="absolute inset-y-0 right-0 hidden md:flex items-center gap-1 pr-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-white via-white to-transparent pl-8">
+                {unreadCount > 0 && onMarkAsRead && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); onMarkAsRead(conversation.id) }}
+                                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            >
+                                <CheckCheck className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Marquer comme lu</TooltipContent>
+                    </Tooltip>
+                )}
+                {onAssignToMe && !assignedTo && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); onAssignToMe(conversation.id) }}
+                                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            >
+                                <UserPlus className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>S'assigner</TooltipContent>
+                    </Tooltip>
+                )}
+                {onTogglePin && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); onTogglePin(conversation.id) }}
+                                className={cn(
+                                    'p-1.5 rounded-full cursor-pointer',
+                                    conversation.isPinned
+                                        ? 'text-green-600 hover:bg-green-50'
+                                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                                )}
+                            >
+                                <Pin className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{conversation.isPinned ? 'Désépingler' : 'Épingler'}</TooltipContent>
+                    </Tooltip>
+                )}
+                {onArchive && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); onArchive(conversation.id) }}
+                                className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer"
+                            >
+                                <Archive className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Archiver</TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
         </button>
+    )
+}
+
+// ============================================
+// CONVERSATION PEEK (hover preview)
+// ============================================
+
+function ConversationPeek({ conversationId }: { conversationId: string }) {
+    const messages = useQuery(api.messages.preview, {
+        conversationId: conversationId as Id<"conversations">
+    })
+
+    if (!messages || messages.length === 0) {
+        return (
+            <p className="text-xs text-gray-400 italic py-2">Aucun message</p>
+        )
+    }
+
+    return (
+        <div className="space-y-1.5 max-w-[280px]">
+            {messages.map((msg) => (
+                <div
+                    key={msg.id}
+                    className={cn(
+                        'px-2.5 py-1.5 rounded-lg text-xs max-w-[220px]',
+                        msg.direction === 'OUTBOUND'
+                            ? 'bg-green-100 text-green-900 ml-auto'
+                            : 'bg-gray-100 text-gray-700'
+                    )}
+                >
+                    <p className="line-clamp-2">{msg.content}</p>
+                </div>
+            ))}
+        </div>
     )
 }
 
@@ -185,6 +392,9 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
     const [channelFilter, setChannelFilter] = useState<string>('all')
     const [primaryScope, setPrimaryScope] = useState<PrimaryScope>('all')
     const [activeSecondary, setActiveSecondary] = useState<SecondaryFilter>('none')
+    const [sortBy, setSortBy] = useState<SortOption>('recent')
+    const [bulkMode, setBulkMode] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
     const {
         conversations,
@@ -193,6 +403,10 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
         isLoading,
         unreadCount: totalUnread,
         currentMember,
+        archiveConversation,
+        markAsRead,
+        assignToMe,
+        togglePin,
     } = useConversations()
 
     const { channels } = useChannels()
@@ -253,8 +467,20 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
             result = result.filter((conv: ConversationSummary) => conv.assignedTo?.id === currentMember?.id)
         }
 
+        // Sort
+        if (sortBy === 'oldest') {
+            result = [...result].sort((a, b) => a.lastMessageAt - b.lastMessageAt)
+        } else if (sortBy === 'unread') {
+            result = [...result].sort((a, b) => b.unreadCount - a.unreadCount)
+        } else if (sortBy === 'name') {
+            result = [...result].sort((a, b) =>
+                (a.contact.name || a.contact.phone).localeCompare(b.contact.name || b.contact.phone)
+            )
+        }
+        // 'recent' is already the default sort from backend
+
         return result
-    }, [conversations, searchQuery, channelFilter, primaryScope, activeSecondary, currentMember])
+    }, [conversations, searchQuery, channelFilter, primaryScope, activeSecondary, currentMember, sortBy])
 
     // Grouped view: only when scope=all + secondary=none (show sections)
     const showGrouped = primaryScope === 'all' && activeSecondary === 'none' && !searchQuery.trim()
@@ -278,15 +504,92 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
         return { mine, unassigned, team }
     }, [filteredConversations, showGrouped, currentMember])
 
+    // Bulk actions
+    const toggleBulkSelect = useCallback((id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }, [])
+
+    const selectAll = useCallback(() => {
+        setSelectedIds(new Set(filteredConversations.map(c => c.id)))
+    }, [filteredConversations])
+
+    const clearSelection = useCallback(() => {
+        setSelectedIds(new Set())
+        setBulkMode(false)
+    }, [])
+
+    const handleBulkArchive = useCallback(async () => {
+        for (const id of selectedIds) {
+            await archiveConversation(id)
+        }
+        clearSelection()
+    }, [selectedIds, archiveConversation, clearSelection])
+
+    const handleBulkMarkAsRead = useCallback(async () => {
+        for (const id of selectedIds) {
+            await markAsRead(id)
+        }
+        clearSelection()
+    }, [selectedIds, markAsRead, clearSelection])
+
+    // Split pinned conversations
+    const pinnedConversations = useMemo(() =>
+        filteredConversations.filter(c => c.isPinned),
+        [filteredConversations]
+    )
+    const unpinnedConversations = useMemo(() =>
+        filteredConversations.filter(c => !c.isPinned),
+        [filteredConversations]
+    )
+
     const renderList = (items: ConversationSummary[], hideAssignee = false) =>
         items.map((conv) => (
-            <ContactListItem
-                key={conv.id}
-                conversation={conv}
-                isSelected={selectedId === conv.id}
-                onClick={() => onSelect(conv.id)}
-                showAssignee={!hideAssignee}
-            />
+            <div key={conv.id} className="flex items-center">
+                {bulkMode && (
+                    <button
+                        onClick={() => toggleBulkSelect(conv.id)}
+                        className="shrink-0 pl-3 pr-1 py-3 cursor-pointer"
+                    >
+                        <div className={cn(
+                            'h-5 w-5 rounded border-2 flex items-center justify-center transition-colors',
+                            selectedIds.has(conv.id)
+                                ? 'bg-green-600 border-green-600 text-white'
+                                : 'border-gray-300 hover:border-gray-400'
+                        )}>
+                            {selectedIds.has(conv.id) && <CheckCheck className="h-3 w-3" />}
+                        </div>
+                    </button>
+                )}
+                <HoverCard openDelay={400} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                        <div className="flex-1 min-w-0">
+                            <ContactListItem
+                                conversation={conv}
+                                isSelected={selectedId === conv.id}
+                                onClick={() => bulkMode ? toggleBulkSelect(conv.id) : onSelect(conv.id)}
+                                showAssignee={!hideAssignee}
+                                onArchive={bulkMode ? undefined : archiveConversation}
+                                onMarkAsRead={bulkMode ? undefined : markAsRead}
+                                onAssignToMe={bulkMode ? undefined : assignToMe}
+                                onTogglePin={bulkMode ? undefined : togglePin}
+                            />
+                        </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="right" align="start" className="w-[300px] p-3">
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
+                            <span className="text-sm font-medium text-gray-900 truncate">
+                                {conv.contact.name || conv.contact.phone}
+                            </span>
+                        </div>
+                        <ConversationPeek conversationId={conv.id} />
+                    </HoverCardContent>
+                </HoverCard>
+            </div>
         ))
 
     return (
@@ -404,7 +707,80 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
                         </SelectContent>
                     </Select>
                 )}
+
+                {/* Sort & Bulk — integrated as icon buttons */}
+                <div className="flex items-center gap-1 ml-auto shrink-0">
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <SelectTrigger className="h-7 w-7 p-0 border-0 bg-transparent shadow-none [&>svg:last-child]:hidden justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
+                                    <ArrowUpDown className="h-3.5 w-3.5" />
+                                </SelectTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>Trier</TooltipContent>
+                        </Tooltip>
+                        <SelectContent align="end">
+                            <SelectItem value="recent">Plus récentes</SelectItem>
+                            <SelectItem value="oldest">Plus anciennes</SelectItem>
+                            <SelectItem value="unread">Non lus d'abord</SelectItem>
+                            <SelectItem value="name">Par nom</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
+                                className={cn(
+                                    'h-7 w-7 flex items-center justify-center rounded-full transition-colors cursor-pointer',
+                                    bulkMode
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'text-gray-400 hover:text-gray-600'
+                                )}
+                            >
+                                <CheckSquare className="h-3.5 w-3.5" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{bulkMode ? 'Quitter la sélection' : 'Sélection multiple'}</TooltipContent>
+                    </Tooltip>
+                </div>
             </div>
+
+            {/* ── Bulk Actions Floating Bar ── */}
+            {bulkMode && selectedIds.size > 0 && (
+                <div className="px-3 py-2 border-b border-green-200 bg-green-50 flex items-center justify-between">
+                    <span className="text-xs font-medium text-green-800">
+                        {selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={selectAll}
+                            className="text-[11px] text-green-700 hover:text-green-900 font-medium cursor-pointer"
+                        >
+                            Tout
+                        </button>
+                        <button
+                            onClick={handleBulkMarkAsRead}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-white border border-green-200 text-green-700 hover:bg-green-100 cursor-pointer"
+                        >
+                            <CheckCheck className="h-3 w-3" />
+                            Lus
+                        </button>
+                        <button
+                            onClick={handleBulkArchive}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-white border border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+                        >
+                            <Archive className="h-3 w-3" />
+                            Archiver
+                        </button>
+                        <button
+                            onClick={clearSelection}
+                            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white cursor-pointer"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Conversations List ── */}
             <ScrollArea className="flex-1">
@@ -438,43 +814,58 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
                                         : 'Les nouvelles conversations appara\u00eetront ici'}
                         </p>
                     </div>
-                ) : groupedByOwnership ? (
-                    /* Grouped view: scope=all, secondary=none, no search */
-                    <div>
-                        {groupedByOwnership.mine.length > 0 && (
-                            <>
-                                <SectionDivider
-                                    title="Mes conversations"
-                                    count={groupedByOwnership.mine.length}
-                                />
-                                {renderList(groupedByOwnership.mine, true)}
-                            </>
-                        )}
-
-                        {groupedByOwnership.unassigned.length > 0 && (
-                            <>
-                                <SectionDivider
-                                    title="Non assign\u00e9es"
-                                    count={groupedByOwnership.unassigned.length}
-                                />
-                                {renderList(groupedByOwnership.unassigned)}
-                            </>
-                        )}
-
-                        {groupedByOwnership.team.length > 0 && (
-                            <>
-                                <SectionDivider
-                                    title="\u00c9quipe"
-                                    count={groupedByOwnership.team.length}
-                                />
-                                {renderList(groupedByOwnership.team)}
-                            </>
-                        )}
-                    </div>
                 ) : (
-                    /* Flat list for filtered views */
                     <div>
-                        {renderList(filteredConversations, filter === 'mine')}
+                        {/* Pinned section */}
+                        {pinnedConversations.length > 0 && (
+                            <>
+                                <SectionDivider
+                                    title="Épinglées"
+                                    count={pinnedConversations.length}
+                                />
+                                {renderList(pinnedConversations)}
+                            </>
+                        )}
+
+                        {groupedByOwnership ? (
+                            /* Grouped view: scope=all, secondary=none, no search */
+                            <>
+                                {groupedByOwnership.mine.filter(c => !c.isPinned).length > 0 && (
+                                    <>
+                                        <SectionDivider
+                                            title="Mes conversations"
+                                            count={groupedByOwnership.mine.filter(c => !c.isPinned).length}
+                                        />
+                                        {renderList(groupedByOwnership.mine.filter(c => !c.isPinned), true)}
+                                    </>
+                                )}
+
+                                {groupedByOwnership.unassigned.filter(c => !c.isPinned).length > 0 && (
+                                    <>
+                                        <SectionDivider
+                                            title="Non assignées"
+                                            count={groupedByOwnership.unassigned.filter(c => !c.isPinned).length}
+                                        />
+                                        {renderList(groupedByOwnership.unassigned.filter(c => !c.isPinned))}
+                                    </>
+                                )}
+
+                                {groupedByOwnership.team.filter(c => !c.isPinned).length > 0 && (
+                                    <>
+                                        <SectionDivider
+                                            title="Équipe"
+                                            count={groupedByOwnership.team.filter(c => !c.isPinned).length}
+                                        />
+                                        {renderList(groupedByOwnership.team.filter(c => !c.isPinned))}
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            /* Flat list for filtered views */
+                            <>
+                                {renderList(unpinnedConversations, filter === 'mine')}
+                            </>
+                        )}
                     </div>
                 )}
             </ScrollArea>

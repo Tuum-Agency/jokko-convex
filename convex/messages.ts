@@ -57,6 +57,30 @@ export const list = query({
     },
 });
 
+export const preview = query({
+    args: { conversationId: v.id("conversations") },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.conversationId);
+        if (!conversation) return [];
+
+        await requireMembership(ctx, conversation.organizationId);
+
+        const messages = await ctx.db
+            .query("messages")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+            .order("desc")
+            .take(5);
+
+        return messages.reverse().map(msg => ({
+            id: msg._id,
+            content: msg.content || `[${msg.type}]`,
+            type: msg.type,
+            direction: msg.direction,
+            timestamp: msg._creationTime,
+        }));
+    },
+});
+
 // ============================================
 // Mutations
 // ============================================
@@ -108,6 +132,7 @@ export const send = mutation({
         // Update conversation (last message, update time)
         await ctx.db.patch(args.conversationId, {
             lastMessageAt: Date.now(),
+            lastMessageDirection: "OUTBOUND",
             preview: args.content || (args.type === "TEXT" ? args.content : `[${args.type}]`),
             updatedAt: Date.now(),
         });
