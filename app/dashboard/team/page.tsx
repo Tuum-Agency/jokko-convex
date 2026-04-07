@@ -245,7 +245,7 @@ export default function TeamPage() {
                         <Users className="h-4 w-4" />
                         <span className="hidden sm:inline">Membres</span>
                         {totalMembers > 0 && (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-600 text-white">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
                                 {totalMembers}
                             </Badge>
                         )}
@@ -254,7 +254,7 @@ export default function TeamPage() {
                         <Building2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Poles</span>
                         {totalPoles > 0 && (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-indigo-100 text-indigo-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
                                 {totalPoles}
                             </Badge>
                         )}
@@ -263,7 +263,7 @@ export default function TeamPage() {
                         <Mail className="h-4 w-4" />
                         <span className="hidden sm:inline">Invitations</span>
                         {pendingInvitations > 0 && (
-                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-blue-100 text-blue-700">
+                            <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-emerald-500 text-white">
                                 {pendingInvitations}
                             </Badge>
                         )}
