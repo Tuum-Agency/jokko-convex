@@ -37,13 +37,13 @@ import {
 const mainNavigation = [
     { name: 'Dashboard', href: '', icon: LayoutDashboard },
     { name: 'Conversations', href: '/conversations', icon: MessageSquare },
-    { name: 'Attribution', href: '/assignments', icon: UserCheck },
     { name: 'Contacts', href: '/contacts', icon: Users },
+    { name: 'Team', href: '/team', icon: UsersRound },
+    { name: 'Attribution', href: '/assignments', icon: UserCheck },
     { name: 'Modèles', href: '/modeles', icon: FileText },
     { name: 'Campagnes', href: '/campagnes', icon: Send },
-    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
     { name: 'Automatisation', href: '/automatisations', icon: Workflow },
-    { name: 'Team', href: '/team', icon: UsersRound },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
 ]
 
 const bottomNavigation = [
