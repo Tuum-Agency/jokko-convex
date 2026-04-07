@@ -1,6 +1,6 @@
 'use client'
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Check, CreditCard, Zap, AlertCircle, Plus, History, Crown, Loader2, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { cn } from "@/lib/utils";
 import { PLANS as PLAN_DEFS, formatLimit } from "@/lib/plans";
+import { RechargeDialog } from "./_components/recharge-dialog";
 
 const PLAN_UI = {
     STARTER: { color: "border-blue-200 bg-blue-50/30", badge: "bg-blue-100 text-blue-700", btnColor: "bg-blue-600 hover:bg-blue-700" },
@@ -54,13 +55,13 @@ export default function BillingPage() {
     const transactions = useQuery(api.credits.getTransactions, { limit: 10 });
     const { currentOrg } = useCurrentOrg();
 
-    const addCredits = useMutation(api.credits.debugAddCredits);
     const createCheckout = useAction(api.stripe_actions.createCheckoutSession);
     const createPortal = useAction(api.stripe_actions.createPortalSession);
 
     const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
     const [loadingPortal, setLoadingPortal] = useState(false);
     const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+    const [rechargeOpen, setRechargeOpen] = useState(false);
 
     const handleUpgrade = async (planKey: "STARTER" | "BUSINESS" | "PRO") => {
         setLoadingPlan(planKey);
@@ -82,14 +83,6 @@ export default function BillingPage() {
             toast.error("Erreur", { description: error.message || "Impossible d'accéder au portail." });
             setLoadingPortal(false);
         }
-    };
-
-    const handleRecharge = () => {
-        addCredits({ amount: 5000 }).then(() => {
-            toast.success("5 000 FCFA ajoutés (Simulation)");
-        }).catch(() => {
-            toast.error("Erreur lors de la recharge");
-        });
     };
 
     if (role === undefined || creditBalance === undefined) {
@@ -157,10 +150,11 @@ export default function BillingPage() {
                         </p>
                     </CardContent>
                     <CardFooter className="gap-2">
-                        <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleRecharge}>
+                        <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => setRechargeOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            Recharger (Simuler)
+                            Recharger
                         </Button>
+                        <RechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} />
                     </CardFooter>
                 </Card>
 
