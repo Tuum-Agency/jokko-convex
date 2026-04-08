@@ -101,74 +101,25 @@ export const getConversationsQueue = query({
         const context = await getContext(ctx);
         const { organizationId, role } = context;
 
-        // Fetch all open conversations
         const conversations = await ctx.db
             .query("conversations")
             .withIndex("by_org_status", (q) => q.eq("organizationId", organizationId).eq("status", "OPEN"))
             .collect();
 
-        // Filter by visibility
-        // Need to map to ConversationForVisibility interface
-        const viewable = conversations.filter(conv => {
-            return canViewConversation(context, {
-                organizationId: conv.organizationId,
-                assignedToAgentId: conv.assignedTo as any, // Cast if types mismatch (schema uses users, helper uses agents? wait)
-                // Helper expects agentId. Schema 'assignedTo' is 'users'.
-                // Wait, assignments table uses 'agentId' (agents table).
-                // Conversations table uses 'assignedTo' (users table).
-                // This is a mismatch in my schema definition vs prompt expectation.
-                // Prompt architecture shows: assignments -> agentId.
-                // Conversations table was added by me.
-                // I should align. If `assignments` is the source of truth, `conversations` table might ideally link to `assignments` or `agentId`.
-                // But `conversations.ts` usually links to User.
-                // Let's assume `assignedTo` on conversation is the USER ID of the agent.
-
-                // If `assignments` table is the formal record, `conversations` should reflect it.
-                // The helper `canViewConversation` uses `assignedToAgentId` (Id<'agents'>).
-                // This implies `conversations` should link to `agents` table or we resolve it.
-                // I will stick to what I have: `assignedTo` is User ID.
-                // I need to resolve Agent ID from User ID to use the helper strictly?
-                // Or I modify helper / usage.
-                // `context.agentId` is an Agent ID. 
-
-                // Let's fix this dynamic: 
-                // If the conversation is assigned to the user corresponding to `context.agentId`...
-
-                // Actually the helper `canViewConversation` expects `assignedToAgentId`.
-                // If I stored `agentId` in `conversations`, it would be easier.
-                // But `users` is more standard for assignment in simple apps.
-                // Given the complexity of "Assignment System", linking to `agents` is better.
-                // But I defined `assignedTo: v.id("users")` in schema.
-
-                // I will skip proper visibility check via helper for a moment and implement simple logic:
-                // Owner/Admin: All
-                // Agent: Assigned to Me (User ID) OR Unassigned (if allowed?)
-
-                status: conv.status
-            } as any);
-        });
-
-        // Simple visibility implementation inline to avoid type mess for now
         const filtered = conversations.filter(c => {
             if (role === 'OWNER' || role === 'ADMIN') return true;
-            if (role === 'MANAGER') return true; // Simplify (managers see all in dept, assume all for now)
+            if (role === 'MANAGER') return true;
             if (role === 'AGENT') {
-                // Open and Assigned to me
                 return !c.assignedTo || c.assignedTo === context.memberId;
             }
             return false;
         });
 
-        // Enrich with Contact info
         const results = await Promise.all(filtered.map(async (c) => {
             const messageLower = (c.preview || "").toLowerCase();
             let priority = "normal";
             if (messageLower.includes("urgent") || messageLower.includes("problème") || messageLower.includes("failed")) {
                 priority = "urgent";
-            } else if (messageLower.includes("infos") || messageLower.includes("question")) {
-                priority = "normal";
-            } else {
-                priority = "high"; // Just for variety
             }
 
             let contactName = "Inconnu";
@@ -192,13 +143,120 @@ export const getConversationsQueue = query({
                 id: c._id,
                 message: c.preview || "Nouveau message",
                 time: new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                lastMessageAt: c.lastMessageAt,
                 business: contactName,
                 phone: contactPhone,
                 priority: priority,
                 statusColor: c.assignedTo ? "bg-green-500" : "bg-gray-300",
-                date: "message", // Icon type
                 assignedTo: c.assignedTo,
-                assigneeName: assigneeName
+                assigneeName: assigneeName,
+                departmentId: c.departmentId,
+            };
+        }));
+
+        return results;
+    }
+});
+
+// #28 - Bulk assign multiple conversations
+export const bulkAssign = mutation({
+    args: {
+        conversationIds: v.array(v.id("conversations")),
+        memberId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const context = await getContext(ctx);
+        const { organizationId, role } = context;
+
+        if (role === 'AGENT') throw new Error("Agents cannot bulk assign");
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q: any) => q.eq("userId", args.memberId).eq("organizationId", organizationId))
+            .first();
+        if (!membership) throw new Error("Target member not found");
+
+        let assigned = 0;
+        for (const convId of args.conversationIds) {
+            const conv = await ctx.db.get(convId);
+            if (!conv || conv.organizationId !== organizationId) continue;
+            if (conv.assignedTo === args.memberId) continue;
+
+            const prevAssignee = conv.assignedTo;
+
+            await ctx.db.patch(convId, {
+                assignedTo: args.memberId,
+                assignedAt: Date.now(),
+                departmentId: membership.poleId ? String(membership.poleId) : undefined,
+            });
+
+            if (prevAssignee) {
+                const prevMembership = await ctx.db
+                    .query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", prevAssignee).eq("organizationId", organizationId))
+                    .first();
+                if (prevMembership && (prevMembership.activeConversations || 0) > 0) {
+                    await ctx.db.patch(prevMembership._id, {
+                        activeConversations: (prevMembership.activeConversations || 0) - 1
+                    });
+                }
+            }
+
+            await ctx.db.insert("assignments", {
+                organizationId,
+                conversationId: convId,
+                assignedByMemberId: context.memberId,
+                assignedBy: "MANUAL",
+                status: "ACTIVE",
+                assignedAt: Date.now(),
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                slaBreached: false,
+                history: [],
+                internalNotes: "Bulk assignment"
+            });
+
+            assigned++;
+        }
+
+        await ctx.db.patch(membership._id, {
+            activeConversations: (membership.activeConversations || 0) + assigned,
+            lastAssignedAt: Date.now(),
+        });
+
+        return { assigned };
+    }
+});
+
+// #33 - Assignment history for a conversation
+export const getAssignmentHistory = query({
+    args: { conversationId: v.id("conversations") },
+    handler: async (ctx, args) => {
+        const context = await getContext(ctx);
+
+        const conv = await ctx.db.get(args.conversationId);
+        if (!conv || conv.organizationId !== context.organizationId) return [];
+
+        const assignments = await ctx.db
+            .query("assignments")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+            .order("desc")
+            .take(10);
+
+        const results = await Promise.all(assignments.map(async (a) => {
+            let assigneeName = "Systeme";
+            if (a.assignedByMemberId) {
+                const user = await ctx.db.get(a.assignedByMemberId);
+                assigneeName = user?.name || "Inconnu";
+            }
+
+            return {
+                id: a._id,
+                assignedBy: a.assignedBy,
+                assignedByName: assigneeName,
+                status: a.status,
+                assignedAt: a.assignedAt,
+                note: a.internalNotes,
             };
         }));
 
