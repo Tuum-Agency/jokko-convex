@@ -11,7 +11,9 @@ import {
     Users,
     AlertTriangle,
     CheckCircle2,
+    HelpCircle,
 } from 'lucide-react';
+import { ImportGuideDialog } from './ImportGuideDialog';
 
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Button } from '@/components/ui/button';
@@ -95,6 +97,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
     const [file, setFile] = useState<File | null>(null);
     const [parsedContacts, setParsedContacts] = useState<any[]>([]);
     const [importStats, setImportStats] = useState<ImportResult | null>(null);
+    const [showGuide, setShowGuide] = useState(false);
 
     const batchCreate = useMutation(api.contacts.batchCreate);
 
@@ -196,17 +199,28 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                 </Button>
             </div>
 
-            <div className="mt-6  w-full grid  gap-4">
+            <div className="mt-6 w-full grid gap-4">
                 <Card className="p-4 w-full flex items-center gap-3 bg-muted/20">
                     <div className="p-2 rounded-lg bg-green-100 text-green-700">
                         <FileSpreadsheet className="h-6 w-6" />
                     </div>
-                    <div >
+                    <div>
                         <p className="font-medium">Fichier CSV</p>
                         <p className="text-xs text-muted-foreground">Format recommandé</p>
                     </div>
                 </Card>
             </div>
+
+            <button
+                type="button"
+                onClick={() => setShowGuide(true)}
+                className="mt-4 flex items-center gap-2 text-sm text-primary hover:underline mx-auto"
+            >
+                <HelpCircle className="h-4 w-4" />
+                Comment récupérer mes contacts depuis mon smartphone ?
+            </button>
+
+            <ImportGuideDialog open={showGuide} onOpenChange={setShowGuide} />
         </div>
     );
 
