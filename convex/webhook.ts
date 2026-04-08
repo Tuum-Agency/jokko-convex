@@ -193,7 +193,7 @@ export const handleIncomingMessage = internalMutation({
             }
         } else {
             type = message.type.toUpperCase();
-            content = `[${type}] ${JSON.stringify(message).slice(0, 100)}`;
+            content = "";
         }
 
         const newMessageId = await ctx.db.insert("messages", {
@@ -233,7 +233,10 @@ export const handleIncomingMessage = internalMutation({
             DOCUMENT: "📄 Document",
             STICKER: "🎭 Sticker",
         };
-        const preview = content || MEDIA_PREVIEW[type] || `[${type}]`;
+        const mediaLabel = MEDIA_PREVIEW[type];
+        const preview = mediaLabel
+            ? (content && !content.startsWith("[") ? `${mediaLabel} — ${content}` : mediaLabel)
+            : (content || `[${type}]`);
         await ctx.db.patch(conversation._id, {
             lastMessageAt: Date.now(),
             lastMessageDirection: "INBOUND",
