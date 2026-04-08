@@ -41,6 +41,7 @@ import {
     Trash2,
     CheckCircle,
     Unlock,
+    Clock,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -141,6 +142,21 @@ function DateSeparator({ date }: { date: Date }) {
 }
 
 // ============================================
+// HELPERS
+// ============================================
+
+function getWindowStatus(expiresAt?: string | null): { color: 'green' | 'orange' | 'red'; label: string } | null {
+    if (!expiresAt) return null
+    const remaining = new Date(expiresAt).getTime() - Date.now()
+    if (remaining <= 0) return { color: 'red', label: 'Fenêtre expirée' }
+    const hours = Math.floor(remaining / 3_600_000)
+    const minutes = Math.floor((remaining % 3_600_000) / 60_000)
+    const timeLabel = hours > 0 ? `${hours}h${minutes.toString().padStart(2, '0')} restantes` : `${minutes}min restantes`
+    if (remaining < 4 * 3_600_000) return { color: 'orange', label: timeLabel }
+    return { color: 'green', label: timeLabel }
+}
+
+// ============================================
 // CONVERSATION HEADER
 // ============================================
 
@@ -169,6 +185,7 @@ function ConversationHeader({
     } = useConversations()
 
     const { contact, assignedTo } = conversation
+    const windowStatus = getWindowStatus(conversation.windowExpiresAt)
     const initials = contact.name
         ? contact.name
             .split(' ')
@@ -240,6 +257,25 @@ function ConversationHeader({
                         assignedAt={conversation.assignedAt}
                         size="sm"
                     />
+                    {/* 24h Window indicator */}
+                    {windowStatus && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className={cn(
+                                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium',
+                                    windowStatus.color === 'green' && 'bg-green-50 text-green-700',
+                                    windowStatus.color === 'orange' && 'bg-orange-50 text-orange-700',
+                                    windowStatus.color === 'red' && 'bg-red-50 text-red-700',
+                                )}>
+                                    <Clock className="h-3 w-3" />
+                                    {windowStatus.label}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="text-xs">Fenêtre de messagerie WhatsApp 24h</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
                 </div>
                 <p className="text-xs text-gray-500 truncate h-4">
                     {isTyping ? (

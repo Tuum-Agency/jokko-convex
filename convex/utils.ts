@@ -1,6 +1,7 @@
 
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const getOrganization = internalQuery({
     args: { id: v.id("organizations") },
@@ -23,6 +24,79 @@ export const listWhatsAppOrgs = internalQuery({
                 displayPhoneNumber: (o.whatsapp as any)?.displayPhoneNumber,
                 wabaId: o.whatsapp?.businessAccountId,
             }));
+    },
+});
+
+export const patchMessageMedia = internalMutation({
+    args: {
+        messageId: v.id("messages"),
+        mediaStorageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.messageId, {
+            mediaStorageId: args.mediaStorageId,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+/**
+ * Backfill old audio/video/document messages that were stored with raw JSON content.
+ * Extracts the WhatsApp media ID from the content and schedules download.
+ */
+export const backfillMediaMessages = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        // Find messages with type AUDIO/VIDEO/DOCUMENT/IMAGE that have no mediaUrl and no mediaStorageId
+        const types = ["AUDIO", "VIDEO", "DOCUMENT", "IMAGE", "STICKER"];
+        let fixed = 0;
+
+        for (const type of types) {
+            const messages = await ctx.db
+                .query("messages")
+                .filter((q) =>
+                    q.and(
+                        q.eq(q.field("type"), type),
+                        q.eq(q.field("mediaStorageId"), undefined),
+                        q.eq(q.field("mediaUrl"), undefined)
+                    )
+                )
+                .take(100);
+
+            for (const msg of messages) {
+                if (!msg.content) continue;
+
+                // Try to extract media ID from old format: [TYPE] {"audio":{"id":"12345",...}...
+                const jsonMatch = msg.content.match(/\{.*"id"\s*:\s*"(\d+)"/);
+                if (!jsonMatch?.[1]) continue;
+
+                const whatsappMediaId = jsonMatch[1];
+
+                // Extract mime_type if available
+                const mimeMatch = msg.content.match(/"mime_type"\s*:\s*"([^"]+)"/);
+                const mediaType = mimeMatch?.[1];
+
+                // Update message with extracted data
+                await ctx.db.patch(msg._id, {
+                    mediaUrl: whatsappMediaId,
+                    mediaType: mediaType,
+                    content: type === "AUDIO" ? "" : msg.content.replace(/^\[.*?\]\s*\{.*$/, "").trim() || "",
+                    updatedAt: Date.now(),
+                });
+
+                // Schedule media download
+                await ctx.scheduler.runAfter(fixed * 500, internal.whatsapp_actions.downloadMedia, {
+                    messageId: msg._id,
+                    organizationId: msg.organizationId,
+                    whatsappMediaId,
+                });
+
+                fixed++;
+            }
+        }
+
+        console.log(`[BACKFILL] Scheduled download for ${fixed} media messages`);
+        return { fixed };
     },
 });
 

@@ -115,6 +115,7 @@ export const handleIncomingMessage = internalMutation({
                 status: "OPEN",
                 unreadCount: 0,
                 lastMessageAt: Date.now(),
+                lastMessageDirection: "INBOUND",
                 channel: "WHATSAPP",
                 whatsappChannelId: whatsappChannelId,
                 createdAt: Date.now(),
@@ -146,6 +147,26 @@ export const handleIncomingMessage = internalMutation({
             content = message.image.caption || "";
             mediaUrl = message.image.id;
             mediaType = message.image.mime_type;
+        } else if (message.type === "audio" && message.audio) {
+            type = "AUDIO";
+            content = "";
+            mediaUrl = message.audio.id;
+            mediaType = message.audio.mime_type;
+        } else if (message.type === "video" && message.video) {
+            type = "VIDEO";
+            content = message.video.caption || "";
+            mediaUrl = message.video.id;
+            mediaType = message.video.mime_type;
+        } else if (message.type === "document" && message.document) {
+            type = "DOCUMENT";
+            content = message.document.caption || "";
+            mediaUrl = message.document.id;
+            mediaType = message.document.mime_type;
+        } else if (message.type === "sticker" && message.sticker) {
+            type = "STICKER";
+            content = "";
+            mediaUrl = message.sticker.id;
+            mediaType = message.sticker.mime_type;
         } else if (["interactive", "button", "simple_button"].includes(message.type.toLowerCase())) {
             type = "INTERACTIVE";
             const interactive = message.interactive;
@@ -172,7 +193,7 @@ export const handleIncomingMessage = internalMutation({
             }
         } else {
             type = message.type.toUpperCase();
-            content = `[${type}] ${JSON.stringify(message).slice(0, 100)}`;
+            content = "";
         }
 
         const newMessageId = await ctx.db.insert("messages", {
@@ -195,15 +216,36 @@ export const handleIncomingMessage = internalMutation({
             updatedAt: Date.now(),
         });
 
-        // 5. Mettre à jour la conversation
+        // 5. Schedule media download for media messages
+        if (mediaUrl && ["IMAGE", "AUDIO", "VIDEO", "DOCUMENT", "STICKER"].includes(type)) {
+            await ctx.scheduler.runAfter(0, internal.whatsapp_actions.downloadMedia, {
+                messageId: newMessageId,
+                organizationId: organizationId,
+                whatsappMediaId: mediaUrl,
+            });
+        }
+
+        // 6. Mettre à jour la conversation
+        const MEDIA_PREVIEW: Record<string, string> = {
+            AUDIO: "🎵 Audio",
+            IMAGE: "📷 Photo",
+            VIDEO: "🎥 Vidéo",
+            DOCUMENT: "📄 Document",
+            STICKER: "🎭 Sticker",
+        };
+        const mediaLabel = MEDIA_PREVIEW[type];
+        const preview = mediaLabel
+            ? (content && !content.startsWith("[") ? `${mediaLabel} — ${content}` : mediaLabel)
+            : (content || `[${type}]`);
         await ctx.db.patch(conversation._id, {
             lastMessageAt: Date.now(),
-            preview: content || `[${type}]`,
+            lastMessageDirection: "INBOUND",
+            preview,
             unreadCount: (conversation.unreadCount || 0) + 1,
             updatedAt: Date.now(),
         });
 
-        // 6. Trigger Automation Engine
+        // 7. Trigger Automation Engine
         await ctx.scheduler.runAfter(0, internal.engine.processMessage, {
             organizationId: organizationId,
             conversationId: conversation._id,

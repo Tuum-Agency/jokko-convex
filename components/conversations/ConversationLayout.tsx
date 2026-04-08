@@ -27,7 +27,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -36,6 +36,7 @@ import { ConversationView } from './ConversationView'
 import { ContactInfo } from './ContactInfo'
 import { EmptyState } from './EmptyState'
 import { useRealtime } from '@/hooks/useRealtime'
+import { useConversations } from '@/hooks/useConversations'
 import { cn } from '@/lib/utils'
 
 // ============================================
@@ -73,6 +74,93 @@ export function ConversationLayout({
 
     // Subscribe aux events temps reel
     useRealtime(organizationId)
+
+    const {
+        conversations,
+        archiveConversation,
+        assignToMe,
+        markAsRead,
+    } = useConversations()
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore when typing in inputs/textareas
+            const target = e.target as HTMLElement
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+
+            const ids = conversations.map(c => c.id)
+            if (ids.length === 0) return
+
+            const currentIndex = conversationId ? ids.indexOf(conversationId) : -1
+
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'j': {
+                    e.preventDefault()
+                    const nextIndex = currentIndex < ids.length - 1 ? currentIndex + 1 : 0
+                    router.push(`${basePath}/${ids[nextIndex]}`)
+                    break
+                }
+                case 'ArrowUp':
+                case 'k': {
+                    e.preventDefault()
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : ids.length - 1
+                    router.push(`${basePath}/${ids[prevIndex]}`)
+                    break
+                }
+                case 'Enter': {
+                    if (!conversationId && ids.length > 0) {
+                        e.preventDefault()
+                        router.push(`${basePath}/${ids[0]}`)
+                    }
+                    break
+                }
+                case 'Escape': {
+                    e.preventDefault()
+                    router.push(basePath)
+                    setShowList(true)
+                    setShowInfo(false)
+                    break
+                }
+                case 'e': {
+                    if (conversationId) {
+                        e.preventDefault()
+                        archiveConversation(conversationId)
+                        // Navigate to next conversation
+                        const nextId = ids[currentIndex + 1] || ids[currentIndex - 1]
+                        if (nextId) router.push(`${basePath}/${nextId}`)
+                        else router.push(basePath)
+                    }
+                    break
+                }
+                case 'a': {
+                    if (conversationId) {
+                        e.preventDefault()
+                        assignToMe(conversationId)
+                    }
+                    break
+                }
+                case 'r': {
+                    if (conversationId) {
+                        e.preventDefault()
+                        markAsRead(conversationId)
+                    }
+                    break
+                }
+                case 'i': {
+                    if (conversationId && !isTablet) {
+                        e.preventDefault()
+                        setShowInfo(prev => !prev)
+                    }
+                    break
+                }
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [conversations, conversationId, basePath, router, archiveConversation, assignToMe, markAsRead, isTablet])
 
     // Handler selection conversation
     const handleSelectConversation = (id: string) => {
