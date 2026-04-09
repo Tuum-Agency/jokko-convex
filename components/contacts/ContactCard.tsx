@@ -40,10 +40,15 @@ export interface Contact {
     jobTitle?: string | null
     avatarUrl?: string | null
     countryCode?: string | null
+    address?: string | null
+    city?: string | null
+    country?: string | null
     tags: ContactTag[]
     lastContactedAt?: Date | string | null
     createdAt: Date | string | number
     notes?: string | null
+    isWhatsApp?: boolean | null
+    isBlocked?: boolean | null
 }
 
 interface ContactCardProps {
@@ -51,6 +56,7 @@ interface ContactCardProps {
     onEdit?: (contact: Contact) => void
     onDelete?: (contact: Contact) => void
     onMessage?: (contact: Contact) => void
+    onClick?: (contact: Contact) => void
     className?: string
 }
 
@@ -78,6 +84,7 @@ export function ContactCard({
     onEdit,
     onDelete,
     onMessage,
+    onClick,
     className,
 }: ContactCardProps) {
     const displayName = contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Sans nom'
@@ -85,16 +92,27 @@ export function ContactCard({
     const formattedPhone = formatPhoneDisplay(contact.phone, 'international')
 
     return (
-        <Card className={cn('bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow', className)}>
+        <Card
+            className={cn('bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer', className)}
+            onClick={() => onClick?.(contact)}
+        >
             <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
-                    {/* Avatar - green gradient like overview */}
-                    <Avatar className="h-10 w-10 sm:h-11 sm:w-11 shrink-0">
-                        <AvatarImage src={contact.avatarUrl || undefined} alt={displayName} />
-                        <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-sm font-semibold shadow-sm">
-                            {initials}
-                        </AvatarFallback>
-                    </Avatar>
+                    {/* Avatar with activity indicator */}
+                    <div className="relative shrink-0">
+                        <Avatar className="h-10 w-10 sm:h-11 sm:w-11">
+                            <AvatarImage src={contact.avatarUrl || undefined} alt={displayName} />
+                            <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-sm font-semibold shadow-sm">
+                                {initials}
+                            </AvatarFallback>
+                        </Avatar>
+                        {contact.isBlocked && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 border-2 border-white" title="Bloqué" />
+                        )}
+                        {!contact.isBlocked && contact.isWhatsApp && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white" title="WhatsApp" />
+                        )}
+                    </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
@@ -104,7 +122,12 @@ export function ContactCard({
                             </h3>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <MoreVertical className="h-4 w-4" />
                                         <span className="sr-only">Actions</span>
                                     </Button>

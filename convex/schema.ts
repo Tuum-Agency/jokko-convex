@@ -1471,5 +1471,23 @@ export default defineSchema({
         status: v.string(), // "PENDING", "APPROVED", "INVITED"
         createdAt: v.number(),
     }).index("by_email", ["email"]),
+
+    // ============================================
+    // Contact Segments (Filtres sauvegardés)
+    // ============================================
+    contactSegments: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        filters: v.object({
+            search: v.optional(v.string()),
+            tags: v.optional(v.array(v.string())),
+            country: v.optional(v.string()),
+            sort: v.optional(v.string()),
+        }),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"]),
 });
 

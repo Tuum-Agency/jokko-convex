@@ -22,12 +22,16 @@ import {
     Trash2,
     ChevronLeft,
     ChevronRight,
+    ArrowUpDown,
+    CheckSquare,
+    Merge,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
     Select,
     SelectContent,
@@ -63,6 +67,7 @@ import {
 } from '@/components/ui/input-group'
 import { ContactCard, Contact, getInitials } from './ContactCard'
 import { ContactListSkeleton } from './ContactCardSkeleton'
+import { SegmentSelector, type SegmentFilters } from './SegmentSelector'
 import { cn } from '@/lib/utils'
 import { formatPhoneDisplay } from '@/lib/contacts/validation'
 
@@ -78,6 +83,7 @@ export interface Tag {
 }
 
 type ViewMode = 'grid' | 'table'
+type SortOption = 'createdAt-desc' | 'createdAt-asc' | 'name-asc'
 
 interface ContactListProps {
     contacts: Contact[]
@@ -91,9 +97,16 @@ interface ContactListProps {
     onEdit?: (contact: Contact) => void
     onDelete?: (contact: Contact) => void
     onMessage?: (contact: Contact) => void
+    onContactClick?: (contact: Contact) => void
     onAddNew?: () => void
     onImport?: () => void
     onExport?: () => void
+    onExportSelected?: (contacts: Contact[]) => void
+    onBulkDelete?: (contactIds: string[]) => void
+    onBulkAddTag?: (contactIds: string[], tagName: string) => void
+    canDelete?: boolean
+    canExport?: boolean
+    onDuplicates?: () => void
     className?: string
 }
 
@@ -169,17 +182,28 @@ function ContactTableView({
     onEdit,
     onDelete,
     onMessage,
+    onContactClick,
+    bulkMode,
+    selectedIds,
+    onToggleSelect,
 }: {
     contacts: Contact[]
     onEdit?: (contact: Contact) => void
     onDelete?: (contact: Contact) => void
     onMessage?: (contact: Contact) => void
+    onContactClick?: (contact: Contact) => void
+    bulkMode: boolean
+    selectedIds: Set<string>
+    onToggleSelect: (id: string) => void
 }) {
     return (
         <Card className="bg-white border-gray-100 shadow-sm overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                        {bulkMode && (
+                            <TableHead className="w-[40px]"><span className="sr-only">Sélection</span></TableHead>
+                        )}
                         <TableHead className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Contact</TableHead>
                         <TableHead className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Téléphone</TableHead>
                         <TableHead className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</TableHead>
@@ -197,16 +221,47 @@ function ContactTableView({
                         const countryShort = contact.countryCode ? (COUNTRY_SHORT[contact.countryCode] || contact.countryCode) : null
 
                         return (
-                            <TableRow key={contact.id} className="hover:bg-gray-50/50">
+                            <TableRow
+                                key={contact.id}
+                                className={cn(
+                                    "hover:bg-gray-50/50 cursor-pointer",
+                                    bulkMode && selectedIds.has(contact.id) && "bg-green-50/50"
+                                )}
+                                onClick={() => {
+                                    if (bulkMode) {
+                                        onToggleSelect(contact.id)
+                                    } else {
+                                        onContactClick?.(contact)
+                                    }
+                                }}
+                            >
+                                {/* Bulk checkbox */}
+                                {bulkMode && (
+                                    <TableCell className="py-3 w-[40px]">
+                                        <Checkbox
+                                            checked={selectedIds.has(contact.id)}
+                                            onCheckedChange={() => onToggleSelect(contact.id)}
+                                            className="cursor-pointer"
+                                        />
+                                    </TableCell>
+                                )}
                                 {/* Contact name + avatar */}
                                 <TableCell className="py-3">
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8 shrink-0">
-                                            <AvatarImage src={contact.avatarUrl || undefined} alt={displayName} />
-                                            <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-xs font-semibold">
-                                                {initials}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                        <div className="relative shrink-0">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={contact.avatarUrl || undefined} alt={displayName} />
+                                                <AvatarFallback className="bg-gradient-to-br from-[#14532d] to-[#059669] text-white text-xs font-semibold">
+                                                    {initials}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            {contact.isBlocked && (
+                                                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" title="Bloqué" />
+                                            )}
+                                            {!contact.isBlocked && contact.isWhatsApp && (
+                                                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" title="WhatsApp" />
+                                            )}
+                                        </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
                                             <p className="text-[11px] text-gray-400 sm:hidden font-mono">{formattedPhone}</p>
@@ -280,7 +335,7 @@ function ContactTableView({
                                 </TableCell>
 
                                 {/* Actions */}
-                                <TableCell className="py-3">
+                                <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer">
@@ -385,9 +440,16 @@ export function ContactList({
     onEdit,
     onDelete,
     onMessage,
+    onContactClick,
     onAddNew,
     onImport,
     onExport,
+    onExportSelected,
+    onBulkDelete,
+    onBulkAddTag,
+    canDelete = false,
+    canExport = false,
+    onDuplicates,
     className,
 }: ContactListProps) {
     const [searchQuery, setSearchQuery] = useState('')
@@ -395,6 +457,9 @@ export function ContactList({
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
     const [viewMode, setViewMode] = useState<ViewMode>('grid')
     const [currentPage, setCurrentPage] = useState(1)
+    const [sortOption, setSortOption] = useState<SortOption>('createdAt-desc')
+    const [bulkMode, setBulkMode] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
     const PAGE_SIZE = 20
 
     const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,6 +481,39 @@ export function ContactList({
         setCurrentPage(1)
     }, [])
 
+    const handleSortChange = useCallback((value: string) => {
+        setSortOption(value as SortOption)
+        setCurrentPage(1)
+    }, [])
+
+    const toggleBulkMode = useCallback(() => {
+        setBulkMode(prev => {
+            if (prev) setSelectedIds(new Set())
+            return !prev
+        })
+    }, [])
+
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) {
+                next.delete(id)
+            } else {
+                next.add(id)
+            }
+            return next
+        })
+    }, [])
+
+    const selectAll = useCallback((allContacts: Contact[]) => {
+        setSelectedIds(new Set(allContacts.map(c => c.id)))
+    }, [])
+
+    const clearSelection = useCallback(() => {
+        setSelectedIds(new Set())
+        setBulkMode(false)
+    }, [])
+
     const clearFilters = useCallback(() => {
         setSearchQuery('')
         setSelectedTag(null)
@@ -424,6 +522,36 @@ export function ContactList({
         onSearch?.('')
         onFilterByTag?.(null)
     }, [onSearch, onFilterByTag])
+
+    const handleApplySegment = useCallback((filters: SegmentFilters) => {
+        if (filters.search !== undefined) {
+            setSearchQuery(filters.search || '')
+            onSearch?.(filters.search || '')
+        }
+        if (filters.tags && filters.tags.length > 0) {
+            setSelectedTag(filters.tags[0])
+            onFilterByTag?.(filters.tags[0])
+        } else {
+            setSelectedTag(null)
+            onFilterByTag?.(null)
+        }
+        if (filters.country) {
+            setSelectedCountry(filters.country)
+        } else {
+            setSelectedCountry(null)
+        }
+        if (filters.sort) {
+            setSortOption(filters.sort as SortOption)
+        }
+        setCurrentPage(1)
+    }, [onSearch, onFilterByTag])
+
+    const currentFilters: SegmentFilters = useMemo(() => ({
+        search: searchQuery || undefined,
+        tags: selectedTag ? [selectedTag] : undefined,
+        country: selectedCountry || undefined,
+        sort: sortOption !== 'createdAt-desc' ? sortOption : undefined,
+    }), [searchQuery, selectedTag, selectedCountry, sortOption])
 
     // Derive available countries from contacts
     const availableCountries = useMemo(() => {
@@ -443,11 +571,44 @@ export function ContactList({
             }))
     }, [contacts])
 
+    // Compute tag counts from loaded contacts
+    const tagCounts = useMemo(() => {
+        const counts = new Map<string, number>()
+        for (const c of contacts) {
+            for (const t of c.tags) {
+                counts.set(t.name, (counts.get(t.name) || 0) + 1)
+            }
+        }
+        return counts
+    }, [contacts])
+
     // Apply country filter client-side
-    const filteredContacts = useMemo(() => {
+    const countryFilteredContacts = useMemo(() => {
         if (!selectedCountry) return contacts
         return contacts.filter(c => c.countryCode === selectedCountry)
     }, [contacts, selectedCountry])
+
+    // Apply sorting client-side
+    const filteredContacts = useMemo(() => {
+        const sorted = [...countryFilteredContacts]
+        switch (sortOption) {
+            case 'createdAt-desc':
+                sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                break
+            case 'createdAt-asc':
+                sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                break
+            case 'name-asc': {
+                sorted.sort((a, b) => {
+                    const nameA = (a.name || [a.firstName, a.lastName].filter(Boolean).join(' ') || '').toLowerCase()
+                    const nameB = (b.name || [b.firstName, b.lastName].filter(Boolean).join(' ') || '').toLowerCase()
+                    return nameA.localeCompare(nameB, 'fr')
+                })
+                break
+            }
+        }
+        return sorted
+    }, [countryFilteredContacts, sortOption])
 
     // Pagination
     const totalPages = Math.ceil(filteredContacts.length / PAGE_SIZE)
@@ -489,6 +650,12 @@ export function ContactList({
                         <Download className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Exporter</span>
                     </Button>
+                    {onDuplicates && (
+                        <Button variant="outline" onClick={onDuplicates} size="sm" className="h-8 gap-1.5 text-xs rounded-full cursor-pointer">
+                            <Merge className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Doublons</span>
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -509,6 +676,19 @@ export function ContactList({
                                 />
                             </InputGroup>
                         </div>
+
+                        {/* Sort */}
+                        <Select value={sortOption} onValueChange={handleSortChange}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <ArrowUpDown className="mr-2 h-4 w-4 text-gray-400" />
+                                <SelectValue placeholder="Trier par" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="createdAt-desc">Plus récents</SelectItem>
+                                <SelectItem value="createdAt-asc">Plus anciens</SelectItem>
+                                <SelectItem value="name-asc">Nom (A-Z)</SelectItem>
+                            </SelectContent>
+                        </Select>
 
                         {/* Country filter */}
                         <Select value={selectedCountry || 'all'} onValueChange={handleCountryFilter}>
@@ -541,12 +721,23 @@ export function ContactList({
                                                 className="h-2 w-2 rounded-full shrink-0"
                                                 style={{ backgroundColor: tag.color }}
                                             />
-                                            {tag.name} ({tag.contactCount})
+                                            {tag.name}
+                                            <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-500 font-medium px-1.5 py-0 ml-auto">
+                                                {tagCounts.get(tag.name) || 0}
+                                            </Badge>
                                         </span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    {/* Segments */}
+                    <div className="mt-3">
+                        <SegmentSelector
+                            currentFilters={currentFilters}
+                            onApplySegment={handleApplySegment}
+                        />
                     </div>
 
                     {/* Active filters */}
@@ -607,37 +798,55 @@ export function ContactList({
             {/* ==================== VIEW TOGGLE + CONTENT ==================== */}
             {!isLoading && filteredContacts.length > 0 && (
                 <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-gray-400 font-medium">
-                        {showPagination
-                            ? `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filteredContacts.length)} sur ${filteredContacts.length}`
-                            : `${filteredContacts.length} résultat${filteredContacts.length > 1 ? 's' : ''}`
-                        }
-                    </p>
-                    <div className="flex items-center rounded-full border border-gray-200 bg-gray-50 p-0.5">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={cn(
-                                "h-7 w-7 flex items-center justify-center rounded-full transition-all cursor-pointer",
-                                viewMode === 'grid'
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-400 hover:text-gray-600'
-                            )}
-                            title="Vue en cartes"
+                    <div className="flex items-center gap-3">
+                        <p className="text-[11px] text-gray-400 font-medium">
+                            {showPagination
+                                ? `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filteredContacts.length)} sur ${filteredContacts.length}`
+                                : `${filteredContacts.length} résultat${filteredContacts.length > 1 ? 's' : ''}`
+                            }
+                        </p>
+                        {/* Total count badge */}
+                        <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700 border-green-200 font-medium">
+                            {total} contact{total > 1 ? 's' : ''}
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {/* Bulk mode toggle */}
+                        <Button
+                            variant={bulkMode ? "default" : "outline"}
+                            size="sm"
+                            onClick={toggleBulkMode}
+                            className="h-7 gap-1.5 text-[11px] rounded-full cursor-pointer"
                         >
-                            <LayoutGrid className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('table')}
-                            className={cn(
-                                "h-7 w-7 flex items-center justify-center rounded-full transition-all cursor-pointer",
-                                viewMode === 'table'
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-400 hover:text-gray-600'
-                            )}
-                            title="Vue en tableau"
-                        >
-                            <List className="h-3.5 w-3.5" />
-                        </button>
+                            <CheckSquare className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">{bulkMode ? 'Annuler' : 'Sélectionner'}</span>
+                        </Button>
+                        <div className="flex items-center rounded-full border border-gray-200 bg-gray-50 p-0.5">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={cn(
+                                    "h-7 w-7 flex items-center justify-center rounded-full transition-all cursor-pointer",
+                                    viewMode === 'grid'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-600'
+                                )}
+                                title="Vue en cartes"
+                            >
+                                <LayoutGrid className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className={cn(
+                                    "h-7 w-7 flex items-center justify-center rounded-full transition-all cursor-pointer",
+                                    viewMode === 'table'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-600'
+                                )}
+                                title="Vue en tableau"
+                            >
+                                <List className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -681,13 +890,37 @@ export function ContactList({
                     {viewMode === 'grid' ? (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {paginatedContacts.map((contact) => (
-                                <ContactCard
+                                <div
                                     key={contact.id}
-                                    contact={contact}
-                                    onEdit={onEdit}
-                                    onDelete={onDelete}
-                                    onMessage={onMessage}
-                                />
+                                    className="relative"
+                                    {...(bulkMode ? {
+                                        onClick: () => toggleSelect(contact.id),
+                                        role: 'button',
+                                        tabIndex: 0,
+                                        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') toggleSelect(contact.id) },
+                                    } : {})}
+                                >
+                                    {bulkMode && (
+                                        <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox
+                                                checked={selectedIds.has(contact.id)}
+                                                onCheckedChange={() => toggleSelect(contact.id)}
+                                                className="cursor-pointer bg-white"
+                                            />
+                                        </div>
+                                    )}
+                                    <ContactCard
+                                        contact={contact}
+                                        onEdit={bulkMode ? undefined : onEdit}
+                                        onDelete={bulkMode ? undefined : onDelete}
+                                        onMessage={bulkMode ? undefined : onMessage}
+                                        onClick={bulkMode ? () => toggleSelect(contact.id) : onContactClick ? () => onContactClick(contact) : undefined}
+                                        className={cn(
+                                            bulkMode && "cursor-pointer",
+                                            bulkMode && selectedIds.has(contact.id) && "ring-2 ring-green-500/50 bg-green-50/30"
+                                        )}
+                                    />
+                                </div>
                             ))}
                         </div>
                     ) : (
@@ -696,6 +929,10 @@ export function ContactList({
                             onEdit={onEdit}
                             onDelete={onDelete}
                             onMessage={onMessage}
+                            onContactClick={onContactClick}
+                            bulkMode={bulkMode}
+                            selectedIds={selectedIds}
+                            onToggleSelect={toggleSelect}
                         />
                     )}
 
@@ -779,6 +1016,99 @@ export function ContactList({
                         </div>
                     )}
                 </>
+            )}
+
+            {/* ==================== BULK ACTION BAR ==================== */}
+            {bulkMode && selectedIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                    <div className="flex items-center gap-2 bg-gray-900 text-white rounded-full px-4 py-2.5 shadow-2xl border border-gray-700">
+                        <span className="text-xs font-medium whitespace-nowrap">
+                            {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                        </span>
+
+                        <div className="w-px h-5 bg-gray-600" />
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => selectAll(filteredContacts)}
+                            className="h-7 text-[11px] text-gray-300 hover:text-white hover:bg-gray-700 rounded-full cursor-pointer"
+                        >
+                            Tout sélectionner
+                        </Button>
+
+                        {canDelete && onBulkDelete && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onBulkDelete(Array.from(selectedIds))}
+                                className="h-7 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded-full gap-1 cursor-pointer"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                                Supprimer
+                            </Button>
+                        )}
+
+                        {onBulkAddTag && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[11px] text-gray-300 hover:text-white hover:bg-gray-700 rounded-full gap-1 cursor-pointer"
+                                    >
+                                        <TagIcon className="h-3 w-3" />
+                                        Ajouter tag
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="center" side="top" className="mb-2">
+                                    {tags.map((tag) => (
+                                        <DropdownMenuItem
+                                            key={tag.id}
+                                            onClick={() => onBulkAddTag(Array.from(selectedIds), tag.name)}
+                                            className="cursor-pointer"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <span
+                                                    className="h-2 w-2 rounded-full shrink-0"
+                                                    style={{ backgroundColor: tag.color }}
+                                                />
+                                                {tag.name}
+                                            </span>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+
+                        {canExport && onExportSelected && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const selectedContacts = contacts.filter(c => selectedIds.has(c.id))
+                                    onExportSelected(selectedContacts)
+                                }}
+                                className="h-7 text-[11px] text-gray-300 hover:text-white hover:bg-gray-700 rounded-full gap-1 cursor-pointer"
+                            >
+                                <Download className="h-3 w-3" />
+                                Exporter
+                            </Button>
+                        )}
+
+                        <div className="w-px h-5 bg-gray-600" />
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearSelection}
+                            className="h-7 text-[11px] text-gray-300 hover:text-white hover:bg-gray-700 rounded-full cursor-pointer"
+                        >
+                            <X className="h-3 w-3" />
+                            Annuler
+                        </Button>
+                    </div>
+                </div>
             )}
         </div>
     )

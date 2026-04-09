@@ -174,9 +174,7 @@ export const get = query({
         return {
             ...contact,
             id: contact._id, // Client expects 'id'
-            // Map tags to strings as expected by UI for now, or objects?
-            // UI uses string[] in ContactDetails interface: `tags: string[]`
-            tags: tags.filter(t => t).map(t => t!.name),
+            tags: tags.filter(t => t).map(t => ({ id: t!._id, name: t!.name, color: t!.color || '#808080' })),
             notes: enrichedNotes // Return structured array
         };
     }
@@ -680,5 +678,357 @@ export const listAllForOrg = internalQuery({
             .query("contacts")
             .withIndex("by_organization", q => q.eq("organizationId", args.organizationId))
             .collect();
+    }
+});
+
+// ============================================
+// TIMELINE
+// ============================================
+
+export const getContactTimeline = query({
+    args: { contactId: v.id("contacts") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const contact = await ctx.db.get(args.contactId);
+        if (!contact) return [];
+
+        // Verify org access
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+        if (session?.currentOrganizationId !== contact.organizationId) return [];
+
+        const orgId = contact.organizationId;
+
+        // Get conversations for this contact
+        const conversations = await ctx.db
+            .query("conversations")
+            .withIndex("by_org_contact", (q) =>
+                q.eq("organizationId", orgId).eq("contactId", args.contactId)
+            )
+            .collect();
+
+        // Get recent messages from those conversations (last 20 total)
+        const allMessages: Array<{
+            type: "message_received" | "message_sent";
+            content: string;
+            timestamp: number;
+        }> = [];
+
+        for (const conv of conversations) {
+            const messages = await ctx.db
+                .query("messages")
+                .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+                .order("desc")
+                .take(20);
+
+            for (const msg of messages) {
+                const preview = msg.content
+                    ? msg.content.substring(0, 80) + (msg.content.length > 80 ? "..." : "")
+                    : msg.type === "IMAGE" ? "Image"
+                    : msg.type === "AUDIO" ? "Audio"
+                    : msg.type === "VIDEO" ? "Vidéo"
+                    : msg.type === "DOCUMENT" ? (msg.fileName || "Document")
+                    : msg.type === "LOCATION" ? "Position"
+                    : msg.type === "STICKER" ? "Sticker"
+                    : "Message";
+
+                allMessages.push({
+                    type: msg.direction === "INBOUND" ? "message_received" : "message_sent",
+                    content: preview,
+                    timestamp: msg.createdAt,
+                });
+            }
+        }
+
+        // Sort all entries by timestamp desc and take 20
+        allMessages.sort((a, b) => b.timestamp - a.timestamp);
+        return allMessages.slice(0, 20);
+    },
+});
+
+// ============================================
+// DUPLICATE DETECTION & MERGE
+// ============================================
+
+/**
+ * Normalize a phone number for comparison: strip non-digits and take last 9 digits
+ */
+const normalizePhoneForComparison = (phone: string): string => {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 9 ? digits.slice(-9) : digits;
+};
+
+export const detectDuplicates = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) return [];
+        const orgId = session.currentOrganizationId;
+
+        const contacts = await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", q => q.eq("organizationId", orgId))
+            .collect();
+
+        // Group by normalized phone (last 9 digits)
+        const phoneGroups = new Map<string, typeof contacts>();
+        for (const contact of contacts) {
+            const normalizedPhone = normalizePhoneForComparison(contact.phone);
+            if (!normalizedPhone) continue;
+            const group = phoneGroups.get(normalizedPhone) || [];
+            group.push(contact);
+            phoneGroups.set(normalizedPhone, group);
+        }
+
+        // Group by exact name match (case-insensitive, non-empty)
+        const nameGroups = new Map<string, typeof contacts>();
+        for (const contact of contacts) {
+            const displayName = (contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')).trim().toLowerCase();
+            if (!displayName) continue;
+            const group = nameGroups.get(displayName) || [];
+            group.push(contact);
+            nameGroups.set(displayName, group);
+        }
+
+        // Merge duplicate groups, deduplicate by contact ID sets
+        const seenSets = new Set<string>();
+        const duplicateGroups: Array<typeof contacts> = [];
+
+        const addGroup = (group: typeof contacts) => {
+            if (group.length < 2) return;
+            const key = group.map(c => c._id).sort().join(',');
+            if (seenSets.has(key)) return;
+            seenSets.add(key);
+            duplicateGroups.push(group);
+        };
+
+        for (const group of phoneGroups.values()) {
+            addGroup(group);
+        }
+        for (const group of nameGroups.values()) {
+            addGroup(group);
+        }
+
+        // Enrich tags for display
+        const allTagIds = new Set<string>();
+        for (const group of duplicateGroups) {
+            for (const c of group) {
+                c.tags?.forEach((t: any) => allTagIds.add(String(t)));
+            }
+        }
+        const tagDocs = await Promise.all(
+            Array.from(allTagIds).map(id => ctx.db.get(id as Id<"tags">))
+        );
+        const tagMap = new Map(tagDocs.filter(t => t).map(t => [String(t!._id), t!.name]));
+
+        return duplicateGroups.map(group =>
+            group.map(c => ({
+                _id: c._id,
+                phone: c.phone,
+                name: c.name,
+                firstName: c.firstName,
+                lastName: c.lastName,
+                email: c.email,
+                company: c.company,
+                countryCode: c.countryCode,
+                tags: (c.tags || []).map((tid: any) => tagMap.get(String(tid)) || '').filter(Boolean),
+                createdAt: c.createdAt,
+            }))
+        );
+    }
+});
+
+export const mergeDuplicates = mutation({
+    args: {
+        primaryId: v.id("contacts"),
+        duplicateIds: v.array(v.id("contacts")),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) throw new Error("No active organization");
+        const orgId = session.currentOrganizationId;
+
+        // Permission check
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", orgId))
+            .first();
+        if (!membership || !hasPermission(membership.role as Role, "contacts:delete")) {
+            throw new Error("Permission refusée: contacts:delete");
+        }
+
+        const primary = await ctx.db.get(args.primaryId);
+        if (!primary || primary.organizationId !== orgId) {
+            throw new Error("Contact principal introuvable");
+        }
+
+        let conversationsTransferred = 0;
+        let contactsMerged = 0;
+
+        // Collect all tags from primary
+        const mergedTags = new Set<string>(
+            (primary.tags || []).map((t: any) => String(t))
+        );
+
+        const fieldsUpdates: Record<string, any> = {};
+
+        for (const dupId of args.duplicateIds) {
+            if (dupId === args.primaryId) continue;
+
+            const dup = await ctx.db.get(dupId);
+            if (!dup || dup.organizationId !== orgId) continue;
+
+            // Merge missing fields into primary
+            const fieldsToMerge = [
+                'name', 'firstName', 'lastName', 'email', 'company',
+                'jobTitle', 'address', 'city', 'country'
+            ] as const;
+
+            for (const field of fieldsToMerge) {
+                if (!(primary as any)[field] && !fieldsUpdates[field] && (dup as any)[field]) {
+                    fieldsUpdates[field] = (dup as any)[field];
+                }
+            }
+
+            // Merge tags (union)
+            if (dup.tags) {
+                for (const tag of dup.tags) {
+                    mergedTags.add(String(tag));
+                }
+            }
+
+            // Transfer conversations from duplicate to primary
+            const conversations = await ctx.db
+                .query("conversations")
+                .withIndex("by_org_contact", q =>
+                    q.eq("organizationId", orgId).eq("contactId", dupId)
+                )
+                .collect();
+
+            for (const conv of conversations) {
+                await ctx.db.patch(conv._id, { contactId: args.primaryId });
+                conversationsTransferred++;
+            }
+
+            // Delete the duplicate contact
+            await ctx.db.delete(dupId);
+            contactsMerged++;
+        }
+
+        // Update primary with merged data
+        const tagIdsArray = Array.from(mergedTags) as Id<"tags">[];
+        const merged = { ...primary, ...fieldsUpdates };
+        await ctx.db.patch(args.primaryId, {
+            ...fieldsUpdates,
+            tags: tagIdsArray,
+            searchName: getSearchName(merged),
+            updatedAt: Date.now(),
+        });
+
+        return {
+            contactsMerged,
+            conversationsTransferred,
+            tagsCount: tagIdsArray.length,
+        };
+    }
+});
+
+// ============================================
+// CONTACT SEGMENTS (Filtres sauvegardés)
+// ============================================
+
+export const listSegments = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) return [];
+        const orgId = session.currentOrganizationId;
+
+        return await ctx.db
+            .query("contactSegments")
+            .withIndex("by_organization", q => q.eq("organizationId", orgId))
+            .collect();
+    }
+});
+
+export const createSegment = mutation({
+    args: {
+        name: v.string(),
+        filters: v.object({
+            search: v.optional(v.string()),
+            tags: v.optional(v.array(v.string())),
+            country: v.optional(v.string()),
+            sort: v.optional(v.string()),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || !session.currentOrganizationId) throw new Error("No active organization");
+        const orgId = session.currentOrganizationId;
+
+        const now = Date.now();
+        return await ctx.db.insert("contactSegments", {
+            organizationId: orgId,
+            name: args.name,
+            filters: args.filters,
+            createdBy: userId,
+            createdAt: now,
+            updatedAt: now,
+        });
+    }
+});
+
+export const deleteSegment = mutation({
+    args: {
+        id: v.id("contactSegments"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const segment = await ctx.db.get(args.id);
+        if (!segment) return;
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session || session.currentOrganizationId !== segment.organizationId) {
+            throw new Error("Unauthorized");
+        }
+
+        await ctx.db.delete(args.id);
     }
 });
