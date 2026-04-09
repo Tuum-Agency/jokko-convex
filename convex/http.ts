@@ -297,7 +297,11 @@ http.route({
                         const priceId = session.metadata?.priceId || "";
 
                         if (!priceId) {
-                            console.warn("[Stripe Webhook] No priceId in checkout metadata — will be resolved by subscription.created event");
+                            // No priceId in checkout metadata — skip plan update here.
+                            // The customer.subscription.created event will handle it
+                            // with the actual priceId from the subscription items.
+                            console.warn("[Stripe Webhook] No priceId in checkout metadata — deferring to subscription.created event");
+                            break;
                         }
 
                         // Determine status: if subscription has a trial, status is "trialing"

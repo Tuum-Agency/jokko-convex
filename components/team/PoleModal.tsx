@@ -10,8 +10,6 @@ import {
     Type,
     AlignLeft,
     Info,
-    Search,
-    Check,
     LayoutGrid,
     Users,
     MessageSquare,
@@ -24,7 +22,8 @@ import {
     Truck,
     Wallet,
     Globe,
-    MoreHorizontal
+    MoreHorizontal,
+    Loader2,
 } from 'lucide-react'
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -36,7 +35,6 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
 } from '@/components/ui/dialog'
 import {
     Form,
@@ -143,7 +141,7 @@ export function PoleModal({
         defaultValues: {
             name: '',
             description: '',
-            color: '#6366f1',
+            color: '#10b981',
             icon: 'Building2',
         },
     })
@@ -158,14 +156,14 @@ export function PoleModal({
                 form.reset({
                     name: pole.name,
                     description: pole.description || '',
-                    color: pole.color || '#6366f1',
+                    color: pole.color || '#10b981',
                     icon: pole.icon || 'Building2',
                 })
             } else {
                 form.reset({
                     name: '',
                     description: '',
-                    color: '#6366f1',
+                    color: '#10b981',
                     icon: 'Building2',
                 })
             }
@@ -201,13 +199,7 @@ export function PoleModal({
         }
     }
 
-    // Determine button text and loading
     const isLoading = form.formState.isSubmitting
-    const submitText = isLoading
-        ? 'Enregistrement...'
-        : isEditing
-            ? 'Mettre a jour'
-            : 'Creer le pole'
 
     // Icon Component Helper
     const SelectedIcon = ICONS.find(i => i.name === formValues.icon)?.icon || Building2
@@ -222,7 +214,7 @@ export function PoleModal({
                     <div className="flex-1 overflow-y-auto p-6 md:p-8">
                         <DialogHeader className="mb-6">
                             <DialogTitle className="flex items-center gap-2 text-2xl">
-                                <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
                                     {isEditing ? <Palette className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
                                 </div>
                                 {isEditing ? 'Modifier le pole' : 'Nouveau pole'}
@@ -249,7 +241,7 @@ export function PoleModal({
                                             <FormControl>
                                                 <Input
                                                     placeholder="Ex: Service Commercial"
-                                                    className="h-11 border-gray-200"
+                                                    className="h-11 rounded-xl border-gray-200"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -271,7 +263,7 @@ export function PoleModal({
                                             <FormControl>
                                                 <Textarea
                                                     placeholder="Decrivez le role de ce service..."
-                                                    className="min-h-[80px] border-gray-200 resize-none"
+                                                    className="min-h-[80px] rounded-xl border-gray-200 resize-none"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -302,10 +294,10 @@ export function PoleModal({
                                                                 type="button"
                                                                 onClick={() => field.onChange(color)}
                                                                 className={`
-                                  h-8 w-8 rounded-full transition-all duration-200
-                                  hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-900
-                                  ${field.value === color ? 'scale-110 ring-2 ring-offset-1 ring-gray-900 shadow-sm' : ''}
-                                `}
+                                                                    h-8 w-8 rounded-full transition-all duration-200
+                                                                    hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-600
+                                                                    ${field.value === color ? 'scale-110 ring-2 ring-offset-1 ring-green-600 shadow-sm' : ''}
+                                                                `}
                                                                 style={{ backgroundColor: color }}
                                                                 title={color}
                                                             />
@@ -317,7 +309,7 @@ export function PoleModal({
                                         )}
                                     />
 
-                                    {/* Icon Picker - Simple Version */}
+                                    {/* Icon Picker */}
                                     <FormField
                                         control={form.control}
                                         name="icon"
@@ -328,7 +320,7 @@ export function PoleModal({
                                                     Icone
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <ScrollArea className="h-[120px] rounded-md border p-2">
+                                                    <ScrollArea className="h-[120px] rounded-xl border border-gray-200 p-2">
                                                         <div className="grid grid-cols-4 gap-2">
                                                             {ICONS.map((item) => (
                                                                 <button
@@ -336,10 +328,10 @@ export function PoleModal({
                                                                     type="button"
                                                                     onClick={() => field.onChange(item.name)}
                                                                     className={`
-                                    flex flex-col items-center justify-center p-2 rounded-lg transition-all
-                                    hover:bg-gray-100 focus:outline-none
-                                    ${field.value === item.name ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200' : 'text-gray-500'}
-                                  `}
+                                                                        flex flex-col items-center justify-center p-2 rounded-lg transition-all
+                                                                        hover:bg-gray-100 focus:outline-none
+                                                                        ${field.value === item.name ? 'bg-green-50 text-green-600 ring-1 ring-green-200' : 'text-gray-500'}
+                                                                    `}
                                                                 >
                                                                     <item.icon className="h-5 w-5" />
                                                                 </button>
@@ -354,34 +346,36 @@ export function PoleModal({
                                 </div>
 
                                 {error && (
-                                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 flex items-center gap-2">
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-center gap-2">
                                         <Info className="h-4 w-4 flex-shrink-0" />
                                         {error}
                                     </div>
                                 )}
 
-                                {/* Footer Buttons - Inside Form so Tab navigation works */}
+                                {/* Footer */}
                                 <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100 mt-6">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => onOpenChange(false)}
-                                        disabled={isLoading}
-                                    >
-                                        Annuler
-                                    </Button>
-                                    <Button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px]"
-                                    >
-                                        {isLoading ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                                <span>Traitement...</span>
-                                            </div>
-                                        ) : submitText}
-                                    </Button>
+                                    <ButtonGroup>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => onOpenChange(false)}
+                                            disabled={isLoading}
+                                        >
+                                            Annuler
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="bg-green-600 hover:bg-green-700 text-white min-w-[140px]"
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Traitement...
+                                                </>
+                                            ) : isEditing ? 'Mettre a jour' : 'Creer le pole'}
+                                        </Button>
+                                    </ButtonGroup>
                                 </div>
                             </form>
                         </Form>
@@ -391,7 +385,7 @@ export function PoleModal({
                     <div className="hidden md:flex w-[300px] bg-gray-50/50 border-l border-gray-200/50 p-8 flex-col items-center justify-center">
                         <div className="w-full max-w-[240px]">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest text-center mb-6">
-                                Aperçu en direct
+                                Apercu en direct
                             </p>
 
                             {/* Card Preview */}

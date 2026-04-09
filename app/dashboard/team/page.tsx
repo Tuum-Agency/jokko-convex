@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import {
     Select,
     SelectContent,
@@ -165,22 +165,25 @@ function MemberFilters({
         <div className="space-y-3">
             <div className="flex flex-col sm:flex-row gap-3">
                 {/* Search Input */}
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                        placeholder="Rechercher un membre..."
-                        value={searchQuery}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        className="pl-9 h-9 text-sm bg-white"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => onSearchChange('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                            <X className="h-3.5 w-3.5" />
-                        </button>
-                    )}
+                <div className="flex-1">
+                    <InputGroup className="bg-white">
+                        <InputGroupAddon>
+                            <Search className="h-4 w-4 text-gray-400" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                            placeholder="Rechercher par nom, email..."
+                            value={searchQuery}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => onSearchChange('')}
+                                className="flex items-center justify-center px-3 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </InputGroup>
                 </div>
 
                 {/* Role Filter */}

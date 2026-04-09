@@ -4,9 +4,9 @@ import { useState } from 'react'
 import {
     Shield,
     MessageSquare,
-    CheckCircle2,
     AlertTriangle,
     Loader2,
+    UserCog,
 } from 'lucide-react'
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -44,6 +44,21 @@ interface EditMemberModalProps {
     member: Member | null
     currentUserRole: Role
     onSuccess: () => void
+}
+
+// ============================================
+// ROLE ICON
+// ============================================
+
+function RoleIcon({ role, className }: { role: string; className?: string }) {
+    switch (role) {
+        case 'admin':
+            return <Shield className={className} />
+        case 'agent':
+            return <MessageSquare className={className} />
+        default:
+            return <Shield className={className} />
+    }
 }
 
 // ============================================
@@ -87,7 +102,7 @@ export function EditMemberModal({
         try {
             await updateRole({
                 membershipId: member.id,
-                role: selectedRole.toUpperCase() as any, // Cast to uppercase for backend enum
+                role: selectedRole.toUpperCase() as any,
             })
 
             onSuccess()
@@ -101,73 +116,62 @@ export function EditMemberModal({
 
     return (
         <Dialog open={open} onOpenChange={isLoading ? undefined : onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] overflow-y-auto max-h-[90vh]">
                 <DialogHeader>
-                    <DialogTitle>Modifier le role</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                        <UserCog className="h-5 w-5 text-green-600" />
+                        Modifier le role
+                    </DialogTitle>
                     <DialogDescription>
-                        Changez le niveau d'acces de <span className="font-medium text-gray-900">{member.name}</span>.
+                        Changez le niveau d&apos;acces de <span className="font-medium text-gray-900">{member.name}</span>.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
-                    <div className="grid gap-3">
-                        {assignableRoles.map((role) => {
-                            const roleConfig = ROLE_DEFINITIONS[role]
-                            if (!roleConfig) return null
+                <div className="space-y-2 py-2">
+                    {assignableRoles.map((role) => {
+                        const roleConfig = ROLE_DEFINITIONS[role]
+                        if (!roleConfig) return null
 
-                            const isSelected = selectedRole === role
-                            const Icon = role === 'admin' ? Shield : MessageSquare
+                        const isSelected = selectedRole === role
 
-                            return (
-                                <button
-                                    key={role}
-                                    // Allow clicking if not loading
-                                    onClick={() => !isLoading && setSelectedRole(role)}
-                                    className={`flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${isSelected
-                                        ? 'border-indigo-600 bg-indigo-50'
-                                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                                        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    <div
-                                        className={`p-2 rounded-lg ${isSelected ? 'bg-indigo-100' : 'bg-gray-100'
-                                            }`}
-                                    >
-                                        <Icon
-                                            className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-gray-500'
-                                                }`}
-                                        />
+                        return (
+                            <button
+                                key={role}
+                                onClick={() => !isLoading && setSelectedRole(role)}
+                                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${isSelected
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className={`p-2 rounded-lg ${isSelected ? 'bg-green-100' : roleConfig.bgColor}`}>
+                                    <RoleIcon role={role} className={`h-5 w-5 ${isSelected ? 'text-green-600' : roleConfig.color}`} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`font-medium ${isSelected ? 'text-green-700' : 'text-gray-900'}`}>
+                                        {roleConfig.label}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                        {roleConfig.description}
+                                    </p>
+                                </div>
+                                {isSelected && (
+                                    <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
+                                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <p
-                                                className={`font-semibold ${isSelected ? 'text-indigo-900' : 'text-gray-900'
-                                                    }`}
-                                            >
-                                                {roleConfig.label}
-                                            </p>
-                                            {isSelected && (
-                                                <CheckCircle2 className="h-5 w-5 text-indigo-600" />
-                                            )}
-                                        </div>
-                                        <p
-                                            className={`text-sm mt-1 ${isSelected ? 'text-indigo-700' : 'text-gray-500'
-                                                }`}
-                                        >
-                                            {roleConfig.description}
-                                        </p>
-                                    </div>
-                                </button>
-                            )
-                        })}
-                    </div>
-
-                    {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                            {error}
-                        </div>
-                    )}
+                                )}
+                            </button>
+                        )
+                    })}
                 </div>
+
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        {error}
+                    </div>
+                )}
 
                 <DialogFooter>
                     <ButtonGroup>
@@ -181,7 +185,7 @@ export function EditMemberModal({
                         <Button
                             onClick={handleSave}
                             disabled={isLoading || !selectedRole || selectedRole === member.role}
-                            className="bg-indigo-600 hover:bg-indigo-700"
+                            className="bg-green-600 hover:bg-green-700"
                         >
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Enregistrer

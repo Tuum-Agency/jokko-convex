@@ -1,7 +1,12 @@
+'use client'
+
 import { useState } from 'react'
 import { Sidebar, DashboardHeader } from '@/components/dashboard'
 import { BrowserNotifications } from '@/components/browser-notifications'
 import { NotificationBanner } from '@/components/dashboard/notification-banner'
+import { usePresence } from '@/hooks/use-presence'
+import { useCurrentOrg } from '@/hooks/use-current-org'
+import { Id } from '@/convex/_generated/dataModel'
 
 interface DashboardLayoutClientProps {
     children: React.ReactNode
@@ -25,8 +30,10 @@ export function DashboardLayoutClient({
 }: DashboardLayoutClientProps) {
     const basePath = '/dashboard'
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+    const { currentOrg } = useCurrentOrg()
 
-    // Heartbeat is handled by usePresence hook (via useRealtime) — no duplicate here
+    // Send heartbeat on ALL dashboard pages (not just conversations)
+    usePresence(currentOrg?._id as Id<"organizations"> | undefined)
 
     return (
         <div className="flex h-screen bg-gray-50/50">
