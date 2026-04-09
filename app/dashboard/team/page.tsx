@@ -269,6 +269,7 @@ function ActivityItem({ activity }: {
     const iconMap: Record<string, React.ElementType> = {
         member_joined: UserCheck,
         invitation_sent: Send,
+        pole_created: Building2,
     }
     const Icon = iconMap[activity.type] || Clock
 

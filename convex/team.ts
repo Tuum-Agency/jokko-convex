@@ -304,6 +304,24 @@ export const getTeamActivity = query({
             });
         }
 
+        // 3. Recent poles (pole created)
+        const poles = await ctx.db
+            .query("poles")
+            .withIndex("by_organization", (q) => q.eq("organizationId", orgId!))
+            .collect();
+
+        const recentPoles = poles
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 10);
+
+        for (const pole of recentPoles) {
+            activities.push({
+                type: "pole_created",
+                message: `Pole "${pole.name}" cree`,
+                timestamp: pole.createdAt,
+            });
+        }
+
         // Sort all activities by timestamp desc and limit to 20
         activities.sort((a, b) => b.timestamp - a.timestamp);
 

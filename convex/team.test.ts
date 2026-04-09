@@ -302,6 +302,128 @@ describe("Team Members", () => {
     });
 
     // ============================================
+    // getTeamActivity — pole_created events
+    // ============================================
+    describe("getTeamActivity — pole events", () => {
+        it("should return pole_created events", async () => {
+            await t.run(async (ctx: any) => {
+                await ctx.db.insert("poles", {
+                    organizationId: orgId,
+                    name: "Marketing",
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+            });
+
+            const result = await t.withIdentity({ subject: userId }).query(api.team.getTeamActivity, {});
+
+            const poleEvent = result.activities.find((a: any) => a.type === "pole_created");
+            expect(poleEvent).toBeDefined();
+            expect(poleEvent.message).toContain("Marketing");
+        });
+
+        it("should include multiple pole events", async () => {
+            await t.run(async (ctx: any) => {
+                await ctx.db.insert("poles", {
+                    organizationId: orgId,
+                    name: "Commercial",
+                    createdAt: Date.now() - 1000,
+                    updatedAt: Date.now(),
+                });
+                await ctx.db.insert("poles", {
+                    organizationId: orgId,
+                    name: "Support",
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+            });
+
+            const result = await t.withIdentity({ subject: userId }).query(api.team.getTeamActivity, {});
+
+            const poleEvents = result.activities.filter((a: any) => a.type === "pole_created");
+            expect(poleEvents.length).toBe(2);
+        });
+    });
+
+    // ============================================
+    // presence — heartbeat and updateStatus
+    // ============================================
+    describe("presence", () => {
+        it("heartbeat should set status to ONLINE when OFFLINE", async () => {
+            // Set membership to OFFLINE first
+            await t.run(async (ctx: any) => {
+                const membership = await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+                if (membership) await ctx.db.patch(membership._id, { status: "OFFLINE" });
+            });
+
+            await t.withIdentity({ subject: userId }).mutation(api.presence.heartbeat, {
+                organizationId: orgId,
+            });
+
+            const membership = await t.run(async (ctx: any) => {
+                return await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+            });
+            expect(membership.status).toBe("ONLINE");
+        });
+
+        it("updateStatus should change status to AWAY", async () => {
+            await t.withIdentity({ subject: userId }).mutation(api.presence.updateStatus, {
+                organizationId: orgId,
+                status: "AWAY",
+                statusMessage: "En reunion",
+            });
+
+            const membership = await t.run(async (ctx: any) => {
+                return await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+            });
+            expect(membership.status).toBe("AWAY");
+            expect(membership.statusMessage).toBe("En reunion");
+        });
+
+        it("updateStatus should change status to OFFLINE", async () => {
+            await t.withIdentity({ subject: userId }).mutation(api.presence.updateStatus, {
+                organizationId: orgId,
+                status: "OFFLINE",
+            });
+
+            const membership = await t.run(async (ctx: any) => {
+                return await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+            });
+            expect(membership.status).toBe("OFFLINE");
+        });
+
+        it("updateStatus ONLINE should switch to BUSY if at capacity", async () => {
+            // Set activeConversations = maxConversations
+            await t.run(async (ctx: any) => {
+                const membership = await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+                if (membership) await ctx.db.patch(membership._id, { activeConversations: 10, maxConversations: 10 });
+            });
+
+            await t.withIdentity({ subject: userId }).mutation(api.presence.updateStatus, {
+                organizationId: orgId,
+                status: "ONLINE",
+            });
+
+            const membership = await t.run(async (ctx: any) => {
+                return await ctx.db.query("memberships")
+                    .withIndex("by_user_org", (q: any) => q.eq("userId", userId).eq("organizationId", orgId))
+                    .first();
+            });
+            expect(membership.status).toBe("BUSY");
+        });
+    });
+
+    // ============================================
     // removeMember
     // ============================================
     describe("removeMember", () => {
