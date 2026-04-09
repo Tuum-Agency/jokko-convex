@@ -25,6 +25,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MobileSidebar } from './mobile-sidebar'
 import { FadeInView } from '@/components/animations'
+import { StatusIndicator } from '@/components/auth/status-indicator'
+import { useMyStatus } from '@/hooks/use-presence'
+import { useCurrentOrg } from '@/hooks/use-current-org'
 
 interface DashboardHeaderProps {
     /** Page title */
@@ -65,6 +68,18 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
     const router = useRouter()
     const { signOut } = useAuthActions()
+    const { status, updateStatus } = useMyStatus()
+    const { currentOrg } = useCurrentOrg()
+    const currentStatus = status || 'OFFLINE'
+
+    const handleStatusChange = async (newStatus: 'ONLINE' | 'AWAY' | 'OFFLINE') => {
+        if (!currentOrg) return
+        await updateStatus({
+            organizationId: currentOrg._id,
+            status: newStatus,
+        })
+    }
+
     // Search
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -368,12 +383,19 @@ export function DashboardHeader({
                                 disabled={!user}
                             >
                                 {user ? (
-                                    <Avatar className="h-9 w-9 ring-2 ring-gray-100">
-                                        <AvatarImage src={user.avatar} alt={user.name} />
-                                        <AvatarFallback className="bg-linear-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
-                                            {getInitials(user.name)}
-                                        </AvatarFallback>
-                                    </Avatar>
+                                    <div className="relative">
+                                        <Avatar className="h-9 w-9 ring-2 ring-gray-100">
+                                            <AvatarImage src={user.avatar} alt={user.name} />
+                                            <AvatarFallback className="bg-linear-to-br from-green-500 to-green-600 text-white text-xs font-semibold">
+                                                {getInitials(user.name)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <StatusIndicator
+                                            status={currentStatus as any}
+                                            size="sm"
+                                            className="absolute -bottom-0.5 -right-0.5 ring-2 ring-white"
+                                        />
+                                    </div>
                                 ) : (
                                     <Skeleton className="h-9 w-9 rounded-full" />
                                 )}
@@ -392,6 +414,31 @@ export function DashboardHeader({
                                         )}
                                     </div>
                                 </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs text-gray-400 font-normal">
+                                    Statut
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem
+                                    className={cn("cursor-pointer gap-2", currentStatus === 'ONLINE' && "bg-green-50")}
+                                    onClick={() => handleStatusChange('ONLINE')}
+                                >
+                                    <StatusIndicator status="ONLINE" /> En ligne
+                                    {currentStatus === 'ONLINE' && <span className="ml-auto text-green-600 text-xs">&#10003;</span>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className={cn("cursor-pointer gap-2", currentStatus === 'AWAY' && "bg-orange-50")}
+                                    onClick={() => handleStatusChange('AWAY')}
+                                >
+                                    <StatusIndicator status="AWAY" /> Absent
+                                    {currentStatus === 'AWAY' && <span className="ml-auto text-orange-600 text-xs">&#10003;</span>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className={cn("cursor-pointer gap-2", currentStatus === 'OFFLINE' && "bg-gray-50")}
+                                    onClick={() => handleStatusChange('OFFLINE')}
+                                >
+                                    <StatusIndicator status="OFFLINE" /> Hors ligne
+                                    {currentStatus === 'OFFLINE' && <span className="ml-auto text-gray-500 text-xs">&#10003;</span>}
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/settings?tab=profile')}>
                                     Profil

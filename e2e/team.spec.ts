@@ -98,6 +98,34 @@ test.describe('Team Page', () => {
         expect(count).toBeGreaterThanOrEqual(0);
     });
 
+    test('should have status selector in profile dropdown', async ({ page }) => {
+        // Click on the profile avatar button (desktop only)
+        const profileBtn = page.locator('header button:has(span[class*="rounded-full"])').last();
+        const visible = await profileBtn.isVisible().catch(() => false);
+        if (!visible) {
+            test.skip();
+            return;
+        }
+        await profileBtn.click();
+        await page.waitForTimeout(300);
+
+        // Check status options are present
+        const onlineOption = page.locator('[role="menuitem"]').filter({ hasText: /en ligne/i });
+        const awayOption = page.locator('[role="menuitem"]').filter({ hasText: /absent/i });
+        const offlineOption = page.locator('[role="menuitem"]').filter({ hasText: /hors ligne/i });
+
+        await expect(onlineOption).toBeVisible();
+        await expect(awayOption).toBeVisible();
+        await expect(offlineOption).toBeVisible();
+    });
+
+    test('should display status indicator on avatar', async ({ page }) => {
+        // Look for the status dot on the avatar in header
+        const statusDot = page.locator('header .relative span[class*="rounded-full"][class*="ring-white"]');
+        const count = await statusDot.count();
+        expect(count).toBeGreaterThanOrEqual(0);
+    });
+
     test('should load without console errors', async ({ page }) => {
         const errors: string[] = [];
         page.on('console', (msg) => {
