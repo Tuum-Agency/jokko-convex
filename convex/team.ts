@@ -15,21 +15,21 @@ export const listMembers = query({
         const userId = await getAuthUserId(ctx);
         if (!userId) return { members: [], total: 0, currentUserRole: 'agent' };
 
-        // Resolve Org ID
+        // Resolve Org ID — use session's current org when not specified
         let orgId = args.organizationId;
         let currentUserRole = "agent";
 
         if (!orgId) {
-            const membership = await ctx.db
-                .query("memberships")
+            const session = await ctx.db
+                .query("userSessions")
                 .withIndex("by_user", (q) => q.eq("userId", userId))
                 .first();
-            if (membership) {
-                orgId = membership.organizationId;
-                currentUserRole = membership.role.toLowerCase();
+            if (session?.currentOrganizationId) {
+                orgId = session.currentOrganizationId;
             }
-        } else {
-            // Fetch role for requested org
+        }
+
+        if (orgId) {
             const membership = await ctx.db
                 .query("memberships")
                 .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", orgId!))
@@ -222,14 +222,16 @@ export const getTeamActivity = query({
         const userId = await getAuthUserId(ctx);
         if (!userId) return { activities: [] };
 
-        // Resolve Org ID
+        // Resolve Org ID — use session's current org when not specified
         let orgId = args.organizationId;
         if (!orgId) {
-            const membership = await ctx.db
-                .query("memberships")
+            const session = await ctx.db
+                .query("userSessions")
                 .withIndex("by_user", (q) => q.eq("userId", userId))
                 .first();
-            if (membership) orgId = membership.organizationId;
+            if (session?.currentOrganizationId) {
+                orgId = session.currentOrganizationId;
+            }
         }
         if (!orgId) return { activities: [] };
 
