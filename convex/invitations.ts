@@ -137,7 +137,7 @@ export const create = action({
             // Better to log it. The invitation is created anyway.
         }
 
-        return { success: true };
+        return { success: true, token };
     },
 });
 

@@ -24,7 +24,6 @@ import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
 import {
     Popover,
     PopoverContent,
@@ -658,19 +657,49 @@ export default function AssignmentsClient() {
                     <Card className="bg-white border-gray-100 shadow-sm">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-gray-700">Charge globale de l&apos;equipe</span>
-                                <span className="text-sm font-bold text-gray-900">
-                                    {totalLoad}/{totalCapacity} conversations
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                        "h-2 w-2 rounded-full",
+                                        workloadPercent < 50 ? "bg-emerald-500" : workloadPercent < 80 ? "bg-amber-500" : "bg-red-500"
+                                    )} />
+                                    <span className="text-sm font-medium text-gray-700">Charge de l&apos;équipe</span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <AlertCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                            Conversations actives par rapport à la capacité totale de vos agents
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn(
+                                        "text-xs font-semibold px-2 py-0.5 rounded-full",
+                                        workloadPercent < 50 ? "text-emerald-700 bg-emerald-50" : workloadPercent < 80 ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50"
+                                    )}>
+                                        {workloadPercent}%
+                                    </span>
+                                    <span className="text-sm text-gray-500">
+                                        {totalLoad}/{totalCapacity}
+                                    </span>
+                                </div>
                             </div>
-                            <Progress
-                                value={workloadPercent}
-                                className="h-2.5"
-                            />
-                            <p className="text-[11px] text-gray-400 mt-1">
-                                {workloadPercent}% de capacite utilisee
-                                {workloadPercent >= 80 && " — Attention, capacite presque atteinte"}
-                            </p>
+                            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                                <div
+                                    className={cn(
+                                        "h-full rounded-full transition-all duration-500 ease-out",
+                                        workloadPercent < 50 ? "bg-gradient-to-r from-emerald-500 to-green-400" :
+                                        workloadPercent < 80 ? "bg-gradient-to-r from-amber-500 to-yellow-400" :
+                                        "bg-gradient-to-r from-red-500 to-orange-400"
+                                    )}
+                                    style={{ width: `${workloadPercent}%` }}
+                                />
+                            </div>
+                            {workloadPercent >= 80 && (
+                                <p className="text-[11px] text-red-500 font-medium mt-1.5">
+                                    Capacité presque atteinte
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 )}

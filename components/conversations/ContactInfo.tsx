@@ -348,7 +348,7 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
         try {
             await updateContact({
                 id: contact.id,
-                tags: contact.tags,
+                tags: contact.tags.map((t: any) => typeof t === 'string' ? t : t.name),
                 addNote: newNoteContent.trim()
             });
             setNewNoteContent('');
@@ -408,21 +408,22 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
 
     const handleAddTag = async (tag: string) => {
         if (!contact || !tag.trim()) return;
-        // Check if exists
-        if (contact.tags.includes(tag.trim())) return;
+        const tagNames = contact.tags.map((t: any) => typeof t === 'string' ? t : t.name);
+        if (tagNames.includes(tag.trim())) return;
 
         await updateContact({
             id: contact.id,
-            tags: [...contact.tags, tag.trim()]
+            tags: [...tagNames, tag.trim()]
         });
         setNewTag('');
     };
 
     const handleRemoveTag = async (tagToRemove: string) => {
         if (!contact) return;
+        const tagNames = contact.tags.map((t: any) => typeof t === 'string' ? t : t.name);
         await updateContact({
             id: contact.id,
-            tags: contact.tags.filter(t => t !== tagToRemove)
+            tags: tagNames.filter((t: string) => t !== tagToRemove)
         });
     };
 
@@ -609,17 +610,20 @@ export function ContactInfo({ conversationId, onClose }: ContactInfoProps) {
                     <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-3">Tags</h4>
                         <div className="flex flex-wrap gap-2">
-                            {contact.tags.map((tag: string) => (
-                                <Badge
-                                    key={tag}
-                                    variant="secondary"
-                                    className="cursor-pointer hover:bg-red-100 hover:text-red-700 transition-colors"
-                                    onClick={() => handleRemoveTag(tag)}
-                                >
-                                    {tag}
-                                    <X className="h-3 w-3 ml-1" />
-                                </Badge>
-                            ))}
+                            {contact.tags.map((tag: any) => {
+                                const tagName = typeof tag === 'string' ? tag : tag.name
+                                return (
+                                    <Badge
+                                        key={tagName}
+                                        variant="secondary"
+                                        className="cursor-pointer hover:bg-red-100 hover:text-red-700 transition-colors"
+                                        onClick={() => handleRemoveTag(tagName)}
+                                    >
+                                        {tagName}
+                                        <X className="h-3 w-3 ml-1" />
+                                    </Badge>
+                                )
+                            })}
                             <div className="flex items-center gap-1">
                                 <Input
                                     value={newTag}
