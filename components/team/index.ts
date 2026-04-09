@@ -2,10 +2,11 @@
  * Team Components Exports
  */
 
-export { MemberList, type Member } from './MemberList'
+export { MemberList, RoleDistributionChart, type Member, type MemberStatus } from './MemberList'
 export { EditMemberModal } from './EditMemberModal'
 export { RemoveMemberDialog } from './RemoveMemberDialog'
 export { InviteMemberModal } from './InviteMemberModal'
+export { InvitationLinkDialog } from './InvitationLinkDialog'
 export { PendingInvitations, type Invitation } from './PendingInvitations'
 export { TeamLimitBanner } from './TeamLimitBanner'
 

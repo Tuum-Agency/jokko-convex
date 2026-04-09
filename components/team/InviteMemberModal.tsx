@@ -73,7 +73,7 @@ type InviteFormValues = z.infer<typeof inviteSchema>
 interface InviteMemberModalProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onSuccess: () => void
+    onSuccess: (data?: { token: string; email: string }) => void
     currentUserRole: Role
     teamUsage?: { current: number; limit: number }
 }
@@ -162,7 +162,7 @@ export function InviteMemberModal({
         setError(null)
 
         try {
-            await sendInvitation({
+            const result = await sendInvitation({
                 email: values.email,
                 name: values.name, // Send the name to backend
                 role: values.role.toUpperCase(),
@@ -170,7 +170,8 @@ export function InviteMemberModal({
                 // OrganizationId is inferred on backend or we could pass it if needed
             })
 
-            onSuccess()
+            const token = result?.token as string | undefined
+            onSuccess(token ? { token, email: values.email } : undefined)
             handleOpenChange(false)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Une erreur est survenue')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
     UserPlus,
     Users,
@@ -8,8 +8,14 @@ import {
     Building2,
     AlertCircle,
     Shield,
-    UserCheck,
+    Search,
+    X,
     Clock,
+    ChevronDown,
+    ChevronUp,
+    UserCheck,
+    Send,
+    Download,
 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useQuery } from "convex/react"
@@ -20,10 +26,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 
 import {
     MemberList,
+    RoleDistributionChart,
     InviteMemberModal,
+    InvitationLinkDialog,
     PendingInvitations,
     TeamLimitBanner,
     MemberListSkeleton,
@@ -31,6 +47,7 @@ import {
     PolesSection,
     PoleModal,
     type Member,
+    type MemberStatus,
     type Invitation,
     type Pole,
 } from '@/components/team'
@@ -105,6 +122,185 @@ function TeamPageSkeleton() {
 }
 
 // ============================================
+// SEARCH & FILTER BAR
+// ============================================
+
+interface MemberFiltersProps {
+    searchQuery: string
+    onSearchChange: (value: string) => void
+    roleFilter: string
+    onRoleFilterChange: (value: string) => void
+    statusFilter: string
+    onStatusFilterChange: (value: string) => void
+    poleFilter: string
+    onPoleFilterChange: (value: string) => void
+    uniquePoles: string[]
+    resultCount: number
+    totalCount: number
+}
+
+function MemberFilters({
+    searchQuery,
+    onSearchChange,
+    roleFilter,
+    onRoleFilterChange,
+    statusFilter,
+    onStatusFilterChange,
+    poleFilter,
+    onPoleFilterChange,
+    uniquePoles,
+    resultCount,
+    totalCount,
+}: MemberFiltersProps) {
+    const hasActiveFilters = searchQuery || roleFilter !== 'all' || statusFilter !== 'all' || poleFilter !== 'all'
+
+    function clearFilters() {
+        onSearchChange('')
+        onRoleFilterChange('all')
+        onStatusFilterChange('all')
+        onPoleFilterChange('all')
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Rechercher un membre..."
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="pl-9 h-9 text-sm bg-white"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => onSearchChange('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Role Filter */}
+                <Select value={roleFilter} onValueChange={onRoleFilterChange}>
+                    <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm bg-white">
+                        <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Tous les roles</SelectItem>
+                        <SelectItem value="owner">Proprietaire</SelectItem>
+                        <SelectItem value="admin">Administrateur</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                    <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm bg-white">
+                        <SelectValue placeholder="Statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Tous les statuts</SelectItem>
+                        <SelectItem value="ONLINE">En ligne</SelectItem>
+                        <SelectItem value="BUSY">Occupe</SelectItem>
+                        <SelectItem value="AWAY">Absent</SelectItem>
+                        <SelectItem value="OFFLINE">Hors ligne</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                {/* Pole Filter */}
+                {uniquePoles.length > 0 && (
+                    <Select value={poleFilter} onValueChange={onPoleFilterChange}>
+                        <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm bg-white">
+                            <SelectValue placeholder="Pole" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Tous les poles</SelectItem>
+                            <SelectItem value="none">Sans pole</SelectItem>
+                            {uniquePoles.map((pole) => (
+                                <SelectItem key={pole} value={pole}>
+                                    {pole}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+            </div>
+
+            {/* Active filters indicator */}
+            {hasActiveFilters && (
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">
+                        {resultCount} sur {totalCount} membres
+                    </span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                        <X className="h-3 w-3 mr-1" />
+                        Effacer les filtres
+                    </Button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ============================================
+// ACTIVITY ITEM
+// ============================================
+
+function ActivityItem({ activity }: {
+    activity: {
+        type: string
+        message: string
+        timestamp: number
+        userName?: string
+        userEmail?: string
+    }
+}) {
+    const iconMap: Record<string, React.ElementType> = {
+        member_joined: UserCheck,
+        invitation_sent: Send,
+    }
+    const Icon = iconMap[activity.type] || Clock
+
+    const timeAgo = formatActivityTime(activity.timestamp)
+
+    return (
+        <div className="flex items-start gap-3 py-2 px-1 rounded-lg hover:bg-gray-50 transition-colors">
+            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Icon className="h-4 w-4 text-gray-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-700 leading-snug">
+                    {activity.message}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{timeAgo}</p>
+            </div>
+        </div>
+    )
+}
+
+function formatActivityTime(timestamp: number): string {
+    const now = Date.now()
+    const diffMs = now - timestamp
+    const diffMin = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMin < 1) return "A l'instant"
+    if (diffMin < 60) return `Il y a ${diffMin}min`
+    if (diffHours < 24) return `Il y a ${diffHours}h`
+    if (diffDays < 30) return `Il y a ${diffDays}j`
+    return new Date(timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+// ============================================
 // MAIN PAGE
 // ============================================
 
@@ -112,12 +308,76 @@ export default function TeamPage() {
     const [inviteModalOpen, setInviteModalOpen] = useState(false)
     const [createPoleModalOpen, setCreatePoleModalOpen] = useState(false)
 
+    // Invitation link dialog state (Feature 4)
+    const [invitationLinkData, setInvitationLinkData] = useState<{ token: string; email: string } | null>(null)
+
+    // Filter state
+    const [searchQuery, setSearchQuery] = useState('')
+    const [roleFilter, setRoleFilter] = useState('all')
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [poleFilter, setPoleFilter] = useState('all')
+
     const role = useQuery(api.users.currentUserRole);
+
+    // Activity panel state
+    const [activityOpen, setActivityOpen] = useState(true)
 
     // Convex Queries
     const membersData = useQuery(api.team.listMembers, {})
     const invitationsData = useQuery(api.invitations.list, {})
     const polesData = useQuery(api.poles.list, {})
+    const activityData = useQuery(api.team.getTeamActivity, {})
+
+    // Derived data (must be computed before early returns that use them)
+    const currentUserRole = (membersData?.currentUserRole as Role) || 'agent'
+    const members = (membersData?.members ?? []) as Member[]
+    const invitations = (invitationsData?.invitations ?? []) as Invitation[]
+    const poles = (polesData?.poles ?? []) as Pole[]
+
+    // Extract unique pole names for filter dropdown
+    const uniquePoles = useMemo(() => {
+        const poleNames = new Set<string>()
+        for (const m of members) {
+            if (m.poleName) poleNames.add(m.poleName)
+        }
+        return Array.from(poleNames).sort()
+    }, [members])
+
+    // Client-side filtering
+    const filteredMembers = useMemo(() => {
+        let result = members
+
+        // Search by name or email
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim()
+            result = result.filter((m) => {
+                const name = (m.user.name || '').toLowerCase()
+                const email = m.user.email.toLowerCase()
+                return name.includes(query) || email.includes(query)
+            })
+        }
+
+        // Role filter
+        if (roleFilter !== 'all') {
+            result = result.filter((m) => m.role === roleFilter)
+        }
+
+        // Status filter
+        if (statusFilter !== 'all') {
+            result = result.filter((m) => m.status === statusFilter)
+        }
+
+        // Pole filter
+        if (poleFilter !== 'all') {
+            if (poleFilter === 'none') {
+                result = result.filter((m) => !m.poleName)
+            } else {
+                result = result.filter((m) => m.poleName === poleFilter)
+            }
+        }
+
+        return result
+    }, [members, searchQuery, roleFilter, statusFilter, poleFilter])
 
     if (role === undefined || membersData === undefined) {
         return <TeamPageSkeleton />
@@ -130,7 +390,7 @@ export default function TeamPage() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Acces refuse</AlertTitle>
                     <AlertDescription>
-                        Vous n'avez pas les autorisations necessaires pour acceder a cette page.
+                        Vous n&apos;avez pas les autorisations necessaires pour acceder a cette page.
                     </AlertDescription>
                 </Alert>
             </div>
@@ -140,12 +400,6 @@ export default function TeamPage() {
     // Loading states
     const invitationsLoading = invitationsData === undefined
     const polesLoading = polesData === undefined
-
-    // Derived data
-    const currentUserRole = (membersData?.currentUserRole as Role) || 'agent'
-    const members = membersData?.members as Member[] || []
-    const invitations = invitationsData?.invitations as Invitation[] || []
-    const poles = polesData?.poles as Pole[] || []
 
     const totalMembers = membersData?.total || 0
     const nonOwnerCount = membersData?.nonOwnerCount || 0
@@ -164,6 +418,49 @@ export default function TeamPage() {
     // Stats for cards
     const pendingInvitations = invitationsData?.total || 0
     const totalPoles = polesData?.total || 0
+    const onlineCount = members.filter(m => m.status === 'ONLINE').length
+
+    // CSV export (Feature 3)
+    const roleLabelsMap: Record<string, string> = {
+        owner: 'Proprietaire',
+        admin: 'Administrateur',
+        agent: 'Agent',
+    }
+
+    const statusLabelsMap: Record<string, string> = {
+        ONLINE: 'En ligne',
+        BUSY: 'Occupe',
+        AWAY: 'Absent',
+        OFFLINE: 'Hors ligne',
+    }
+
+    const handleExportCSV = () => {
+        const headers = ['Nom', 'Email', 'Role', 'Pole', 'Statut', 'Conversations actives', 'Date d\'inscription']
+        const rows = members.map((m) => [
+            m.user.name || '',
+            m.user.email,
+            roleLabelsMap[m.role] || m.role,
+            m.poleName || '',
+            statusLabelsMap[m.status] || m.status,
+            String(m.activeConversations || 0),
+            m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('fr-FR') : '',
+        ])
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(r => r.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+        ].join('\n')
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.setAttribute('href', url)
+        link.setAttribute('download', `equipe_export_${new Date().toISOString().slice(0, 10)}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
 
     return (
         <div className="space-y-6">
@@ -179,6 +476,16 @@ export default function TeamPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportCSV}
+                        className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                        disabled={members.length === 0}
+                    >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Exporter</span>
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
@@ -209,9 +516,9 @@ export default function TeamPage() {
                     gradient="from-[#14532d] to-[#059669]"
                 />
                 <StatsCard
-                    title="Admins"
-                    value={String(members.filter(m => m.role === 'admin' || m.role === 'owner').length)}
-                    description="Proprietaires et administrateurs"
+                    title="En ligne"
+                    value={String(onlineCount)}
+                    description={`${onlineCount} sur ${totalMembers} membres actifs`}
                     icon={Shield}
                     gradient="from-[#166534] to-[#0d9488]"
                 />
@@ -271,11 +578,40 @@ export default function TeamPage() {
                 </TabsList>
 
                 {/* Members Tab */}
-                <TabsContent value="members" className="mt-4">
+                <TabsContent value="members" className="mt-4 space-y-4">
+                    {/* Role Distribution Chart (Feature 1) */}
+                    {members.length > 0 && (
+                        <Card className="bg-white border-gray-100 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold text-gray-900">
+                                    Repartition des roles
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <RoleDistributionChart members={members} />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Search & Filters */}
+                    <MemberFilters
+                        searchQuery={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        roleFilter={roleFilter}
+                        onRoleFilterChange={setRoleFilter}
+                        statusFilter={statusFilter}
+                        onStatusFilterChange={setStatusFilter}
+                        poleFilter={poleFilter}
+                        onPoleFilterChange={setPoleFilter}
+                        uniquePoles={uniquePoles}
+                        resultCount={filteredMembers.length}
+                        totalCount={members.length}
+                    />
+
                     <Card className="bg-white border-gray-100 shadow-sm">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
-                                Membres de l'equipe
+                                Membres de l&apos;equipe
                             </CardTitle>
                             <CardDescription>
                                 Personnes ayant acces a votre organisation
@@ -284,8 +620,9 @@ export default function TeamPage() {
                         <CardContent>
                             <div className="animate-in fade-in duration-300">
                                 <MemberList
-                                    members={members}
+                                    members={filteredMembers}
                                     currentUserRole={currentUserRole}
+                                    poles={poles}
                                 />
                             </div>
                         </CardContent>
@@ -330,7 +667,7 @@ export default function TeamPage() {
                                 Invitations en attente
                             </CardTitle>
                             <CardDescription>
-                                Invitations envoyees en attente d'acceptation
+                                Invitations envoyees en attente d&apos;acceptation
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -347,6 +684,63 @@ export default function TeamPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Activity Timeline */}
+            <Card className="bg-white border-gray-100 shadow-sm" data-testid="activity-section">
+                <CardHeader className="pb-3">
+                    <button
+                        onClick={() => setActivityOpen(!activityOpen)}
+                        className="flex items-center justify-between w-full cursor-pointer"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                                Activite de l&apos;equipe
+                            </CardTitle>
+                            {activityData?.activities && activityData.activities.length > 0 && (
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                                    {activityData.activities.length}
+                                </Badge>
+                            )}
+                        </div>
+                        {activityOpen ? (
+                            <ChevronUp className="h-4 w-4 text-gray-400" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                        )}
+                    </button>
+                    <CardDescription>
+                        Historique recent des evenements de l&apos;equipe
+                    </CardDescription>
+                </CardHeader>
+                {activityOpen && (
+                    <CardContent>
+                        {!activityData ? (
+                            <div className="space-y-3">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                                        <div className="flex-1">
+                                            <Skeleton className="h-4 w-3/4 mb-1" />
+                                            <Skeleton className="h-3 w-24" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : activityData.activities.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-4">
+                                Aucune activite recente
+                            </p>
+                        ) : (
+                            <div className="space-y-1">
+                                {activityData.activities.map((activity, index) => (
+                                    <ActivityItem key={`${activity.type}-${activity.timestamp}-${index}`} activity={activity} />
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                )}
+            </Card>
 
             {/* Invite Modal */}
             <InviteMemberModal

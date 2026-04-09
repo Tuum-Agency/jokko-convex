@@ -93,7 +93,7 @@ export function ContactCard({
 
     return (
         <Card
-            className={cn('bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer', className)}
+            className={cn('bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full', className)}
             onClick={() => onClick?.(contact)}
         >
             <CardContent className="p-4 sm:p-5">

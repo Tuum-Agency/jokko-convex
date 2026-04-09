@@ -892,7 +892,7 @@ export function ContactList({
                             {paginatedContacts.map((contact) => (
                                 <div
                                     key={contact.id}
-                                    className="relative"
+                                    className="relative h-full"
                                     {...(bulkMode ? {
                                         onClick: () => toggleSelect(contact.id),
                                         role: 'button',
