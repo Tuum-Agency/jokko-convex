@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -8,7 +8,21 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Send, CheckCircle, Eye, MessageSquare, Play, Calendar, Copy, XCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+} from '@/components/ui/dialog';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select';
+import {
+    ArrowLeft, Send, CheckCircle, Eye, MessageSquare, Play, Calendar, Copy, XCircle,
+    Plus, RefreshCw, GitCompare
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -37,6 +51,26 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     );
 }
 
+const ACTIVITY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    created: Plus,
+    scheduled: Calendar,
+    sending_started: Play,
+    completed: CheckCircle,
+    failures: XCircle,
+    cancelled: XCircle,
+    retry: RefreshCw,
+};
+
+const ACTIVITY_COLOR_MAP: Record<string, string> = {
+    created: 'bg-green-500',
+    scheduled: 'bg-amber-500',
+    sending_started: 'bg-blue-500',
+    completed: 'bg-green-500',
+    failures: 'bg-red-500',
+    cancelled: 'bg-gray-500',
+    retry: 'bg-blue-500',
+};
+
 export default function BroadcastDetailsPage() {
     const params = useParams();
     const router = useRouter();
@@ -45,6 +79,25 @@ export default function BroadcastDetailsPage() {
     const broadcast = useQuery(api.broadcasts.get, { id: broadcastId });
     const updateBroadcast = useMutation(api.broadcasts.update);
     const duplicateBroadcast = useMutation(api.broadcasts.duplicate);
+    const retryFailedMutation = useMutation(api.broadcasts.retryFailed);
+
+    // Feature 2: Activity timeline
+    const activityData = useQuery(api.broadcasts.getActivity, { broadcastId });
+
+    // Feature 3: Confirmation dialog state
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+    // Feature 4: Retry loading state
+    const [retryLoading, setRetryLoading] = useState(false);
+
+    // Feature 6: Campaign comparison
+    const [showCompareDialog, setShowCompareDialog] = useState(false);
+    const [compareId, setCompareId] = useState<string | null>(null);
+    const allBroadcasts = useQuery(api.broadcasts.list, {});
+    const compareBroadcast = useQuery(
+        api.broadcasts.get,
+        compareId ? { id: compareId as Id<"broadcasts"> } : "skip"
+    );
 
     const handleActivate = async () => {
         if (!broadcast) return;
@@ -80,6 +133,20 @@ export default function BroadcastDetailsPage() {
             router.push(`/dashboard/campagnes/${newId}`);
         } catch {
             toast.error("Erreur lors de la duplication");
+        }
+    };
+
+    // Feature 4: Retry failed handler
+    const handleRetryFailed = async () => {
+        if (!broadcast) return;
+        setRetryLoading(true);
+        try {
+            const result = await retryFailedMutation({ broadcastId });
+            toast.success(`${result.retriedCount} messages relancés`);
+        } catch {
+            toast.error("Erreur lors de la relance");
+        } finally {
+            setRetryLoading(false);
         }
     };
 
@@ -141,6 +208,9 @@ export default function BroadcastDetailsPage() {
     const deliveryRate = broadcast.sentCount > 0 ? Math.round((broadcast.deliveredCount / broadcast.sentCount) * 100) : 0;
     const openRate = broadcast.deliveredCount > 0 ? Math.round((broadcast.readCount / broadcast.deliveredCount) * 100) : 0;
     const replyRate = broadcast.readCount > 0 ? Math.round((broadcast.repliedCount / broadcast.readCount) * 100) : 0;
+
+    // Feature 1: Progress calculation
+    const progress = broadcast.totalAudience > 0 ? Math.round((broadcast.sentCount / broadcast.totalAudience) * 100) : 0;
 
     const getStatusConfig = (status: string) => {
         switch (status) {
@@ -205,33 +275,95 @@ export default function BroadcastDetailsPage() {
                                 {statusConfig.label}
                             </span>
                         </div>
+                        {/* Feature 5: Show channel used */}
                         <p className="text-sm text-gray-500 mt-0.5">
                             Template: <span className="font-medium text-gray-700">{broadcast.template?.name || 'Inconnu'}</span>
                             {' '}&middot;{' '}
                             Créée le {format(new Date(broadcast.createdAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                            {broadcast.channelName && (
+                                <>
+                                    {' '}&middot;{' '}
+                                    Canal: <span className="font-medium text-gray-700">{broadcast.channelName}</span>
+                                </>
+                            )}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Feature 6: Compare button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCompareDialog(true)}
+                            className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                        >
+                            <GitCompare className="h-3.5 w-3.5" />
+                            Comparer
+                        </Button>
                         <Button variant="outline" size="sm" onClick={handleDuplicate} className="h-8 gap-1.5 text-xs rounded-full cursor-pointer">
                             <Copy className="h-3.5 w-3.5" />
                             Dupliquer
                         </Button>
-                        {broadcast.status === 'DRAFT' && (
+                        {/* Feature 4: Retry failed button */}
+                        {broadcast.failedCount > 0 && (
                             <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={handleActivate}
-                                className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                                onClick={handleRetryFailed}
+                                disabled={retryLoading}
+                                className="h-8 gap-1.5 text-xs rounded-full cursor-pointer text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
                             >
-                                {broadcast.scheduledAt ? (
-                                    <>
-                                        <Calendar className="h-3.5 w-3.5" /> Activer la planification
-                                    </>
-                                ) : (
-                                    <>
-                                        <Play className="h-3.5 w-3.5" /> Envoyer maintenant
-                                    </>
-                                )}
+                                <RefreshCw className={cn("h-3.5 w-3.5", retryLoading && "animate-spin")} />
+                                {retryLoading ? 'Relance...' : 'Relancer les échecs'}
                             </Button>
+                        )}
+                        {/* Feature 3: Confirmation dialog before sending */}
+                        {broadcast.status === 'DRAFT' && (
+                            <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                                    >
+                                        {broadcast.scheduledAt ? (
+                                            <>
+                                                <Calendar className="h-3.5 w-3.5" /> Activer la planification
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play className="h-3.5 w-3.5" /> Envoyer maintenant
+                                            </>
+                                        )}
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirmer l&apos;envoi</AlertDialogTitle>
+                                        <AlertDialogDescription asChild>
+                                            <div className="space-y-2 text-sm text-gray-600">
+                                                <p>Vous allez lancer cette campagne :</p>
+                                                <ul className="space-y-1.5 ml-1">
+                                                    <li><span className="font-medium text-gray-800">Campagne :</span> {broadcast.name}</li>
+                                                    <li><span className="font-medium text-gray-800">Template :</span> {broadcast.template?.name || 'Inconnu'}</li>
+                                                    <li><span className="font-medium text-gray-800">Audience estimée :</span> {broadcast.totalAudience} contacts</li>
+                                                    <li><span className="font-medium text-gray-800">Canal :</span> {broadcast.channelName || 'Par défaut'}</li>
+                                                </ul>
+                                            </div>
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className="cursor-pointer">Annuler</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => {
+                                                setShowConfirmDialog(false);
+                                                handleActivate();
+                                            }}
+                                            className="bg-green-600 hover:bg-green-700 cursor-pointer"
+                                        >
+                                            Envoyer maintenant
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                         {(broadcast.status === 'SCHEDULED' || broadcast.status === 'DRAFT') && (
                             <Button
@@ -246,6 +378,25 @@ export default function BroadcastDetailsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Feature 1: Real-time Progress Bar */}
+            {broadcast.status === 'SENDING' && (
+                <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                        </span>
+                        <span className="text-sm font-medium text-gray-700">
+                            Envoi en cours... {broadcast.sentCount}/{broadcast.totalAudience} ({progress}%)
+                        </span>
+                    </div>
+                    <Progress
+                        value={progress}
+                        className="h-3 bg-gray-100"
+                    />
+                </div>
+            )}
 
             {/* Metric Cards */}
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -358,6 +509,120 @@ export default function BroadcastDetailsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Feature 2: Activity Timeline */}
+            {activityData && activityData.activities.length > 0 && (
+                <Card className="bg-white border-gray-100 shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
+                            Historique d&apos;activité
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-2 pb-4">
+                        <div className="relative">
+                            {/* Vertical line */}
+                            <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-gray-200" />
+                            <div className="space-y-4">
+                                {activityData.activities.map((activity, index) => {
+                                    const IconComp = ACTIVITY_ICON_MAP[activity.type] || Plus;
+                                    const dotColor = ACTIVITY_COLOR_MAP[activity.type] || 'bg-gray-400';
+                                    return (
+                                        <div key={`${activity.type}-${index}`} className="flex items-start gap-3 relative">
+                                            <div className={cn("relative z-10 flex items-center justify-center h-6 w-6 rounded-full shrink-0", dotColor)}>
+                                                <IconComp className="h-3 w-3 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                                <p className="text-sm text-gray-700 truncate">{activity.message}</p>
+                                                <time className="text-[11px] text-gray-400 whitespace-nowrap shrink-0">
+                                                    {format(new Date(activity.timestamp), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                                                </time>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Feature 6: Campaign Comparison Dialog */}
+            <Dialog open={showCompareDialog} onOpenChange={setShowCompareDialog}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Comparer les campagnes</DialogTitle>
+                        <DialogDescription>
+                            Sélectionnez une campagne pour comparer les performances
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <Select
+                            value={compareId ?? ""}
+                            onValueChange={(val) => setCompareId(val || null)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Choisir une campagne..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allBroadcasts?.filter(b => b._id !== broadcastId).map((b) => (
+                                    <SelectItem key={b._id} value={b._id}>
+                                        {b.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {compareId && compareBroadcast && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-2 px-3 font-medium text-gray-500">Métrique</th>
+                                            <th className="text-center py-2 px-3 font-medium text-gray-700">{broadcast.name}</th>
+                                            <th className="text-center py-2 px-3 font-medium text-gray-700">{compareBroadcast.name}</th>
+                                            <th className="text-center py-2 px-3 font-medium text-gray-500">Diff</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[
+                                            { label: 'Envoyés', a: broadcast.sentCount, b: compareBroadcast.sentCount, higherIsBetter: true },
+                                            { label: 'Délivrés', a: broadcast.deliveredCount, b: compareBroadcast.deliveredCount, higherIsBetter: true },
+                                            { label: 'Lus', a: broadcast.readCount, b: compareBroadcast.readCount, higherIsBetter: true },
+                                            { label: 'Réponses', a: broadcast.repliedCount, b: compareBroadcast.repliedCount, higherIsBetter: true },
+                                            { label: 'Échecs', a: broadcast.failedCount, b: compareBroadcast.failedCount, higherIsBetter: false },
+                                        ].map((row) => {
+                                            const diff = row.a - row.b;
+                                            const isBetter = row.higherIsBetter ? diff > 0 : diff < 0;
+                                            const isWorse = row.higherIsBetter ? diff < 0 : diff > 0;
+                                            return (
+                                                <tr key={row.label} className="border-b border-gray-100">
+                                                    <td className="py-2.5 px-3 text-gray-600 font-medium">{row.label}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-gray-900">{row.a}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-gray-900">{row.b}</td>
+                                                    <td className={cn(
+                                                        "py-2.5 px-3 text-center font-semibold",
+                                                        isBetter && "text-green-600",
+                                                        isWorse && "text-red-600",
+                                                        diff === 0 && "text-gray-400"
+                                                    )}>
+                                                        {diff > 0 ? '+' : ''}{diff}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {compareId && compareBroadcast === undefined && (
+                            <div className="flex justify-center py-8">
+                                <Skeleton className="h-40 w-full rounded-lg" />
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
