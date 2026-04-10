@@ -42,9 +42,15 @@ export const list = query({
         const enrichedBroadcasts = await Promise.all(
             broadcasts.map(async (b) => {
                 const template = await ctx.db.get(b.templateId);
+                let channelName: string | null = null;
+                if (b.whatsappChannelId) {
+                    const channel = await ctx.db.get(b.whatsappChannelId);
+                    channelName = channel?.label ?? null;
+                }
                 return {
                     ...b,
-                    templateName: template?.name || "Unknown Template"
+                    templateName: template?.name || "Unknown Template",
+                    channelName,
                 };
             })
         );
@@ -83,9 +89,36 @@ export const get = query({
 
         const template = await ctx.db.get(broadcast.templateId);
 
+        // Channel name
+        let channelName: string | null = null;
+        if (broadcast.whatsappChannelId) {
+            const channel = await ctx.db.get(broadcast.whatsappChannelId);
+            channelName = channel?.label ?? null;
+        }
+
+        // Total audience count (same logic as estimateAudience)
+        const contacts = await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", (q) => q.eq("organizationId", broadcast.organizationId))
+            .collect();
+
+        let totalAudience = contacts.length;
+        const config = broadcast.audienceConfig;
+        if (config.type === "TAGS" && config.tags && config.tags.length > 0) {
+            totalAudience = contacts.filter((c) =>
+                c.tags && c.tags.some((t) => config.tags!.includes(t))
+            ).length;
+        } else if (config.type === "COUNTRIES" && config.countries && config.countries.length > 0) {
+            totalAudience = contacts.filter((c) =>
+                config.countries!.some((prefix) => c.phone.startsWith(prefix))
+            ).length;
+        }
+
         return {
             ...broadcast,
-            template
+            template,
+            channelName,
+            totalAudience,
         };
     },
 });
@@ -140,6 +173,23 @@ export const create = mutation({
             updatedAt: Date.now(),
         });
 
+        // Log activity
+        await ctx.db.insert("broadcastActivities", {
+            broadcastId: id,
+            type: "created",
+            message: `Campagne "${args.name}" créée`,
+            createdAt: Date.now(),
+        });
+
+        if (args.scheduledAt) {
+            await ctx.db.insert("broadcastActivities", {
+                broadcastId: id,
+                type: "scheduled",
+                message: `Campagne planifiée pour le ${new Date(args.scheduledAt).toLocaleDateString("fr-FR")}`,
+                createdAt: Date.now(),
+            });
+        }
+
         return id;
     },
 });
@@ -186,6 +236,32 @@ export const update = mutation({
         const statusChanged = args.status && args.status !== broadcast.status;
 
         await ctx.db.patch(args.id, updates);
+
+        // Log activity for status changes
+        if (statusChanged) {
+            if (args.status === 'SENDING') {
+                await ctx.db.insert("broadcastActivities", {
+                    broadcastId: args.id,
+                    type: "sending_started",
+                    message: "Envoi de la campagne démarré",
+                    createdAt: Date.now(),
+                });
+            } else if (args.status === 'SCHEDULED') {
+                await ctx.db.insert("broadcastActivities", {
+                    broadcastId: args.id,
+                    type: "scheduled",
+                    message: "Campagne planifiée",
+                    createdAt: Date.now(),
+                });
+            } else if (args.status === 'CANCELLED') {
+                await ctx.db.insert("broadcastActivities", {
+                    broadcastId: args.id,
+                    type: "cancelled",
+                    message: "Campagne annulée",
+                    createdAt: Date.now(),
+                });
+            }
+        }
 
         // TRIGGER SENDING IF STATUS -> SENDING
         if (statusChanged && args.status === 'SENDING') {
@@ -359,10 +435,29 @@ export const sendBroadcast = internalAction({
 export const markCompleted = internalMutation({
     args: { id: v.id("broadcasts") },
     handler: async (ctx, args) => {
+        const broadcast = await ctx.db.get(args.id);
         await ctx.db.patch(args.id, {
             status: "COMPLETED",
             completedAt: Date.now()
         });
+
+        // Log completion activity
+        await ctx.db.insert("broadcastActivities", {
+            broadcastId: args.id,
+            type: "completed",
+            message: `Campagne terminée — ${broadcast?.sentCount ?? 0} envoyés, ${broadcast?.failedCount ?? 0} échecs`,
+            createdAt: Date.now(),
+        });
+
+        // Log failures if any
+        if (broadcast && broadcast.failedCount > 0) {
+            await ctx.db.insert("broadcastActivities", {
+                broadcastId: args.id,
+                type: "failures",
+                message: `${broadcast.failedCount} message(s) en échec`,
+                createdAt: Date.now(),
+            });
+        }
     }
 });
 
@@ -422,6 +517,39 @@ export const deleteBroadcast = mutation({
     },
 });
 
+export const archiveBroadcast = mutation({
+    args: { id: v.id("broadcasts") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const broadcast = await ctx.db.get(args.id);
+        if (!broadcast) throw new Error("Broadcast not found");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (session?.currentOrganizationId !== broadcast.organizationId) {
+            throw new Error("Unauthorized");
+        }
+
+        // Permission check: only ADMIN+ can archive broadcasts
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", q => q.eq("userId", userId).eq("organizationId", broadcast.organizationId))
+            .first();
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Permission refusée: seuls les admins peuvent archiver des broadcasts");
+        }
+
+        await ctx.db.patch(args.id, {
+            status: "CANCELLED",
+            updatedAt: Date.now(),
+        });
+    },
+});
+
 export const duplicate = mutation({
     args: { id: v.id("broadcasts") },
     handler: async (ctx, args) => {
@@ -457,5 +585,285 @@ export const duplicate = mutation({
         });
 
         return newId;
+    },
+});
+
+// ===================================
+// AUDIENCE ESTIMATION
+// ===================================
+
+export const estimateAudience = query({
+    args: {
+        audienceConfig: v.object({
+            type: v.union(v.literal("ALL"), v.literal("TAGS"), v.literal("COUNTRIES")),
+            tags: v.optional(v.array(v.id("tags"))),
+            countries: v.optional(v.array(v.string())),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            return { count: 0 };
+        }
+
+        const organizationId = session.currentOrganizationId;
+
+        const contacts = await ctx.db
+            .query("contacts")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect();
+
+        const config = args.audienceConfig;
+
+        if (config.type === "ALL") {
+            return { count: contacts.length };
+        }
+
+        if (config.type === "TAGS" && config.tags && config.tags.length > 0) {
+            const matched = contacts.filter((c) =>
+                c.tags && c.tags.some((t) => config.tags!.includes(t))
+            );
+            return { count: matched.length };
+        }
+
+        if (config.type === "COUNTRIES" && config.countries && config.countries.length > 0) {
+            const matched = contacts.filter((c) =>
+                config.countries!.some((prefix) => c.phone.startsWith(prefix))
+            );
+            return { count: matched.length };
+        }
+
+        return { count: contacts.length };
+    },
+});
+
+// ===================================
+// RETRY FAILED MESSAGES
+// ===================================
+
+export const retryFailed = mutation({
+    args: {
+        broadcastId: v.id("broadcasts"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            throw new Error("No organization selected");
+        }
+
+        const organizationId = session.currentOrganizationId;
+
+        // Permission check: only ADMIN+ can retry
+        const membership = await ctx.db.query("memberships")
+            .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", organizationId))
+            .first();
+        if (!membership || (membership.role !== "ADMIN" && membership.role !== "OWNER")) {
+            throw new Error("Permission refusée: seuls les admins peuvent relancer des broadcasts");
+        }
+
+        const broadcast = await ctx.db.get(args.broadcastId);
+        if (!broadcast) throw new Error("Broadcast not found");
+        if (broadcast.organizationId !== organizationId) {
+            throw new Error("Unauthorized");
+        }
+
+        // Get the template for re-sending
+        const template = await ctx.db.get(broadcast.templateId);
+        if (!template) throw new Error("Template not found");
+
+        // Find failed messages for this broadcast (no by_broadcast index, use filter)
+        const failedMessages = await ctx.db
+            .query("messages")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .filter((q) =>
+                q.and(
+                    q.eq(q.field("broadcastId"), args.broadcastId),
+                    q.eq(q.field("status"), "FAILED")
+                )
+            )
+            .collect();
+
+        let retriedCount = 0;
+
+        for (const msg of failedMessages) {
+            if (!msg.contactId) continue;
+
+            const contact = await ctx.db.get(msg.contactId);
+            if (!contact) continue;
+
+            await ctx.scheduler.runAfter(0, internal.broadcasts.sendSingleToContact, {
+                broadcastId: args.broadcastId,
+                organizationId,
+                contactId: contact._id,
+                phone: contact.phone,
+                templateName: template.name,
+                languageCode: template.language,
+                components: [],
+            });
+
+            retriedCount++;
+        }
+
+        // Reset failedCount and update status
+        const updates: Record<string, unknown> = {
+            failedCount: 0,
+            updatedAt: Date.now(),
+        };
+        if (broadcast.status === "COMPLETED" || broadcast.status === "FAILED") {
+            updates.status = "SENDING";
+        }
+        await ctx.db.patch(args.broadcastId, updates);
+
+        return { retriedCount };
+    },
+});
+
+// ===================================
+// ACTIVITY TIMELINE
+// ===================================
+
+export const getActivity = query({
+    args: {
+        broadcastId: v.id("broadcasts"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            throw new Error("No organization selected");
+        }
+
+        const broadcast = await ctx.db.get(args.broadcastId);
+        if (!broadcast) throw new Error("Broadcast not found");
+        if (broadcast.organizationId !== session.currentOrganizationId) {
+            throw new Error("Unauthorized access to this broadcast");
+        }
+
+        const activities: Array<{
+            type: string;
+            timestamp: number;
+            message: string;
+        }> = [];
+
+        // Created
+        activities.push({
+            type: "created",
+            timestamp: broadcast.createdAt,
+            message: "Campagne créée",
+        });
+
+        // Scheduled
+        if (broadcast.scheduledAt) {
+            const scheduledDate = new Date(broadcast.scheduledAt).toLocaleString("fr-FR", {
+                dateStyle: "long",
+                timeStyle: "short",
+            });
+            activities.push({
+                type: "scheduled",
+                timestamp: broadcast.scheduledAt,
+                message: `Planifiée pour le ${scheduledDate}`,
+            });
+        }
+
+        // Sending started
+        if (broadcast.status === "SENDING" || broadcast.status === "COMPLETED" || broadcast.status === "FAILED") {
+            activities.push({
+                type: "sending_started",
+                timestamp: broadcast.updatedAt,
+                message: "Envoi démarré",
+            });
+        }
+
+        // Completed
+        if (broadcast.completedAt) {
+            activities.push({
+                type: "completed",
+                timestamp: broadcast.completedAt,
+                message: `Envoi terminé — ${broadcast.sentCount} messages envoyés`,
+            });
+        }
+
+        // Failures
+        if (broadcast.failedCount > 0) {
+            activities.push({
+                type: "failures",
+                timestamp: broadcast.updatedAt,
+                message: `${broadcast.failedCount} messages en échec`,
+            });
+        }
+
+        // Sort by timestamp descending
+        activities.sort((a, b) => b.timestamp - a.timestamp);
+
+        return { activities };
+    },
+});
+
+// ===================================
+// EXPORT BROADCASTS
+// ===================================
+
+export const exportBroadcasts = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            return [];
+        }
+
+        const organizationId = session.currentOrganizationId;
+
+        const broadcasts = await ctx.db
+            .query("broadcasts")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .order("desc")
+            .collect();
+
+        const result = await Promise.all(
+            broadcasts.map(async (b) => {
+                const template = await ctx.db.get(b.templateId);
+                return {
+                    name: b.name,
+                    templateName: template?.name || "Unknown Template",
+                    status: b.status,
+                    sentCount: b.sentCount,
+                    deliveredCount: b.deliveredCount,
+                    readCount: b.readCount,
+                    repliedCount: b.repliedCount,
+                    failedCount: b.failedCount,
+                    createdAt: new Date(b.createdAt).toISOString(),
+                    completedAt: b.completedAt ? new Date(b.completedAt).toISOString() : "",
+                };
+            })
+        );
+
+        return result;
     },
 });

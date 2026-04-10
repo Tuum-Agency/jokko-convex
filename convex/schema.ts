@@ -709,6 +709,22 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_channel", ["whatsappChannelId"]),
 
+    broadcastActivities: defineTable({
+        broadcastId: v.id("broadcasts"),
+        type: v.union(
+            v.literal("created"),
+            v.literal("scheduled"),
+            v.literal("sending_started"),
+            v.literal("completed"),
+            v.literal("failures"),
+            v.literal("cancelled"),
+            v.literal("retry")
+        ),
+        message: v.string(),
+        createdAt: v.number(),
+    })
+        .index("by_broadcast", ["broadcastId"]),
+
     shortcuts: defineTable({
         organizationId: v.id("organizations"),
         shortcut: v.string(), // Trigger command (e.g., "/intro")

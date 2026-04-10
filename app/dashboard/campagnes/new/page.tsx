@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from 'next/navigation';
@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, Plus, Phone } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Phone, Users, Eye, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Id } from '@/convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useChannels } from '@/hooks/useChannels';
 import { Switch } from '@/components/ui/switch';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -43,6 +44,25 @@ export default function NewBroadcastPage() {
     const [isScheduled, setIsScheduled] = useState(false);
     const [date, setDate] = useState<Date>();
     const [time, setTime] = useState<string>("09:00");
+
+    // Audience estimation config
+    const audienceConfig = useMemo(() => {
+        if (audienceType === 'TAGS') {
+            return { type: "TAGS" as const, tags: selectedTags as Id<"tags">[] };
+        }
+        if (audienceType === 'COUNTRIES') {
+            return { type: "COUNTRIES" as const, countries: selectedCountries };
+        }
+        return { type: "ALL" as const };
+    }, [audienceType, selectedTags, selectedCountries]);
+
+    const audienceEstimate = useQuery(api.broadcasts.estimateAudience, { audienceConfig });
+
+    // Selected template for preview
+    const selectedTemplate = useMemo(() => {
+        if (!templateId || !templates) return null;
+        return templates.find(t => t._id === templateId) ?? null;
+    }, [templateId, templates]);
 
     const toggleTag = (tagId: string) => {
         setSelectedTags(prev =>
@@ -232,6 +252,21 @@ export default function NewBroadcastPage() {
                                     )}
                                 </div>
                             )}
+
+                            {/* Audience Estimation */}
+                            {audienceEstimate === undefined ? (
+                                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
+                                    <Users className="h-4 w-4 text-green-600" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
+                                    <Users className="h-4 w-4 text-green-600" />
+                                    <span className="text-sm text-green-700">
+                                        ~<span className="font-bold">{audienceEstimate.count}</span> contacts ciblés
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Channel selector */}
@@ -301,6 +336,66 @@ export default function NewBroadcastPage() {
                                 </Button>
                             </div>
                         </div>
+
+                        {/* Template Preview */}
+                        {selectedTemplate && (
+                            <Card className="border-gray-100 bg-gray-50/50 shadow-none">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                        <Eye className="h-4 w-4 text-green-600" />
+                                        Aperçu du message
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex justify-start">
+                                        <div className="relative max-w-sm w-full">
+                                            {/* WhatsApp bubble tail */}
+                                            <div className="absolute -left-2 top-0 w-0 h-0 border-t-[8px] border-t-[#dcf8c6] border-r-[8px] border-r-transparent" />
+                                            {/* Message bubble */}
+                                            <div className="rounded-lg rounded-tl-none bg-[#dcf8c6] p-3 space-y-2 shadow-sm">
+                                                {/* Header */}
+                                                {selectedTemplate.header?.type && selectedTemplate.header?.text && (
+                                                    <div className="font-semibold text-sm text-gray-900">
+                                                        {selectedTemplate.header.text}
+                                                    </div>
+                                                )}
+                                                {selectedTemplate.header?.type && selectedTemplate.header?.mediaUrl && (
+                                                    <div className="rounded bg-gray-200/60 p-4 text-center text-xs text-gray-500">
+                                                        <MessageSquare className="h-6 w-6 mx-auto mb-1 text-gray-400" />
+                                                        {selectedTemplate.header.type === 'IMAGE' ? 'Image' : selectedTemplate.header.type === 'VIDEO' ? 'Vidéo' : 'Document'}
+                                                    </div>
+                                                )}
+                                                {/* Body */}
+                                                {selectedTemplate.body && (
+                                                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                                        {selectedTemplate.body}
+                                                    </p>
+                                                )}
+                                                {/* Footer */}
+                                                {selectedTemplate.footer && (
+                                                    <p className="text-[11px] text-gray-500 italic">
+                                                        {selectedTemplate.footer}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {/* Buttons */}
+                                            {selectedTemplate.buttons && selectedTemplate.buttons.length > 0 && (
+                                                <div className="mt-1 space-y-1">
+                                                    {selectedTemplate.buttons.map((btn: { type: string; text: string }, idx: number) => (
+                                                        <div
+                                                            key={idx}
+                                                            className="w-full text-center py-1.5 text-sm font-medium text-blue-500 bg-white rounded-lg border border-gray-100 shadow-sm"
+                                                        >
+                                                            {btn.text}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Scheduling */}
                         <div className="space-y-4 rounded-lg border border-gray-100 p-4 bg-gray-50/50">
