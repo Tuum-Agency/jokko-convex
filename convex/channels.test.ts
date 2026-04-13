@@ -15,6 +15,23 @@ describe("Channels", () => {
 
         // Setup: user + org + membership + WABA
         const setup = await t.run(async (ctx: any) => {
+            await ctx.db.insert("plans", {
+                key: "BUSINESS",
+                name: "Business",
+                description: "Pour les PME en croissance.",
+                maxAgents: 5,
+                maxWhatsappChannels: 3,
+                maxConversationsPerMonth: 5000,
+                maxTemplates: 20,
+                historyDays: -1,
+                monthlyPriceFCFA: 30000,
+                yearlyPriceFCFA: 288000,
+                yearlyMonthlyPriceFCFA: 24000,
+                features: [],
+                supportLevel: "Prioritaire",
+                sortOrder: 2,
+                isActive: true,
+            });
             const uid = await ctx.db.insert("users", { email: "owner@test.com", name: "Owner" });
             const oid = await ctx.db.insert("organizations", {
                 name: "Test Org",
@@ -136,8 +153,8 @@ describe("Channels", () => {
         ).rejects.toThrow("Channel limit reached");
     });
 
-    it("should prevent duplicate phone number", async () => {
-        await t.withIdentity({ subject: userId }).mutation(api.channels.create, {
+    it("should reconnect existing channel on duplicate phone number", async () => {
+        const ch1 = await t.withIdentity({ subject: userId }).mutation(api.channels.create, {
             organizationId: orgId,
             wabaId,
             label: "Ch 1",
@@ -145,15 +162,16 @@ describe("Channels", () => {
             displayPhoneNumber: "+1",
         });
 
-        await expect(
-            t.withIdentity({ subject: userId }).mutation(api.channels.create, {
-                organizationId: orgId,
-                wabaId,
-                label: "Ch 2",
-                phoneNumberId: "same_phone",
-                displayPhoneNumber: "+2",
-            })
-        ).rejects.toThrow("already registered");
+        // Creating with same phoneNumberId should reconnect (return existing ID)
+        const ch2 = await t.withIdentity({ subject: userId }).mutation(api.channels.create, {
+            organizationId: orgId,
+            wabaId,
+            label: "Ch 2",
+            phoneNumberId: "same_phone",
+            displayPhoneNumber: "+2",
+        });
+
+        expect(ch2).toBe(ch1);
     });
 
     it("should switch org default", async () => {
