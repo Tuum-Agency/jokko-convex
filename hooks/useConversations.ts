@@ -28,6 +28,7 @@ export interface ConversationSummary {
     tags: string[];
     channel: string;
     status: string;
+    whatsappChannelId?: string;
     windowExpiresAt?: number;
     lastMessageDirection?: string;
     isPinned?: boolean;
@@ -71,6 +72,7 @@ export function useConversations() {
             tags: c.tags || [],
             channel: c.channel,
             status: c.status,
+            whatsappChannelId: c.whatsappChannelId,
             windowExpiresAt: c.windowExpiresAt,
             lastMessageDirection: c.lastMessageDirection,
             isPinned: c.isPinned,

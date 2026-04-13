@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { requireMembership, requirePermission } from "./lib/auth";
-import { getMaxChannels } from "./lib/planLimits";
+import { getMaxChannels, isUnlimited } from "./lib/planHelpers";
 
 // ============================================
 // Queries
@@ -17,14 +17,16 @@ export const list = query({
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .collect();
 
-        // Enrich with team name and WABA label
+        // Enrich with pole, team, and WABA label
         const enriched = await Promise.all(
             channels.map(async (ch) => {
                 const team = ch.primaryTeamId ? await ctx.db.get(ch.primaryTeamId) : null;
+                const pole = ch.poleId ? await ctx.db.get(ch.poleId) : null;
                 const waba = await ctx.db.get(ch.wabaId);
                 return {
                     ...ch,
                     primaryTeam: team ? { _id: team._id, name: team.name, color: team.color } : null,
+                    pole: pole ? { _id: pole._id, name: pole.name, color: pole.color, icon: pole.icon } : null,
                     waba: waba ? { _id: waba._id, label: waba.label, metaBusinessAccountId: waba.metaBusinessAccountId } : null,
                 };
             })
@@ -64,6 +66,32 @@ export const getOrgDefault = query({
                 q.eq("organizationId", args.organizationId).eq("isOrgDefault", true)
             )
             .first();
+    },
+});
+
+// ============================================
+// Internal Queries (for actions)
+// ============================================
+
+export const getChannelWithWaba = internalQuery({
+    args: { channelId: v.id("whatsappChannels") },
+    handler: async (ctx, args) => {
+        const channel = await ctx.db.get(args.channelId);
+        if (!channel) throw new Error(`Channel ${args.channelId} not found`);
+
+        const waba = await ctx.db.get(channel.wabaId);
+        const org = await ctx.db.get(channel.organizationId);
+
+        return {
+            ...channel,
+            waba: waba ? {
+                _id: waba._id,
+                metaBusinessAccountId: waba.metaBusinessAccountId,
+                accessTokenRef: waba.accessTokenRef,
+                label: waba.label,
+            } : null,
+            orgWhatsapp: org?.whatsapp ?? null,
+        };
     },
 });
 
@@ -109,19 +137,30 @@ export const create = mutation({
             .collect();
 
         const activeChannels = existingChannels.filter((c) => c.status !== "disabled");
-        const maxChannels = getMaxChannels(org.plan);
+        const maxChannels = await getMaxChannels(ctx, org.plan);
 
-        if (activeChannels.length >= maxChannels) {
+        if (!isUnlimited(maxChannels) && activeChannels.length >= maxChannels) {
             throw new Error(`Channel limit reached for ${org.plan} plan (max: ${maxChannels})`);
         }
 
-        // Guard: unique phoneNumberId
+        // Reconnect: if phone already exists in same org, update and reactivate
         const existingPhone = await ctx.db
             .query("whatsappChannels")
             .withIndex("by_phone_id", (q) => q.eq("phoneNumberId", args.phoneNumberId))
             .first();
         if (existingPhone) {
-            throw new Error("This phone number is already registered as a channel");
+            if (existingPhone.organizationId !== args.organizationId) {
+                throw new Error("This phone number is already registered by another organization");
+            }
+            await ctx.db.patch(existingPhone._id, {
+                wabaId: args.wabaId,
+                status: "active",
+                label: args.label,
+                displayPhoneNumber: args.displayPhoneNumber,
+                verifiedName: args.verifiedName,
+                updatedAt: Date.now(),
+            });
+            return existingPhone._id;
         }
 
         // Guard: isOrgDefault uniqueness
@@ -163,6 +202,7 @@ export const update = mutation({
         id: v.id("whatsappChannels"),
         label: v.optional(v.string()),
         primaryTeamId: v.optional(v.id("teams")),
+        poleId: v.optional(v.id("poles")),
     },
     handler: async (ctx, args) => {
         const channel = await ctx.db.get(args.id);
@@ -178,9 +218,18 @@ export const update = mutation({
             }
         }
 
+        // Guard: org coherence for pole
+        if (args.poleId) {
+            const pole = await ctx.db.get(args.poleId);
+            if (!pole || pole.organizationId !== channel.organizationId) {
+                throw new Error("Pole does not belong to this organization");
+            }
+        }
+
         const updates: Record<string, any> = { updatedAt: Date.now() };
         if (args.label !== undefined) updates.label = args.label;
         if (args.primaryTeamId !== undefined) updates.primaryTeamId = args.primaryTeamId;
+        if (args.poleId !== undefined) updates.poleId = args.poleId;
 
         await ctx.db.patch(args.id, updates);
     },
@@ -254,6 +303,11 @@ export const getOrCreateWaba = internalMutation({
             if (existing.organizationId !== args.organizationId) {
                 throw new Error("This WABA is already linked to another organization");
             }
+            // Always refresh the access token on reconnect
+            await ctx.db.patch(existing._id, {
+                accessTokenRef: args.accessTokenRef,
+                updatedAt: Date.now(),
+            });
             return existing._id;
         }
 
@@ -269,9 +323,148 @@ export const getOrCreateWaba = internalMutation({
     },
 });
 
+export const internalCreate = internalMutation({
+    args: {
+        organizationId: v.id("organizations"),
+        wabaId: v.id("wabas"),
+        label: v.string(),
+        phoneNumberId: v.string(),
+        displayPhoneNumber: v.string(),
+        verifiedName: v.optional(v.string()),
+        isOrgDefault: v.optional(v.boolean()),
+        createdBy: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        // Guard: org coherence for WABA
+        const waba = await ctx.db.get(args.wabaId);
+        if (!waba || waba.organizationId !== args.organizationId) {
+            throw new Error("WABA does not belong to this organization");
+        }
+
+        // Guard: plan limit
+        const org = await ctx.db.get(args.organizationId);
+        if (!org) throw new Error("Organization not found");
+
+        const existingChannels = await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        const activeChannels = existingChannels.filter((c) => c.status !== "disabled");
+        const maxChannels = await getMaxChannels(ctx, org.plan);
+
+        if (!isUnlimited(maxChannels) && activeChannels.length >= maxChannels) {
+            throw new Error(`Channel limit reached for ${org.plan} plan (max: ${maxChannels})`);
+        }
+
+        // Reconnect: if phone already exists in same org, update and reactivate
+        const existingPhone = await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_phone_id", (q) => q.eq("phoneNumberId", args.phoneNumberId))
+            .first();
+        if (existingPhone) {
+            if (existingPhone.organizationId !== args.organizationId) {
+                throw new Error("This phone number is already registered by another organization");
+            }
+            await ctx.db.patch(existingPhone._id, {
+                wabaId: args.wabaId,
+                status: "active",
+                label: args.label,
+                displayPhoneNumber: args.displayPhoneNumber,
+                verifiedName: args.verifiedName,
+                updatedAt: Date.now(),
+            });
+            return existingPhone._id;
+        }
+
+        // Guard: isOrgDefault uniqueness
+        const isDefault = args.isOrgDefault ?? (activeChannels.length === 0);
+        if (isDefault) {
+            const currentDefault = await ctx.db
+                .query("whatsappChannels")
+                .withIndex("by_org_default", (q) =>
+                    q.eq("organizationId", args.organizationId).eq("isOrgDefault", true)
+                )
+                .first();
+            if (currentDefault) {
+                await ctx.db.patch(currentDefault._id, { isOrgDefault: false, updatedAt: Date.now() });
+            }
+        }
+
+        const channelId = await ctx.db.insert("whatsappChannels", {
+            organizationId: args.organizationId,
+            wabaId: args.wabaId,
+            label: args.label,
+            phoneNumberId: args.phoneNumberId,
+            displayPhoneNumber: args.displayPhoneNumber,
+            verifiedName: args.verifiedName,
+            webhookVerifyTokenRef: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "",
+            isOrgDefault: isDefault,
+            status: "active",
+            createdBy: args.createdBy,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        return channelId;
+    },
+});
+
+export const getOrgDefaultWabaCredentials = internalQuery({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        // Find the org's default channel, or first active channel
+        const defaultChannel = await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_org_default", (q) =>
+                q.eq("organizationId", args.organizationId).eq("isOrgDefault", true)
+            )
+            .first();
+
+        const channel = defaultChannel || await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .filter((q) => q.eq(q.field("status"), "active"))
+            .first();
+
+        if (!channel) {
+            // Fallback to legacy org.whatsapp
+            const org = await ctx.db.get(args.organizationId);
+            return {
+                accessToken: org?.whatsapp?.accessToken || null,
+                businessAccountId: null,
+            };
+        }
+
+        const waba = await ctx.db.get(channel.wabaId);
+        const org = await ctx.db.get(args.organizationId);
+
+        return {
+            accessToken: waba?.accessTokenRef || org?.whatsapp?.accessToken || null,
+            businessAccountId: waba?.metaBusinessAccountId || null,
+        };
+    },
+});
+
 export const updateLastWebhookAt = internalMutation({
     args: { channelId: v.id("whatsappChannels") },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.channelId, { lastWebhookAt: Date.now() });
+    },
+});
+
+export const markChannelError = internalMutation({
+    args: {
+        channelId: v.id("whatsappChannels"),
+        status: v.union(v.literal("error"), v.literal("disconnected")),
+    },
+    handler: async (ctx, args) => {
+        const channel = await ctx.db.get(args.channelId);
+        if (channel && channel.status === "active") {
+            await ctx.db.patch(args.channelId, {
+                status: args.status,
+                updatedAt: Date.now(),
+            });
+        }
     },
 });

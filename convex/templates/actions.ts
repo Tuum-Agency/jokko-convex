@@ -1,6 +1,7 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { buildMetaTemplatePayload } from "../lib/templateBuilder";
 import { api } from "../_generated/api";
 
@@ -19,13 +20,16 @@ export const submitToMeta = action({
         // 2. Build payload
         const payload = buildMetaTemplatePayload(template);
 
-        // 3. Get Credentials (from env for now, ideally from Org settings)
-        // In a real multi-tenant app, these would come from `ctx.runQuery(api.organizations.getSecrets, ...)`
-        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-        const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+        // 3. Resolve WABA credentials from org's default channel
+        const creds = await ctx.runQuery(internal.channels.getOrgDefaultWabaCredentials, {
+            organizationId: template.organizationId,
+        });
+
+        const accessToken = creds.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        const businessAccountId = creds.businessAccountId || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 
         if (!accessToken || !businessAccountId) {
-            console.error("Missing WhatsApp credentials in env");
+            console.error("Missing WhatsApp credentials for org", template.organizationId);
             throw new Error("Configuration error: Missing WhatsApp credentials");
         }
 
@@ -66,15 +70,28 @@ export const syncFromMeta = action({
     handler: async (ctx) => {
         console.log("Starting Template Sync from Meta...");
 
-        // 1. Get credentials
-        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-        const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+        // 1. Resolve org from auth context
+        const localTemplates = await ctx.runQuery(api.templates.queries.listForSync);
+        if (localTemplates.length === 0) {
+            return { message: "No local templates to sync", updated: 0 };
+        }
+
+        // Get organizationId from the first template
+        const organizationId = localTemplates[0].organizationId;
+
+        // 2. Resolve WABA credentials from org's default channel
+        const creds = await ctx.runQuery(internal.channels.getOrgDefaultWabaCredentials, {
+            organizationId,
+        });
+
+        const accessToken = creds.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        const businessAccountId = creds.businessAccountId || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 
         if (!accessToken || !businessAccountId) {
             throw new Error("Missing WhatsApp credentials");
         }
 
-        // 2. Fetch all templates from Meta
+        // 3. Fetch all templates from Meta
         const response = await fetch(
             `https://graph.facebook.com/v21.0/${businessAccountId}/message_templates?fields=name,status,id&limit=100`,
             {
@@ -96,10 +113,6 @@ export const syncFromMeta = action({
         if (!metaTemplates || metaTemplates.length === 0) {
             return { message: "No templates found on Meta", updated: 0 };
         }
-
-        // 3. Get local templates
-        const localTemplates = await ctx.runQuery(api.templates.queries.listForSync);
-        console.log(`Found ${localTemplates.length} local templates to check`);
 
         // 4. Match and Update
         let updatedCount = 0;

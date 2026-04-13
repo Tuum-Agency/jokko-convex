@@ -4,43 +4,51 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { FadeInView, StaggerContainer, StaggerItem, ScaleInView } from '@/components/animations'
-import { Check, DollarSign, Zap, Store, Building2, ShieldCheck, HelpCircle, Sparkles } from 'lucide-react'
+import { Check, DollarSign, Zap, Store, Building2, ShieldCheck, HelpCircle, Sparkles, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { PLANS as PLAN_DEFS, formatLimit } from '@/lib/plans'
+import { usePlans } from '@/hooks/usePlans'
+import { formatLimit } from '@/lib/plan-utils'
 
-const PLAN_UI = {
-    STARTER: { icon: Zap, gradient: 'from-slate-50 to-white', border: 'border-slate-200', text: 'text-slate-900', buttonVariant: 'outline' as const, cta: "Démarrer" },
-    BUSINESS: { icon: Store, gradient: 'from-green-50 to-emerald-100/40', border: 'border-green-500 ring-4 ring-green-500/10 shadow-2xl', text: 'text-green-800', buttonVariant: 'default' as const, cta: "Choisir Business" },
-    PRO: { icon: Building2, gradient: 'from-purple-50 to-indigo-50/50', border: 'border-purple-200', text: 'text-purple-900', buttonVariant: 'secondary' as const, cta: "Passer Pro" },
-} as const;
+const PLAN_UI: Record<string, { icon: typeof Zap; gradient: string; border: string; text: string; buttonVariant: 'outline' | 'default' | 'secondary'; cta: string }> = {
+    STARTER: { icon: Zap, gradient: 'from-slate-50 to-white', border: 'border-slate-200', text: 'text-slate-900', buttonVariant: 'outline', cta: "Démarrer" },
+    BUSINESS: { icon: Store, gradient: 'from-green-50 to-emerald-100/40', border: 'border-green-500 ring-4 ring-green-500/10 shadow-2xl', text: 'text-green-800', buttonVariant: 'default', cta: "Choisir Business" },
+    PRO: { icon: Building2, gradient: 'from-purple-50 to-indigo-50/50', border: 'border-purple-200', text: 'text-purple-900', buttonVariant: 'secondary', cta: "Passer Pro" },
+};
 
-const plans = PLAN_DEFS.map((p) => {
-    const ui = PLAN_UI[p.key as keyof typeof PLAN_UI];
-    return {
-        name: p.name,
-        price: new Intl.NumberFormat('fr-FR').format(p.pricing.monthlyFCFA),
-        period: 'mois',
-        description: p.description,
-        icon: ui.icon,
-        gradient: ui.gradient,
-        border: ui.border,
-        text: ui.text,
-        buttonVariant: ui.buttonVariant,
-        features: [
-            `${formatLimit(p.limits.agents)} Agent${p.limits.agents > 1 ? 's' : ''} ${p.limits.agents === 1 ? '(Vous uniquement)' : 'inclus'}`,
-            `${formatLimit(p.limits.whatsappChannels)} Numéro${p.limits.whatsappChannels > 1 ? 's' : ''} WhatsApp`,
-            `${formatLimit(p.limits.conversationsPerMonth)} conversations/mois`,
-            ...p.features.filter(f => f.included).map(f => f.label),
-            `Support ${p.supportLevel}`,
-        ],
-        limits: p.features.filter(f => !f.included).map(f => `Pas de ${f.label.replace(/^Pas de /, '')}`),
-        cta: ui.cta,
-        popular: p.popular || false,
-    };
-});
+function buildPlans(planDefs: any[]) {
+    return planDefs
+        .filter((p) => PLAN_UI[p.key])
+        .map((p) => {
+            const ui = PLAN_UI[p.key];
+            return {
+                name: p.name,
+                price: new Intl.NumberFormat('fr-FR').format(p.monthlyPriceFCFA),
+                period: 'mois',
+                description: p.description,
+                icon: ui.icon,
+                gradient: ui.gradient,
+                border: ui.border,
+                text: ui.text,
+                buttonVariant: ui.buttonVariant,
+                features: [
+                    `${formatLimit(p.maxAgents)} Agent${p.maxAgents > 1 ? 's' : ''} ${p.maxAgents === 1 ? '(Vous uniquement)' : 'inclus'}`,
+                    `${formatLimit(p.maxWhatsappChannels)} Numéro${p.maxWhatsappChannels > 1 ? 's' : ''} WhatsApp`,
+                    `${formatLimit(p.maxConversationsPerMonth)} conversations/mois`,
+                    ...p.features.filter((f: any) => f.included).map((f: any) => f.label),
+                    `Support ${p.supportLevel}`,
+                ],
+                limits: p.features.filter((f: any) => !f.included).map((f: any) => `Pas de ${f.label.replace(/^Pas de /, '')}`),
+                cta: ui.cta,
+                popular: p.popular || false,
+            };
+        });
+}
 
 export function PricingSection() {
+    const { plans: planDefs, isLoading } = usePlans()
+    const plans = buildPlans(planDefs)
+
     return (
         <section id="pricing" className="py-16 sm:py-20 lg:py-24 relative overflow-hidden bg-slate-50">
             {/* Background Decoration */}
@@ -128,7 +136,7 @@ export function PricingSection() {
                                                 ))}
 
                                                 {/* Excluded/Limited Features (Grayed out) */}
-                                                {plan.limits.map((limit, i) => (
+                                                {plan.limits.map((limit: string, i: number) => (
                                                     <div key={i} className="flex items-start gap-3 opacity-50">
                                                         <div className="mt-0.5 p-0.5 rounded-full shrink-0 bg-slate-50">
                                                             <div className="w-3.5 h-3.5" />

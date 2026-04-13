@@ -151,6 +151,7 @@ export const send = mutation({
                 await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
                     messageId,
                     organizationId: conversation.organizationId,
+                    whatsappChannelId: conversation.whatsappChannelId,
                     to: contact.phone,
                     text: args.content,
                     type: "text",
@@ -171,10 +172,11 @@ export const send = mutation({
                     await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
                         messageId,
                         organizationId: conversation.organizationId,
+                        whatsappChannelId: conversation.whatsappChannelId,
                         to: contact.phone,
                         type: args.type.toLowerCase(),
                         mediaUrl: mediaUrl as string,
-                        caption: args.content, // Caption is supported for image/video/document (handled in action)
+                        caption: args.content,
                         mimeType: args.mediaType,
                         fileName: args.fileName,
                         replyToWhatsAppId
@@ -217,6 +219,7 @@ export const retry = mutation({
                 await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
                     messageId: message._id,
                     organizationId: message.organizationId,
+                    whatsappChannelId: conversation.whatsappChannelId,
                     to: contact.phone,
                     text: message.content,
                     type: "text",
@@ -232,6 +235,7 @@ export const retry = mutation({
                     await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
                         messageId: message._id,
                         organizationId: message.organizationId,
+                        whatsappChannelId: conversation.whatsappChannelId,
                         to: contact.phone,
                         type: message.type.toLowerCase(),
                         mediaUrl: mediaUrl,

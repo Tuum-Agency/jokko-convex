@@ -37,7 +37,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
     // Convex Actions
     const completeOnboarding = useMutation(api.users.completeOnboarding);
     const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
-    const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
+    const addChannel = useAction(api.whatsapp.addChannel);
 
     const launchWhatsAppSignup = async () => {
         setErrorMessage(null);
@@ -56,7 +56,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
         try {
             const data = await fetchNumbers({ accessToken: token });
-            setWabaId(data.wabaId);
+            setWabaId(data.wabaId ?? null);
             setPhoneNumbers(data.phoneNumbers);
 
             if (data.phoneNumbers.length > 0) {
@@ -73,16 +73,20 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
         }
     }
 
-    // Step 2: Finalize
+    // Step 2: Finalize — use addChannel which handles token exchange + WABA + channel creation
     async function handleConfirmSelection() {
         if (!accessToken || !wabaId || !selectedPhoneId) return;
 
+        const selectedPhone = phoneNumbers.find(p => p.id === selectedPhoneId);
+
         setStatus('SAVING');
         try {
-            await finalizeRegistration({
+            await addChannel({
                 accessToken,
                 wabaId,
-                phoneNumberId: selectedPhoneId
+                phoneNumberId: selectedPhoneId,
+                displayPhoneNumber: selectedPhone?.display_phone_number,
+                verifiedName: selectedPhone?.verified_name,
             });
             await completeOnboarding();
             onComplete();

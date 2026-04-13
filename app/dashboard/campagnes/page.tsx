@@ -4,12 +4,17 @@ import { BroadcastList } from '@/components/broadcasts/BroadcastList';
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CreditCard } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+const formatCurrency = (n: number) => new Intl.NumberFormat('fr-SN', { style: 'currency', currency: 'XOF' }).format(n);
 
 export default function BroadcastsPage() {
     const role = useQuery(api.users.currentUserRole);
+    const creditBalance = useQuery(api.credits.getBalance);
 
     if (role === undefined) {
         return (
@@ -59,6 +64,23 @@ export default function BroadcastsPage() {
                     <p className="text-sm text-gray-500 mt-0.5">
                         Gérez vos diffusions de messages en masse
                     </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
+                        <span className="text-xs font-semibold text-gray-700">
+                            Cr&eacute;dit Marketing
+                        </span>
+                        <span className="text-xs text-gray-500 font-medium tabular-nums">
+                            {creditBalance != null ? formatCurrency(creditBalance) : '...'}
+                        </span>
+                    </div>
+                    <Link href="/dashboard/billing">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-full cursor-pointer">
+                            <CreditCard className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Recharger</span>
+                        </Button>
+                    </Link>
                 </div>
             </div>
             <BroadcastList />

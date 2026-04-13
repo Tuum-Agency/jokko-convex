@@ -646,7 +646,7 @@ export const BroadcastList: React.FC = () => {
                                                         <DropdownMenuContent align="end" className="w-40">
                                                             <DropdownMenuLabel className="text-[11px] text-gray-400 font-medium">Actions</DropdownMenuLabel>
                                                             <DropdownMenuItem onClick={() => router.push(`/dashboard/campagnes/${broadcast._id}`)} className="cursor-pointer text-sm">
-                                                                <ExternalLink className="mr-2 h-3.5 w-3.5" /> D\u00e9tails
+                                                                <ExternalLink className="mr-2 h-3.5 w-3.5" /> Détails
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleDuplicate(broadcast._id)} className="cursor-pointer text-sm">
                                                                 <Copy className="mr-2 h-3.5 w-3.5" /> Dupliquer

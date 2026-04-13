@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx } from "./_generated/server";
-import { CONVERSATION_LIMITS, CHANNEL_LIMITS, getMaxChannels, getConversationLimit } from "./lib/planLimits";
+import { getMaxChannels, getConversationLimit, isUnlimited } from "./lib/planHelpers";
 
-export { getMaxChannels } from "./lib/planLimits";
+export { getMaxChannels } from "./lib/planHelpers";
 
 export const getUsageStats = query({
     args: { organizationId: v.id("organizations") },
@@ -37,9 +37,9 @@ export const checkAndIncrementServiceUsage = internalMutation({
             };
         }
 
-        const limit = getConversationLimit(org.plan);
+        const limit = await getConversationLimit(ctx, org.plan);
 
-        if (stats.serviceConversationsCount >= limit) {
+        if (!isUnlimited(limit) && stats.serviceConversationsCount >= limit) {
             return {
                 allowed: false,
                 reason: "LIMIT_EXCEEDED",

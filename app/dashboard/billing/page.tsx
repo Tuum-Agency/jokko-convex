@@ -42,7 +42,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { cn } from "@/lib/utils";
-import { PLANS as PLAN_DEFS, PLAN_LIMITS, formatLimit, type PlanKey } from "@/lib/plans";
+import { formatLimit, isUnlimited, type PlanKey } from "@/lib/plan-utils";
+import { usePlans, usePlanLimits } from "@/hooks/usePlans";
 import { Progress } from "@/components/ui/progress";
 import { RechargeDialog } from "./_components/recharge-dialog";
 
@@ -71,26 +72,30 @@ const PLAN_CONFIG = {
     },
 } as const;
 
-const PLANS = PLAN_DEFS.map((p) => {
-    const config = PLAN_CONFIG[p.key as keyof typeof PLAN_CONFIG];
-    return {
-        key: p.key as "STARTER" | "BUSINESS" | "PRO",
-        name: p.name,
-        description: p.description,
-        priceMonthly: new Intl.NumberFormat('fr-FR').format(p.pricing.monthlyFCFA),
-        priceYearly: new Intl.NumberFormat('fr-FR').format(p.pricing.yearlyFCFA),
-        priceYearlyMonthly: new Intl.NumberFormat('fr-FR').format(p.pricing.yearlyMonthlyFCFA),
-        popular: p.popular,
-        features: [
-            `${formatLimit(p.limits.agents)} agent${p.limits.agents > 1 ? 's' : ''}`,
-            `${formatLimit(p.limits.whatsappChannels)} numéro${p.limits.whatsappChannels > 1 ? 's' : ''} WhatsApp`,
-            `${formatLimit(p.limits.conversationsPerMonth)} conversations/mois`,
-            ...p.features.filter(f => f.included).slice(0, 2).map(f => f.label),
-            `Support ${p.supportLevel.toLowerCase()}`,
-        ],
-        ...config,
-    };
-});
+function buildBillingPlans(planDefs: any[]) {
+    return planDefs
+        .filter((p) => PLAN_CONFIG[p.key as keyof typeof PLAN_CONFIG])
+        .map((p) => {
+            const config = PLAN_CONFIG[p.key as keyof typeof PLAN_CONFIG];
+            return {
+                key: p.key as "STARTER" | "BUSINESS" | "PRO",
+                name: p.name,
+                description: p.description,
+                priceMonthly: new Intl.NumberFormat('fr-FR').format(p.monthlyPriceFCFA),
+                priceYearly: new Intl.NumberFormat('fr-FR').format(p.yearlyPriceFCFA),
+                priceYearlyMonthly: new Intl.NumberFormat('fr-FR').format(p.yearlyMonthlyPriceFCFA),
+                popular: p.popular,
+                features: [
+                    `${formatLimit(p.maxAgents)} agent${p.maxAgents > 1 ? 's' : ''}`,
+                    `${formatLimit(p.maxWhatsappChannels)} numéro${p.maxWhatsappChannels > 1 ? 's' : ''} WhatsApp`,
+                    `${formatLimit(p.maxConversationsPerMonth)} conversations/mois`,
+                    ...p.features.filter((f: any) => f.included).slice(0, 2).map((f: any) => f.label),
+                    `Support ${p.supportLevel.toLowerCase()}`,
+                ],
+                ...config,
+            };
+        });
+}
 
 // ============================================
 // LOADING SKELETON
@@ -142,6 +147,10 @@ export default function BillingPage() {
     const transactions = useQuery(api.credits.getTransactions, { limit: 10 });
     const { currentOrg } = useCurrentOrg();
     const usageStats = useQuery(api.billing.getUsageStats, currentOrg?._id ? { organizationId: currentOrg._id } : "skip");
+
+    const { plans: planDefs } = usePlans();
+    const { currentPlan: currentPlanData } = usePlanLimits();
+    const billingPlans = buildBillingPlans(planDefs);
 
     const createCheckout = useAction(api.stripe_actions.createCheckoutSession);
     const createPortal = useAction(api.stripe_actions.createPortalSession);
@@ -200,10 +209,9 @@ export default function BillingPage() {
     const stripeStatus = currentOrg?.stripe?.status;
 
     // Usage calculation
-    const planLimits = PLAN_LIMITS[currentPlan];
     const conversationUsage = usageStats?.serviceConversationsCount ?? 0;
-    const conversationLimit = planLimits.conversationsPerMonth;
-    const usagePercent = conversationLimit === Infinity ? 0 : Math.min(100, Math.round((conversationUsage / conversationLimit) * 100));
+    const conversationLimit = currentPlanData?.maxConversationsPerMonth ?? 0;
+    const usagePercent = isUnlimited(conversationLimit) ? 0 : Math.min(100, Math.round((conversationUsage / conversationLimit) * 100));
 
     return (
         <div className="space-y-6">
@@ -320,7 +328,7 @@ export default function BillingPage() {
                             <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-br from-[#15803d] to-[#10b981] flex items-center justify-center shadow-lg shadow-green-900/20">
                                 <BarChart3 className="h-[18px] w-[18px] sm:h-5 sm:w-5 text-white" />
                             </div>
-                            {conversationLimit !== Infinity && (
+                            {!isUnlimited(conversationLimit) && (
                                 <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", {
                                     'text-green-700 bg-green-50': usagePercent < 75,
                                     'text-yellow-700 bg-yellow-50': usagePercent >= 75 && usagePercent < 90,
@@ -332,13 +340,13 @@ export default function BillingPage() {
                         </div>
                         <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Usage du mois</p>
                         <span className="text-xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                            {conversationLimit === Infinity
+                            {isUnlimited(conversationLimit)
                                 ? conversationUsage.toLocaleString('fr-FR')
                                 : `${conversationUsage.toLocaleString('fr-FR')} / ${formatLimit(conversationLimit)}`
                             }
                         </span>
                         <p className="text-[11px] text-gray-400 mt-0.5">Conversations de service</p>
-                        {conversationLimit !== Infinity && (
+                        {!isUnlimited(conversationLimit) && (
                             <div className="mt-3">
                                 <Progress
                                     value={usagePercent}
@@ -396,7 +404,7 @@ export default function BillingPage() {
                     </CardHeader>
                     <CardContent className="pt-2 pb-6">
                         <div className="grid gap-4 md:grid-cols-3">
-                            {PLANS.map((plan) => {
+                            {billingPlans.map((plan) => {
                                 const displayPrice = billingInterval === "month" ? plan.priceMonthly : plan.priceYearlyMonthly;
                                 const totalYearly = plan.priceYearly;
                                 const Icon = plan.icon;
@@ -526,19 +534,19 @@ export default function BillingPage() {
                         {/* Plan limits overview */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-gray-100">
                             <div className="text-center p-3 rounded-lg bg-gray-50/80">
-                                <p className="text-lg font-bold text-gray-900">{formatLimit(planLimits.agents)}</p>
+                                <p className="text-lg font-bold text-gray-900">{formatLimit(currentPlanData?.maxAgents ?? 0)}</p>
                                 <p className="text-[11px] text-gray-500 font-medium">Agents</p>
                             </div>
                             <div className="text-center p-3 rounded-lg bg-gray-50/80">
-                                <p className="text-lg font-bold text-gray-900">{formatLimit(planLimits.whatsappChannels)}</p>
+                                <p className="text-lg font-bold text-gray-900">{formatLimit(currentPlanData?.maxWhatsappChannels ?? 0)}</p>
                                 <p className="text-[11px] text-gray-500 font-medium">Numéros WhatsApp</p>
                             </div>
                             <div className="text-center p-3 rounded-lg bg-gray-50/80">
-                                <p className="text-lg font-bold text-gray-900">{formatLimit(planLimits.conversationsPerMonth)}</p>
+                                <p className="text-lg font-bold text-gray-900">{formatLimit(currentPlanData?.maxConversationsPerMonth ?? 0)}</p>
                                 <p className="text-[11px] text-gray-500 font-medium">Conversations/mois</p>
                             </div>
                             <div className="text-center p-3 rounded-lg bg-gray-50/80">
-                                <p className="text-lg font-bold text-gray-900">{formatLimit(planLimits.templates)}</p>
+                                <p className="text-lg font-bold text-gray-900">{formatLimit(currentPlanData?.maxTemplates ?? 0)}</p>
                                 <p className="text-[11px] text-gray-500 font-medium">Modèles</p>
                             </div>
                         </div>

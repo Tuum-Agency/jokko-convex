@@ -25,11 +25,27 @@ export const downloadMedia = internalAction({
         messageId: v.id("messages"),
         organizationId: v.id("organizations"),
         whatsappMediaId: v.string(),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
     },
     handler: async (ctx, args) => {
-        const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
+        // Resolve credentials: channel-specific → legacy org → env fallback
+        let accessToken: string | undefined;
 
-        const accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        if (args.whatsappChannelId) {
+            try {
+                const channelData = await ctx.runQuery(internal.channels.getChannelWithWaba, {
+                    channelId: args.whatsappChannelId,
+                });
+                accessToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+            } catch (e) {
+                console.warn(`[MEDIA DL] Failed to resolve channel ${args.whatsappChannelId}, falling back`, e);
+            }
+        }
+
+        if (!accessToken) {
+            const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
+            accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        }
         if (!accessToken) {
             console.error(`[MEDIA DL] No access token for org ${args.organizationId}`);
             return;
@@ -86,6 +102,7 @@ export const sendMessage = internalAction({
     args: {
         messageId: v.id("messages"),
         organizationId: v.id("organizations"),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
         to: v.string(),
         text: v.optional(v.string()),
         type: v.optional(v.string()), // "text", "image", "video", "audio", "document", "interactive"
@@ -98,18 +115,30 @@ export const sendMessage = internalAction({
         template: v.optional(v.any()), // JSON payload for template messages
     },
     handler: async (ctx, args) => {
-        // 1. Get Organization Config
-        const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
+        // 1. Resolve credentials: channel-specific → legacy org → env fallback
+        let phoneNumberId: string | undefined;
+        let accessToken: string | undefined;
 
-        // Resolve Credentials
-        // Prioritize org DB config (set via Facebook Embedded Signup)
-        // Fall back to ENV vars only for dev/test
-        let phoneNumberId = org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
-        let accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        if (args.whatsappChannelId) {
+            try {
+                const channelData = await ctx.runQuery(internal.channels.getChannelWithWaba, {
+                    channelId: args.whatsappChannelId,
+                });
+                phoneNumberId = channelData.phoneNumberId;
+                accessToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+            } catch (e) {
+                console.warn(`[OUTBOUND] Failed to resolve channel ${args.whatsappChannelId}, falling back to org`, e);
+            }
+        }
 
         if (!phoneNumberId || !accessToken) {
-            console.error(`[OUTBOUND] Missing WhatsApp credentials (DB or ENV) for Org ${args.organizationId}`);
-            // ... failure handling ...
+            const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
+            phoneNumberId = phoneNumberId || org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+            accessToken = accessToken || org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+        }
+
+        if (!phoneNumberId || !accessToken) {
+            console.error(`[OUTBOUND] Missing WhatsApp credentials for Org ${args.organizationId} (channel: ${args.whatsappChannelId || "none"})`);
             await ctx.runMutation(internal.utils.updateMessageStatus, {
                 messageId: args.messageId,
                 status: "FAILED"
@@ -301,6 +330,19 @@ export const sendMessage = internalAction({
 
             if (!response.ok) {
                 console.error(`[OUTBOUND] WhatsApp API Error:`, data);
+
+                // Detect expired/invalid token → mark channel as error
+                const errorCode = data?.error?.code;
+                const errorSubcode = data?.error?.error_subcode;
+                const isTokenError = errorCode === 190 || errorSubcode === 463 || errorSubcode === 460;
+                if (isTokenError && args.whatsappChannelId) {
+                    console.warn(`[OUTBOUND] Token expired for channel ${args.whatsappChannelId}, marking as error`);
+                    await ctx.runMutation(internal.channels.markChannelError, {
+                        channelId: args.whatsappChannelId,
+                        status: "error",
+                    });
+                }
+
                 // If video failed (e.g. invalid format despite upload), try document fallback
                 if (type === 'video' && mediaId) {
                     console.warn(`[OUTBOUND] Video send failed with simple video type. Retrying as document...`);
