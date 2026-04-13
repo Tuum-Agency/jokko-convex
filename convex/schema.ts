@@ -26,6 +26,31 @@ export default defineSchema({
     ...authTables,
 
     // ============================================
+    // Plans (source unique de vérité pour limites & tarifs)
+    // ============================================
+    plans: defineTable({
+        key: v.string(),
+        name: v.string(),
+        description: v.string(),
+        maxAgents: v.number(),
+        maxWhatsappChannels: v.number(),
+        maxConversationsPerMonth: v.number(),
+        maxTemplates: v.number(),
+        historyDays: v.number(),
+        monthlyPriceFCFA: v.number(),
+        yearlyPriceFCFA: v.number(),
+        yearlyMonthlyPriceFCFA: v.number(),
+        features: v.array(v.object({
+            label: v.string(),
+            included: v.boolean(),
+        })),
+        supportLevel: v.string(),
+        popular: v.optional(v.boolean()),
+        sortOrder: v.number(),
+        isActive: v.boolean(),
+    }).index("by_key", ["key"]),
+
+    // ============================================
     // Users
     // ============================================
     users: defineTable({
@@ -769,6 +794,7 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         wabaId: v.id("wabas"),
         primaryTeamId: v.optional(v.id("teams")),
+        poleId: v.optional(v.id("poles")),
         label: v.string(),
         phoneNumberId: v.string(),
         displayPhoneNumber: v.string(),
@@ -793,6 +819,7 @@ export default defineSchema({
         .index("by_phone_id", ["phoneNumberId"])
         .index("by_org_default", ["organizationId", "isOrgDefault"])
         .index("by_team", ["primaryTeamId"])
+        .index("by_pole", ["poleId"])
         .index("by_waba", ["wabaId"]),
 
     // ============================================
@@ -889,6 +916,7 @@ export default defineSchema({
         departmentId: v.optional(v.string()),
         assignedTeamId: v.optional(v.id("teams")),
         assignedUserId: v.optional(v.id("users")),
+        poleId: v.optional(v.id("poles")),
 
         // Window
         windowExpiresAt: v.optional(v.number()), // WhatsApp 24h window expiration

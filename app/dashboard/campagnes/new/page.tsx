@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, Plus, Phone, Users, Eye, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Phone, Users, Eye, MessageSquare, Wallet, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Id } from '@/convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,16 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { PricingDialog } from '@/components/broadcasts/PricingDialog';
 
 export default function NewBroadcastPage() {
     const router = useRouter();
     const createBroadcast = useMutation(api.broadcasts.create);
+    const updateBroadcast = useMutation(api.broadcasts.update);
     const templates = useQuery(api.templates.queries.listAll);
     const tagsData = useQuery(api.tags.list);
     const tags = tagsData?.tags || [];
@@ -44,6 +47,28 @@ export default function NewBroadcastPage() {
     const [isScheduled, setIsScheduled] = useState(false);
     const [date, setDate] = useState<Date>();
     const [time, setTime] = useState<string>("09:00");
+
+    // Calcul du temps minimum quand la date sélectionnée est aujourd'hui
+    const minTime = useMemo(() => {
+        if (!date) return undefined;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const selectedDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        if (selectedDay.getTime() === today.getTime()) {
+            // Aujourd'hui : min = maintenant + 5 minutes
+            const minDate = new Date(now.getTime() + 5 * 60 * 1000);
+            const h = minDate.getHours().toString().padStart(2, '0');
+            const m = minDate.getMinutes().toString().padStart(2, '0');
+            return `${h}:${m}`;
+        }
+        return undefined; // Pas de contrainte pour les dates futures
+    }, [date]);
+
+    // Auto-corriger l'heure si elle est inférieure au minimum
+    const isTimePast = useMemo(() => {
+        if (!minTime || !date) return false;
+        return time < minTime;
+    }, [time, minTime, date]);
 
     // Audience estimation config
     const audienceConfig = useMemo(() => {
@@ -86,6 +111,26 @@ export default function NewBroadcastPage() {
 
         setIsLoading(true);
         try {
+            const scheduled = isScheduled && date ? (() => {
+                const [hours, minutes] = time.split(':').map(Number);
+                const scheduledDate = new Date(date);
+                scheduledDate.setHours(hours, minutes, 0, 0);
+                return scheduledDate.getTime();
+            })() : undefined;
+
+            if (scheduled && scheduled <= Date.now() + 5 * 60 * 1000) {
+                toast.error("La planification doit être au moins 5 minutes dans le futur");
+                setIsLoading(false);
+                return;
+            }
+
+            // Validate credits
+            if (audienceEstimate && audienceEstimate.estimatedCost > audienceEstimate.creditBalance) {
+                toast.error(`Crédits insuffisants. Coût estimé : ${audienceEstimate.estimatedCost.toLocaleString()} FCFA, solde : ${audienceEstimate.creditBalance.toLocaleString()} FCFA`);
+                setIsLoading(false);
+                return;
+            }
+
             const id = await createBroadcast({
                 name,
                 templateId: templateId as Id<"templates">,
@@ -94,42 +139,76 @@ export default function NewBroadcastPage() {
                     type: audienceType,
                     countries: audienceType === 'COUNTRIES' ? selectedCountries : undefined
                 },
-                scheduledAt: isScheduled && date ? (() => {
-                    const [hours, minutes] = time.split(':').map(Number);
-                    const scheduledDate = new Date(date);
-                    scheduledDate.setHours(hours, minutes, 0, 0);
-                    return scheduledDate.getTime();
-                })() : undefined
+                scheduledAt: scheduled,
             });
+
+            // Si pas planifiée, lancer l'envoi immédiatement
+            if (!scheduled) {
+                await updateBroadcast({ id, status: "SENDING" });
+                toast.success("Campagne lancée — envoi en cours");
+            } else {
+                toast.success("Campagne planifiée avec succès");
+            }
             router.push(`/dashboard/campagnes/${id}`);
-        } catch (error) {
-            console.error("Failed to create broadcast", error);
-        } finally {
+        } catch {
+            toast.error("Erreur lors de la création de la campagne");
             setIsLoading(false);
         }
     };
 
     const hasTemplates = templates && templates.length > 0;
 
+    const hasInsufficientCredits = audienceEstimate
+        ? audienceEstimate.estimatedCost > audienceEstimate.creditBalance
+        : false;
+
     return (
         <div className="space-y-6 p-4 sm:p-6">
             {/* Header */}
-            <div className="flex items-center gap-3">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => router.back()}
-                    className="h-9 w-9 text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                        Nouvelle Campagne
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                        Configurez votre diffusion de messages en masse
-                    </p>
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                        className="h-9 w-9 text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                            Nouvelle Campagne
+                        </h1>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            Configurez votre diffusion de messages en masse
+                        </p>
+                    </div>
+                </div>
+                {/* Credit balance badge */}
+                <div className="flex items-center gap-2">
+                    {audienceEstimate === undefined ? (
+                        <Skeleton className="h-8 w-32" />
+                    ) : (
+                        <div className={cn(
+                            "flex items-center gap-2 rounded-full px-3 py-1.5 border text-sm font-medium",
+                            hasInsufficientCredits
+                                ? "bg-red-50 border-red-200 text-red-700"
+                                : "bg-green-50 border-green-200 text-green-700"
+                        )}>
+                            <Wallet className="h-4 w-4" />
+                            <span>{audienceEstimate.creditBalance.toLocaleString()} FCFA</span>
+                        </div>
+                    )}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/dashboard/billing')}
+                        className="h-8 text-xs rounded-full cursor-pointer gap-1.5"
+                    >
+                        <Plus className="h-3.5 w-3.5" />
+                        Recharger
+                    </Button>
                 </div>
             </div>
 
@@ -253,18 +332,44 @@ export default function NewBroadcastPage() {
                                 </div>
                             )}
 
-                            {/* Audience Estimation */}
+                            {/* Audience Estimation + Cost */}
                             {audienceEstimate === undefined ? (
-                                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
-                                    <Users className="h-4 w-4 text-green-600" />
-                                    <Skeleton className="h-4 w-32" />
+                                <div className="rounded-lg bg-green-50 border border-green-100 px-3 py-2.5 space-y-1">
+                                    <Skeleton className="h-4 w-40" />
+                                    <Skeleton className="h-3 w-28" />
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
-                                    <Users className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm text-green-700">
-                                        ~<span className="font-bold">{audienceEstimate.count}</span> contacts ciblés
-                                    </span>
+                                <div className={cn(
+                                    "rounded-lg border px-3 py-2.5 space-y-1",
+                                    hasInsufficientCredits
+                                        ? "bg-red-50 border-red-200"
+                                        : "bg-green-50 border-green-100"
+                                )}>
+                                    <div className="flex items-center gap-2">
+                                        <Users className={cn("h-4 w-4", hasInsufficientCredits ? "text-red-600" : "text-green-600")} />
+                                        <span className={cn("text-sm", hasInsufficientCredits ? "text-red-700" : "text-green-700")}>
+                                            ~<span className="font-bold">{audienceEstimate.count}</span> contacts ciblés
+                                            {audienceEstimate.costPerMessage > 0 && (
+                                                <span className="text-xs ml-2 opacity-75">
+                                                    (~{audienceEstimate.costPerMessage} FCFA/msg en moyenne)
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className={cn("text-xs font-medium", hasInsufficientCredits ? "text-red-600" : "text-green-600")}>
+                                                Coût estimé : {audienceEstimate.estimatedCost.toLocaleString()} FCFA
+                                            </span>
+                                            <PricingDialog />
+                                        </div>
+                                        {hasInsufficientCredits && (
+                                            <span className="text-xs text-red-600 flex items-center gap-1 font-medium">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                Crédits insuffisants
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -350,7 +455,7 @@ export default function NewBroadcastPage() {
                                     <div className="flex justify-start">
                                         <div className="relative max-w-sm w-full">
                                             {/* WhatsApp bubble tail */}
-                                            <div className="absolute -left-2 top-0 w-0 h-0 border-t-[8px] border-t-[#dcf8c6] border-r-[8px] border-r-transparent" />
+                                            <div className="absolute -left-2 top-0 w-0 h-0 border-b-[8px] border-b-transparent border-r-[8px] border-r-[#dcf8c6]" />
                                             {/* Message bubble */}
                                             <div className="rounded-lg rounded-tl-none bg-[#dcf8c6] p-3 space-y-2 shadow-sm">
                                                 {/* Header */}
@@ -411,8 +516,9 @@ export default function NewBroadcastPage() {
                             </div>
 
                             {isScheduled && (
-                                <div className="flex gap-4 items-end animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex-1 space-y-2">
+                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4 items-start">
+                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700">Date</Label>
                                         <Popover>
                                             <PopoverTrigger asChild>
@@ -438,15 +544,30 @@ export default function NewBroadcastPage() {
                                             </PopoverContent>
                                         </Popover>
                                     </div>
-                                    <div className="w-full sm:w-[120px] space-y-2">
+                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700">Heure</Label>
                                         <Input
                                             type="time"
                                             value={time}
+                                            min={minTime}
                                             onChange={(e) => setTime(e.target.value)}
-                                            className="h-10 border-gray-200"
+                                            className={cn(
+                                                "h-10 border-gray-200",
+                                                isTimePast && "border-red-300 focus:border-red-500 focus:ring-red-500/20"
+                                            )}
                                         />
+                                        {isTimePast && (
+                                            <p className="text-[11px] text-red-500">
+                                                Min. {minTime} (dans 5 min)
+                                            </p>
+                                        )}
                                     </div>
+                                </div>
+                                {date && !isTimePast && (
+                                    <p className="text-[11px] text-green-600">
+                                        Envoi prévu le {format(date, "PPP", { locale: fr })} à {time}
+                                    </p>
+                                )}
                                 </div>
                             )}
                         </div>
@@ -459,11 +580,16 @@ export default function NewBroadcastPage() {
                             <Button
                                 type="submit"
                                 size="sm"
-                                disabled={isLoading || !hasTemplates}
+                                disabled={isLoading || !hasTemplates || (isScheduled && isTimePast) || (isScheduled && !date) || hasInsufficientCredits}
                                 className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
                             >
-                                {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                Lancer la campagne
+                                {isLoading ? (
+                                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {isScheduled ? "Planification..." : "Envoi..."}</>
+                                ) : isScheduled ? (
+                                    "Planifier la campagne"
+                                ) : (
+                                    "Envoyer maintenant"
+                                )}
                             </Button>
                         </div>
                     </form>

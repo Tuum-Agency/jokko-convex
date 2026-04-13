@@ -27,6 +27,23 @@ describe("Team Members", () => {
         });
 
         await t.run(async (ctx: any) => {
+            await ctx.db.insert("plans", {
+                key: "BUSINESS",
+                name: "Business",
+                description: "Pour les PME en croissance.",
+                maxAgents: 5,
+                maxWhatsappChannels: 3,
+                maxConversationsPerMonth: 5000,
+                maxTemplates: 20,
+                historyDays: -1,
+                monthlyPriceFCFA: 30000,
+                yearlyPriceFCFA: 288000,
+                yearlyMonthlyPriceFCFA: 24000,
+                features: [],
+                supportLevel: "Prioritaire",
+                sortOrder: 2,
+                isActive: true,
+            });
             await ctx.db.insert("memberships", {
                 userId,
                 organizationId: orgId,

@@ -31,6 +31,8 @@ export const handleIncomingMessage = internalMutation({
 
         let organizationId: Id<"organizations">;
         let whatsappChannelId: Id<"whatsappChannels"> | undefined;
+        let channelTeamId: Id<"teams"> | undefined;
+        let channelPoleId: Id<"poles"> | undefined;
 
         if (channel) {
             if (channel.status !== "active") {
@@ -39,6 +41,8 @@ export const handleIncomingMessage = internalMutation({
             }
             organizationId = channel.organizationId;
             whatsappChannelId = channel._id;
+            channelTeamId = channel.primaryTeamId;
+            channelPoleId = channel.poleId;
 
             // Update lastWebhookAt
             await ctx.db.patch(channel._id, { lastWebhookAt: Date.now() });
@@ -118,10 +122,20 @@ export const handleIncomingMessage = internalMutation({
                 lastMessageDirection: "INBOUND",
                 channel: "WHATSAPP",
                 whatsappChannelId: whatsappChannelId,
+                assignedTeamId: channelTeamId,
+                poleId: channelPoleId,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             });
             conversation = await ctx.db.get(conversationId);
+        } else {
+            // Auto-assign pole/team from channel if conversation doesn't have them yet
+            const patches: Record<string, any> = {};
+            if (!conversation.assignedTeamId && channelTeamId) patches.assignedTeamId = channelTeamId;
+            if (!conversation.poleId && channelPoleId) patches.poleId = channelPoleId;
+            if (Object.keys(patches).length > 0) {
+                await ctx.db.patch(conversation._id, patches);
+            }
         }
 
         if (!conversation) throw new Error("Failed to get conversation");
@@ -222,6 +236,7 @@ export const handleIncomingMessage = internalMutation({
                 messageId: newMessageId,
                 organizationId: organizationId,
                 whatsappMediaId: mediaUrl,
+                whatsappChannelId: whatsappChannelId,
             });
         }
 

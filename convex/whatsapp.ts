@@ -22,6 +22,17 @@ export const getActiveOrgId = internalQuery({
 });
 
 /**
+ * Helper to get current authenticated user ID (for use in actions)
+ */
+export const getAuthUserIdQuery = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        return userId;
+    }
+});
+
+/**
  * Saves the WhatsApp configuration for an organization
  */
 export const saveWhatsAppConfig = internalMutation({
@@ -77,103 +88,176 @@ export const getPhoneNumberStatus = action({
     }
 });
 
-// 1. Fetch Available Phone Numbers (Step 1)
+/**
+ * Get live status for a specific channel from Meta API.
+ * Resolves credentials from wabas table, falls back to org.whatsapp legacy.
+ */
+export const getChannelStatus = action({
+    args: { channelId: v.id("whatsappChannels") },
+    handler: async (ctx, args): Promise<Record<string, string> | null> => {
+        const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
+
+        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const phoneNumberId: string = channel.phoneNumberId;
+
+        if (!accessToken || !phoneNumberId) return null;
+
+        const res: Response = await fetch(
+            `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (!res.ok) {
+            const err: any = await res.json();
+            return { error: err.error?.message || "Erreur API Meta" };
+        }
+
+        return await res.json() as Record<string, string>;
+    }
+});
+
+/**
+ * Send a test message using a specific channel's credentials.
+ */
+export const sendTestMessageByChannel = action({
+    args: {
+        channelId: v.id("whatsappChannels"),
+        to: v.string(),
+    },
+    handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
+        const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
+
+        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const phoneNumberId: string = channel.phoneNumberId;
+
+        if (!phoneNumberId || !accessToken) {
+            throw new Error("Credentials WhatsApp non configurées pour ce canal");
+        }
+
+        const recipientPhone: string = args.to.replace(/\D/g, '');
+
+        const response: Response = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: recipientPhone,
+                type: "text",
+                text: {
+                    preview_url: false,
+                    body: `Test Jokko — Canal "${channel.label || channel.displayPhoneNumber}". Votre intégration fonctionne ! ✅`
+                }
+            }),
+        });
+
+        const data: any = await response.json();
+
+        if (!response.ok) {
+            console.error("[TEST-CHANNEL] WhatsApp API Error:", data);
+            throw new Error(data.error?.message || "Échec de l'envoi du message test");
+        }
+
+        console.log(`[TEST-CHANNEL] Message sent to ${recipientPhone} via channel ${channel.label}. ID: ${data.messages?.[0]?.id}`);
+        return { success: true, messageId: data.messages?.[0]?.id };
+    }
+});
+
+// 1. Fetch Available Phone Numbers (Step 1) — aggregates ALL WABAs
 export const fetchWhatsAppPhoneNumbers = action({
     args: {
         accessToken: v.string(),
     },
     handler: async (ctx, args) => {
-        // Fetch WABA ID
-        console.log("Fetching WABA...");
-        let wabaId;
-        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
+        const allWabaIds: string[] = [];
 
-        console.log(`[WABA Fetch] Status: ${wabaResponse.status}`);
-
-        if (wabaResponse.ok) {
-            const wabaData = await wabaResponse.json();
-            console.log(`[WABA Fetch] Data: ${JSON.stringify(wabaData)}`);
-            wabaId = wabaData.data?.[0]?.id;
-        } else {
-            const errorBody = await wabaResponse.text();
-            console.error(`[WABA Fetch] Error: ${errorBody}`);
-        }
-
-        // Fallback to /me/accounts if needed
-        if (!wabaId) {
-            console.log("Primary WABA fetch empty, trying fallback /me/accounts...");
-            const accountsResponse = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${args.accessToken}`);
-
-            console.log(`[Fallback Fetch] Status: ${accountsResponse.status}`);
-
-            if (accountsResponse.ok) {
-                const accountsData = await accountsResponse.json();
-                console.log(`[Fallback Fetch] Data: ${JSON.stringify(accountsData)}`);
-                wabaId = accountsData.data?.[0]?.id;
-            } else {
-                const errorBody = await accountsResponse.text();
-                console.error(`[Fallback Fetch] Error: ${errorBody}`);
+        // Helper: fetch phone numbers for a single WABA
+        async function fetchPhonesForWaba(wabaId: string): Promise<any[]> {
+            console.log(`[WABA] Fetching phones for WABA ${wabaId}...`);
+            const res = await fetch(
+                `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status&access_token=${args.accessToken}`
+            );
+            if (!res.ok) {
+                console.error(`[WABA] Failed to fetch phones for ${wabaId}`);
+                return [];
             }
-        }
-
-        // 3. Fallback to /me/businesses (Businesses API)
-        if (!wabaId) {
-            console.log("Secondary fallback: Checking /me/businesses...");
-            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${args.accessToken}`);
-
-            console.log(`[Business Fetch] Status: ${businessesResponse.status}`);
-
-            if (businessesResponse.ok) {
-                const businessData = await businessesResponse.json();
-                console.log(`[Business Fetch] Data: ${JSON.stringify(businessData)}`);
-
-                const businesses = businessData.data || [];
-                // Try to find a WABA in each business
-                for (const business of businesses) {
-                    console.log(`Checking WABAs for business ${business.id}...`);
-                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts?access_token=${args.accessToken}`);
-                    if (wabaRes.ok) {
-                        const wabaResData = await wabaRes.json();
-                        if (wabaResData.data && wabaResData.data.length > 0) {
-                            wabaId = wabaResData.data[0].id;
-                            console.log(`Found WABA ${wabaId} in business ${business.id}`);
-                            break;
-                        }
-                    }
-                }
-            } else {
-                const errorBody = await businessesResponse.text();
-                console.error(`[Business Fetch] Error: ${errorBody}`);
-            }
-        }
-
-        if (!wabaId) {
-            // Instead of throwing, return null to indicate no account found gracefully
-            console.log("No WhatsApp Business Account found after all attempts.");
-            return { wabaId: null, phoneNumbers: [] };
-        }
-
-        // Fetch Phone Numbers
-        console.log(`Fetching Phone Numbers for WABA ${wabaId}...`);
-        const phoneResponse = await fetch(`https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status&access_token=${args.accessToken}`);
-
-        if (!phoneResponse.ok) {
-            throw new Error("Failed to fetch WhatsApp Phone Numbers");
-        }
-
-        const phoneData = await phoneResponse.json();
-        const phoneNumbers = phoneData.data || [];
-
-        return {
-            wabaId,
-            phoneNumbers: phoneNumbers.map((p: any) => ({
+            const data = await res.json();
+            return (data.data || []).map((p: any) => ({
                 id: p.id,
                 display_phone_number: p.display_phone_number,
                 verified_name: p.verified_name,
                 quality_rating: p.quality_rating,
                 platform_type: p.platform_type,
                 status: p.status,
-            }))
+                wabaId,
+            }));
+        }
+
+        // 1. Primary: /me/whatsapp_business_accounts (may return multiple)
+        console.log("Fetching WABAs...");
+        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
+        if (wabaResponse.ok) {
+            const wabaData = await wabaResponse.json();
+            console.log(`[WABA Fetch] Found ${wabaData.data?.length || 0} WABAs`);
+            for (const waba of (wabaData.data || [])) {
+                if (waba.id && !allWabaIds.includes(waba.id)) allWabaIds.push(waba.id);
+            }
+        } else {
+            console.error(`[WABA Fetch] Error: ${await wabaResponse.text()}`);
+        }
+
+        // 2. Fallback: /me/businesses → owned_whatsapp_business_accounts
+        if (allWabaIds.length === 0) {
+            console.log("No WABAs from primary, trying /me/businesses...");
+            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${args.accessToken}`);
+            if (businessesResponse.ok) {
+                const businessData = await businessesResponse.json();
+                for (const business of (businessData.data || [])) {
+                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts?access_token=${args.accessToken}`);
+                    if (wabaRes.ok) {
+                        const wabaResData = await wabaRes.json();
+                        for (const waba of (wabaResData.data || [])) {
+                            if (waba.id && !allWabaIds.includes(waba.id)) {
+                                allWabaIds.push(waba.id);
+                                console.log(`[Business] Found WABA ${waba.id} in business ${business.id}`);
+                            }
+                        }
+                    }
+                }
+            } else {
+                console.error(`[Business Fetch] Error: ${await businessesResponse.text()}`);
+            }
+        }
+
+        if (allWabaIds.length === 0) {
+            console.log("No WhatsApp Business Account found after all attempts.");
+            return { wabaIds: [] as string[], wabaId: null as string | null, phoneNumbers: [] as any[] };
+        }
+
+        // 3. Fetch phone numbers from ALL WABAs
+        const allPhoneNumbers: any[] = [];
+        const seenPhoneIds = new Set<string>();
+
+        for (const wabaId of allWabaIds) {
+            const phones = await fetchPhonesForWaba(wabaId);
+            for (const phone of phones) {
+                if (!seenPhoneIds.has(phone.id)) {
+                    seenPhoneIds.add(phone.id);
+                    allPhoneNumbers.push(phone);
+                }
+            }
+        }
+
+        console.log(`[WABA] Total: ${allWabaIds.length} WABAs, ${allPhoneNumbers.length} phone numbers`);
+
+        return {
+            wabaIds: allWabaIds,
+            // Keep wabaId for backwards compat (first WABA)
+            wabaId: allWabaIds[0] || null,
+            phoneNumbers: allPhoneNumbers,
         };
     }
 });
@@ -450,5 +534,129 @@ export const diagnoseWebhook = action({
 
         console.log("[DIAGNOSE] Full results:", JSON.stringify(results, null, 2));
         return results;
+    },
+});
+
+/**
+ * Add a new WhatsApp channel to the organization.
+ * Orchestrates: Meta API subscribe/register → WABA record → Channel record → legacy compat.
+ */
+export const addChannel = action({
+    args: {
+        accessToken: v.string(),
+        wabaId: v.string(),
+        phoneNumberId: v.string(),
+        displayPhoneNumber: v.optional(v.string()),
+        verifiedName: v.optional(v.string()),
+        label: v.optional(v.string()),
+    },
+    handler: async (ctx, args): Promise<{ success: boolean; channelId: string }> => {
+        // 1. Auth
+        const orgId: string | null = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("No active organization found");
+
+        const userId: string | null = await ctx.runQuery(internal.whatsapp.getAuthUserIdQuery);
+        if (!userId) throw new Error("Not authenticated");
+
+        // 2. Exchange short-lived token for long-lived token (~60 days)
+        let longLivedToken = args.accessToken;
+        const appId = process.env.FACEBOOK_APP_ID;
+        const appSecret = process.env.FACEBOOK_APP_SECRET;
+
+        if (appId && appSecret) {
+            try {
+                console.log("[ADD_CHANNEL] Exchanging short-lived token for long-lived token...");
+                const exchangeRes = await fetch(
+                    `https://graph.facebook.com/v20.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${args.accessToken}`
+                );
+                const exchangeData: any = await exchangeRes.json();
+
+                if (exchangeRes.ok && exchangeData.access_token) {
+                    longLivedToken = exchangeData.access_token;
+                    const expiresInDays = exchangeData.expires_in ? Math.round(exchangeData.expires_in / 86400) : "unknown";
+                    console.log(`[ADD_CHANNEL] Token exchanged successfully. Expires in ~${expiresInDays} days.`);
+                } else {
+                    console.warn("[ADD_CHANNEL] Token exchange failed, using short-lived token:", exchangeData.error?.message || exchangeData);
+                }
+            } catch (e) {
+                console.warn("[ADD_CHANNEL] Token exchange error, using short-lived token:", e);
+            }
+        } else {
+            console.warn("[ADD_CHANNEL] FACEBOOK_APP_ID or FACEBOOK_APP_SECRET not set, cannot exchange token");
+        }
+
+        // 3. Subscribe app to WABA webhooks
+        console.log(`[ADD_CHANNEL] Subscribing app to WABA ${args.wabaId} webhooks...`);
+        const subscribeRes: Response = await fetch(
+            `https://graph.facebook.com/v20.0/${args.wabaId}/subscribed_apps`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${longLivedToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        const subscribeData: any = await subscribeRes.json();
+        if (!subscribeRes.ok) {
+            console.error("[ADD_CHANNEL] Failed to subscribe:", subscribeData);
+        } else {
+            console.log("[ADD_CHANNEL] Subscribed successfully:", subscribeData);
+        }
+
+        // 4. Register phone number for Cloud API
+        console.log(`[ADD_CHANNEL] Registering phone number ${args.phoneNumberId}...`);
+        const registerRes: Response = await fetch(
+            `https://graph.facebook.com/v20.0/${args.phoneNumberId}/register`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${longLivedToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messaging_product: "whatsapp",
+                    pin: crypto.randomUUID().replace(/-/g, "").substring(0, 6),
+                }),
+            }
+        );
+        const registerData: any = await registerRes.json();
+        if (!registerRes.ok) {
+            console.error("[ADD_CHANNEL] Phone registration response:", registerData);
+        } else {
+            console.log("[ADD_CHANNEL] Phone registered successfully:", registerData);
+        }
+
+        // 5. Create or get WABA record (with long-lived token)
+        const wabaDocId: string = await ctx.runMutation(internal.channels.getOrCreateWaba, {
+            organizationId: orgId as any,
+            metaBusinessAccountId: args.wabaId,
+            accessTokenRef: longLivedToken,
+            createdBy: userId as any,
+        });
+
+        // 6. Create channel record
+        const channelId: string = await ctx.runMutation(internal.channels.internalCreate, {
+            organizationId: orgId as any,
+            wabaId: wabaDocId as any,
+            label: args.label || args.verifiedName || args.displayPhoneNumber || "WhatsApp",
+            phoneNumberId: args.phoneNumberId,
+            displayPhoneNumber: args.displayPhoneNumber || "",
+            verifiedName: args.verifiedName,
+            createdBy: userId as any,
+        });
+
+        // 7. Legacy compat: update organizations.whatsapp (with long-lived token)
+        await ctx.runMutation(internal.whatsapp.saveWhatsAppConfig, {
+            organizationId: orgId as any,
+            accessToken: longLivedToken,
+            phoneNumberId: args.phoneNumberId,
+            wabaId: args.wabaId,
+            displayPhoneNumber: args.displayPhoneNumber,
+            verifiedName: args.verifiedName,
+        });
+
+        console.log(`[ADD_CHANNEL] Channel ${channelId} created successfully`);
+        return { success: true, channelId };
     },
 });

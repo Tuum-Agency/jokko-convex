@@ -7,7 +7,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { getMaxAgents } from "./lib/planLimits";
+import { getMaxAgents } from "./lib/planHelpers";
 
 export const listMembers = query({
     args: { organizationId: v.optional(v.id("organizations")) },
@@ -46,7 +46,7 @@ export const listMembers = query({
 
         // Get Limit
         const org = await ctx.db.get(orgId!);
-        const limit = org ? getMaxAgents(org.plan) : 1;
+        const limit = org ? await getMaxAgents(ctx, org.plan) : 1;
 
         const members = await Promise.all(memberships.map(async (m) => {
             const user = await ctx.db.get(m.userId);

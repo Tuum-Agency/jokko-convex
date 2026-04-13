@@ -78,7 +78,7 @@ export const processMessage = internalMutation({
 
                 if (shouldRun) {
                     console.log(`[ENGINE] Executing Flow: ${flow.name} (${flow._id})`);
-                    await executeFlow(ctx, flow, args);
+                    await executeFlow(ctx, flow, { ...args, whatsappChannelId: channelId });
                     flowExecuted = true;
                     break;
                 }
@@ -91,13 +91,14 @@ export const processMessage = internalMutation({
             await ctx.scheduler.runAfter(0, api.assignments.analyzeAndRoute, {
                 conversationId: args.conversationId,
                 organizationId: args.organizationId,
-                messageText: args.messageText
+                messageText: args.messageText,
+                channelPoleId: conversation?.poleId,
             });
         }
     },
 });
 
-async function executeFlow(ctx: MutationCtx, flow: Doc<"flows">, input: { conversationId: Id<"conversations">; organizationId: Id<"organizations">; contactId: Id<"contacts"> }) {
+async function executeFlow(ctx: MutationCtx, flow: Doc<"flows">, input: { conversationId: Id<"conversations">; organizationId: Id<"organizations">; contactId: Id<"contacts">; whatsappChannelId?: Id<"whatsappChannels"> }) {
     let nodes: Node[] = [];
     let edges: Edge[] = [];
 
@@ -173,6 +174,7 @@ async function executeFlow(ctx: MutationCtx, flow: Doc<"flows">, input: { conver
                 await ctx.scheduler.runAfter(step * 1000, internal.whatsapp_actions.sendMessage, {
                     messageId: messageId,
                     organizationId: input.organizationId,
+                    whatsappChannelId: input.whatsappChannelId,
                     to: contact.phone,
                     text: content,
                     type: "text",
@@ -243,6 +245,7 @@ async function executeFlow(ctx: MutationCtx, flow: Doc<"flows">, input: { conver
                 await ctx.scheduler.runAfter(step * 1000, internal.whatsapp_actions.sendMessage, {
                     messageId: messageId,
                     organizationId: input.organizationId,
+                    whatsappChannelId: input.whatsappChannelId,
                     to: contact.phone,
                     type: "interactive",
                     interactive: interactivePayload

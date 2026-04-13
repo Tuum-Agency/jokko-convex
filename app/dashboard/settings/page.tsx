@@ -14,14 +14,10 @@ import {
     Loader2,
     Save,
     Trash2,
-    Smartphone,
     Briefcase,
     MessageSquare,
-    CheckCircle2,
     AlertCircle,
-    RefreshCw,
     Phone,
-    Users,
     Hash,
     Check,
     Palette,
@@ -34,11 +30,8 @@ import {
 } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TeamsSettings } from '@/components/settings/TeamsSettings';
 import { ChannelsSettings } from '@/components/settings/ChannelsSettings';
 import { useCurrentOrg } from "@/hooks/use-current-org";
-import { useFacebookSDK } from "@/hooks/useFacebookSDK";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PhoneInput } from "@/components/contacts/PhoneInput";
 import { Button } from "@/components/ui/button";
@@ -185,7 +178,7 @@ export default function SettingsPage() {
 
             {/* ==================== TABS ==================== */}
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="flex w-full overflow-x-auto no-scrollbar lg:grid lg:grid-cols-7 lg:w-[750px]">
+                <TabsList className="flex w-full overflow-x-auto no-scrollbar lg:grid lg:grid-cols-6 lg:w-[650px]">
                     <TabsTrigger value="profile" className="shrink-0 gap-1.5 text-xs cursor-pointer">
                         <User className="h-3.5 w-3.5" />
                         Profil
@@ -197,10 +190,6 @@ export default function SettingsPage() {
                     <TabsTrigger value="whatsapp" className="shrink-0 gap-1.5 text-xs cursor-pointer">
                         <MessageSquare className="h-3.5 w-3.5" />
                         WhatsApp
-                    </TabsTrigger>
-                    <TabsTrigger value="teams" className="shrink-0 gap-1.5 text-xs cursor-pointer">
-                        <Users className="h-3.5 w-3.5" />
-                        Équipes
                     </TabsTrigger>
                     <TabsTrigger value="account" className="shrink-0 gap-1.5 text-xs cursor-pointer">
                         <Shield className="h-3.5 w-3.5" />
@@ -369,13 +358,7 @@ export default function SettingsPage() {
 
                 {/* ==================== WHATSAPP TAB ==================== */}
                 <TabsContent value="whatsapp" className="space-y-6">
-                    <WhatsAppSettingsTab />
                     <ChannelsSettings />
-                </TabsContent>
-
-                {/* ==================== TEAMS TAB ==================== */}
-                <TabsContent value="teams" className="space-y-6">
-                    <TeamsSettings />
                 </TabsContent>
 
                 {/* ==================== COMPTE TAB ==================== */}
@@ -1112,377 +1095,3 @@ function OrganizationSettingsTab() {
     );
 }
 
-// ============================================
-// WHATSAPP SETTINGS TAB
-// ============================================
-
-interface WhatsAppNumber {
-    id: string;
-    display_phone_number: string;
-    verified_name: string;
-    quality_rating: string;
-    platform_type?: string;
-    status?: string;
-}
-
-function WhatsAppSettingsTab() {
-    const { currentOrg } = useCurrentOrg();
-    const { isReady: fbReady, login: fbLogin } = useFacebookSDK();
-    const fetchNumbers = useAction(api.whatsapp.fetchWhatsAppPhoneNumbers);
-    const finalizeRegistration = useAction(api.whatsapp.finalizeWhatsAppRegistration);
-    const getPhoneStatus = useAction(api.whatsapp.getPhoneNumberStatus);
-
-    const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'SUCCESS' | 'ERROR'>('IDLE');
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
-    const [selectedPhoneId, setSelectedPhoneId] = useState<string | null>(null);
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [wabaId, setWabaId] = useState<string | null>(null);
-    const [phoneStatus, setPhoneStatus] = useState<Record<string, string> | null>(null);
-
-    const isConnected = !!currentOrg?.whatsapp?.phoneNumberId;
-
-    useEffect(() => {
-        if (isConnected) {
-            getPhoneStatus().then(setPhoneStatus).catch(() => {});
-        }
-    }, [isConnected, getPhoneStatus]);
-
-    const launchWhatsAppSignup = async () => {
-        setErrorMessage(null);
-        try {
-            const { accessToken: token } = await fbLogin();
-            handleFetchNumbers(token);
-        } catch (err: any) {
-            setErrorMessage(err.message || "Connexion annulée ou non autorisée.");
-        }
-    };
-
-    async function handleFetchNumbers(token: string) {
-        setStatus('FETCHING');
-        setAccessToken(token);
-
-        try {
-            const data = await fetchNumbers({ accessToken: token });
-            setWabaId(data.wabaId);
-            setPhoneNumbers(data.phoneNumbers);
-
-            if (data.phoneNumbers.length > 0) {
-                setSelectedPhoneId(data.phoneNumbers[0].id);
-                setStatus('SELECTING');
-            } else {
-                setErrorMessage("Aucun numéro WhatsApp trouvé sur ce compte.");
-                setStatus('ERROR');
-            }
-        } catch {
-            setErrorMessage("Impossible de récupérer vos numéros. Vérifiez vos permissions.");
-            setStatus('ERROR');
-        }
-    }
-
-    async function handleConfirmSelection() {
-        if (!accessToken || !wabaId || !selectedPhoneId) return;
-
-        const selectedPhone = phoneNumbers.find(p => p.id === selectedPhoneId);
-
-        setStatus('SAVING');
-        try {
-            await finalizeRegistration({
-                accessToken,
-                wabaId,
-                phoneNumberId: selectedPhoneId,
-                displayPhoneNumber: selectedPhone?.display_phone_number,
-                verifiedName: selectedPhone?.verified_name,
-            });
-            setStatus('SUCCESS');
-            toast.success("WhatsApp connecté", {
-                description: "Votre numéro WhatsApp a été mis à jour avec succès.",
-            });
-        } catch {
-            setErrorMessage("Erreur lors de la sauvegarde de la configuration.");
-            setStatus('ERROR');
-        }
-    }
-
-    // SELECTING STATE - Show number picker
-    if (status === 'SELECTING' || status === 'SAVING') {
-        return (
-            <Card className="bg-white border-gray-100 shadow-sm">
-                <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
-                            <Phone className="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
-                                Choisissez votre numéro
-                            </CardTitle>
-                            <p className="text-[11px] text-gray-400 mt-0.5">
-                                Sélectionnez le numéro WhatsApp Business à connecter
-                            </p>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                    <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-xl p-3 bg-gray-50/50">
-                        <RadioGroup value={selectedPhoneId || ''} onValueChange={setSelectedPhoneId}>
-                            {phoneNumbers.map((phone) => (
-                                <div key={phone.id} className="flex items-center space-x-2 mb-2 last:mb-0">
-                                    <RadioGroupItem value={phone.id} id={`settings-${phone.id}`} />
-                                    <Label htmlFor={`settings-${phone.id}`} className="flex flex-col cursor-pointer w-full p-3 rounded-xl border border-gray-100 bg-white hover:border-green-300 transition-colors">
-                                        <span className="text-sm font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
-                                        <span className="text-xs text-gray-500">{phone.display_phone_number}</span>
-                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5">
-                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
-                                                'bg-green-50 text-green-700': phone.quality_rating === 'GREEN',
-                                                'bg-yellow-50 text-yellow-700': phone.quality_rating === 'YELLOW',
-                                                'bg-red-50 text-red-700': phone.quality_rating === 'RED',
-                                                'bg-gray-100 text-gray-500': !phone.quality_rating || !['GREEN', 'YELLOW', 'RED'].includes(phone.quality_rating),
-                                            })}>
-                                                Qualité : {phone.quality_rating || 'N/A'}
-                                            </Badge>
-                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
-                                                'bg-green-50 text-green-700': phone.status === 'CONNECTED',
-                                                'bg-yellow-50 text-yellow-700': phone.status === 'PENDING',
-                                                'bg-gray-100 text-gray-500': !phone.status || !['CONNECTED', 'PENDING'].includes(phone.status),
-                                            })}>
-                                                {phone.status || 'N/A'}
-                                            </Badge>
-                                            <Badge variant="secondary" className={cn("text-[10px] font-medium", {
-                                                'bg-blue-50 text-blue-700': phone.platform_type === 'CLOUD_API',
-                                                'bg-orange-50 text-orange-600': phone.platform_type && phone.platform_type !== 'CLOUD_API',
-                                                'bg-gray-100 text-gray-500': !phone.platform_type,
-                                            })}>
-                                                {phone.platform_type === 'CLOUD_API' ? 'Cloud API' : phone.platform_type || 'Non enregistré'}
-                                            </Badge>
-                                        </div>
-                                    </Label>
-                                </div>
-                            ))}
-                        </RadioGroup>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex justify-between border-t border-gray-100 p-4 bg-gray-50/30">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs rounded-full cursor-pointer"
-                        onClick={() => { setStatus('IDLE'); setPhoneNumbers([]); }}
-                    >
-                        Annuler
-                    </Button>
-                    <Button
-                        size="sm"
-                        className="h-8 text-xs rounded-full bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#14532d]/90 hover:to-[#059669]/90 cursor-pointer"
-                        onClick={handleConfirmSelection}
-                        disabled={status === 'SAVING'}
-                    >
-                        {status === 'SAVING' ? (
-                            <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Connexion...</>
-                        ) : (
-                            "Confirmer ce numéro"
-                        )}
-                    </Button>
-                </CardFooter>
-            </Card>
-        );
-    }
-
-    // SUCCESS STATE
-    if (status === 'SUCCESS') {
-        return (
-            <Card className="bg-white border-gray-100 shadow-sm">
-                <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
-                    <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center">
-                        <CheckCircle2 className="h-7 w-7 text-green-600" />
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900">Numéro mis à jour !</h3>
-                    <p className="text-sm text-gray-500 text-center max-w-md">
-                        Votre numéro WhatsApp a été connecté avec succès. Les messages seront envoyés et reçus via ce numéro.
-                    </p>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs rounded-full cursor-pointer"
-                        onClick={() => setStatus('IDLE')}
-                    >
-                        Retour aux paramètres
-                    </Button>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    // DEFAULT STATE
-    return (
-        <Card className="bg-white border-gray-100 shadow-sm">
-            <CardHeader className="pb-2">
-                <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] flex items-center justify-center shadow-sm">
-                        <MessageSquare className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">
-                            Intégration WhatsApp
-                        </CardTitle>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                            Gérez la connexion de votre numéro WhatsApp Business
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-4">
-                {errorMessage && (
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Erreur</AlertTitle>
-                        <AlertDescription>{errorMessage}</AlertDescription>
-                    </Alert>
-                )}
-
-                {/* Current Status */}
-                <div className={cn(
-                    "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border rounded-xl transition-colors",
-                    isConnected ? 'bg-green-50/30 border-green-200' : 'bg-orange-50/30 border-orange-200'
-                )}>
-                    <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "h-9 w-9 rounded-full flex items-center justify-center shadow-sm shrink-0",
-                            isConnected ? 'bg-green-100' : 'bg-orange-100'
-                        )}>
-                            <Smartphone className={cn("h-4 w-4", isConnected ? 'text-green-600' : 'text-orange-600')} />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
-                                {isConnected ? 'WhatsApp connecté' : 'WhatsApp non connecté'}
-                            </p>
-                            {isConnected ? (
-                                <div>
-                                    {currentOrg?.whatsapp?.displayPhoneNumber && (
-                                        <p className="text-xs font-medium text-gray-700">{currentOrg.whatsapp.displayPhoneNumber}</p>
-                                    )}
-                                    {currentOrg?.whatsapp?.verifiedName && (
-                                        <p className="text-[11px] text-gray-400">{currentOrg.whatsapp.verifiedName}</p>
-                                    )}
-                                    {!currentOrg?.whatsapp?.displayPhoneNumber && (
-                                        <p className="text-xs text-gray-500">Phone ID : {currentOrg?.whatsapp?.phoneNumberId}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-[11px] text-orange-600">
-                                    Connectez un numéro pour envoyer et recevoir des messages.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                    <Badge variant="secondary" className={cn("text-[10px] font-medium shrink-0", {
-                        'bg-green-50 text-green-700': isConnected,
-                        'bg-orange-50 text-orange-700': !isConnected,
-                    })}>
-                        {isConnected ? 'Actif' : 'Inactif'}
-                    </Badge>
-                </div>
-
-                {/* Connection Details */}
-                {isConnected && currentOrg?.whatsapp?.businessAccountId && (
-                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/30">
-                        <h4 className="text-xs font-semibold text-gray-500 mb-3">Détails de la connexion</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                            {currentOrg.whatsapp.displayPhoneNumber && (
-                                <div className="p-3 rounded-lg bg-white border border-gray-100">
-                                    <span className="text-[11px] text-gray-400">Numéro</span>
-                                    <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.displayPhoneNumber}</p>
-                                </div>
-                            )}
-                            {currentOrg.whatsapp.verifiedName && (
-                                <div className="p-3 rounded-lg bg-white border border-gray-100">
-                                    <span className="text-[11px] text-gray-400">Nom vérifié</span>
-                                    <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.verifiedName}</p>
-                                </div>
-                            )}
-                            <div className="p-3 rounded-lg bg-white border border-gray-100">
-                                <span className="text-[11px] text-gray-400">WABA ID</span>
-                                <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.businessAccountId}</p>
-                            </div>
-                            <div className="p-3 rounded-lg bg-white border border-gray-100">
-                                <span className="text-[11px] text-gray-400">Phone Number ID</span>
-                                <p className="text-sm font-mono text-gray-900 mt-0.5">{currentOrg.whatsapp.phoneNumberId}</p>
-                            </div>
-                        </div>
-                        {phoneStatus && !phoneStatus.error && (
-                            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-3">
-                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
-                                    <p className={cn("text-sm font-bold", {
-                                        'text-green-600': phoneStatus.quality_rating === 'GREEN',
-                                        'text-yellow-600': phoneStatus.quality_rating === 'YELLOW',
-                                        'text-red-600': phoneStatus.quality_rating === 'RED',
-                                        'text-gray-500': !phoneStatus.quality_rating,
-                                    })}>
-                                        {phoneStatus.quality_rating || 'N/A'}
-                                    </p>
-                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Qualité</p>
-                                </div>
-                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
-                                    <p className={cn("text-sm font-bold", {
-                                        'text-green-600': phoneStatus.status === 'CONNECTED',
-                                        'text-yellow-600': phoneStatus.status === 'PENDING',
-                                        'text-gray-500': !phoneStatus.status,
-                                    })}>
-                                        {phoneStatus.status || 'N/A'}
-                                    </p>
-                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Statut</p>
-                                </div>
-                                <div className="text-center p-2 rounded-lg bg-white border border-gray-100">
-                                    <p className={cn("text-sm font-bold", {
-                                        'text-blue-600': phoneStatus.platform_type === 'CLOUD_API',
-                                        'text-orange-500': phoneStatus.platform_type && phoneStatus.platform_type !== 'CLOUD_API',
-                                        'text-gray-500': !phoneStatus.platform_type,
-                                    })}>
-                                        {phoneStatus.platform_type === 'CLOUD_API' ? 'Cloud API' : phoneStatus.platform_type || 'N/A'}
-                                    </p>
-                                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Plateforme</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <Separator className="bg-gray-100" />
-
-                {/* Action */}
-                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
-                    <h3 className="text-sm font-bold text-blue-900 mb-1">
-                        {isConnected ? 'Changer de numéro' : 'Connecter WhatsApp Business'}
-                    </h3>
-                    <p className="text-[11px] text-blue-700/70 mb-4">
-                        {isConnected
-                            ? 'Vous pouvez remplacer le numéro actuel en vous reconnectant via Facebook.'
-                            : 'Connectez votre compte Facebook pour lier un numéro WhatsApp Business à Jokko.'}
-                    </p>
-
-                    <Button
-                        onClick={launchWhatsAppSignup}
-                        disabled={!fbReady || status === 'FETCHING'}
-                        size="sm"
-                        className="h-9 text-xs font-semibold rounded-full bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white shadow-md shadow-blue-600/20 cursor-pointer gap-2"
-                    >
-                        {status === 'FETCHING' || !fbReady ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : isConnected ? (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                        ) : (
-                            <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                            </svg>
-                        )}
-                        {status === 'FETCHING' ? "Récupération..." : !fbReady ? "Chargement..." : isConnected ? "Reconnecter WhatsApp" : "Connecter WhatsApp Business"}
-                    </Button>
-
-                    <p className="text-[11px] text-gray-400 mt-2">
-                        Une fenêtre popup va s&apos;ouvrir. Assurez-vous de désactiver votre bloqueur de popups.
-                    </p>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}

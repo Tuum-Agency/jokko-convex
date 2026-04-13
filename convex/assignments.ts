@@ -760,7 +760,8 @@ export const sendAutoReply = internalMutation({
         return {
             messageId,
             phone: contact.phone,
-            organizationId: conversation.organizationId
+            organizationId: conversation.organizationId,
+            whatsappChannelId: conversation.whatsappChannelId
         };
     }
 });
@@ -869,7 +870,8 @@ export const analyzeAndRoute = action({
     args: {
         conversationId: v.id("conversations"),
         organizationId: v.id("organizations"),
-        messageText: v.string()
+        messageText: v.string(),
+        channelPoleId: v.optional(v.id("poles")),
     },
     handler: async (ctx, args) => {
         const { conversationId, organizationId, messageText } = args;
@@ -954,6 +956,7 @@ export const analyzeAndRoute = action({
                     await ctx.runAction(internal.whatsapp_actions.sendMessage, {
                         messageId: msgInfo.messageId,
                         organizationId: msgInfo.organizationId,
+                        whatsappChannelId: msgInfo.whatsappChannelId,
                         to: msgInfo.phone,
                         text: replyMessage
                     });
@@ -972,12 +975,13 @@ export const analyzeAndRoute = action({
                 note: "Auto-assigned by AI based on customer request"
             });
         } else {
-            // Standard Auto Assign (with pole filter if detected)
+            // Standard Auto Assign (with pole filter: channel pole > AI-detected pole)
+            const effectivePoleId = args.channelPoleId || specificPoleId;
             const result: any = await ctx.runMutation(internal.assignments.assignToBestAvailable, {
                 conversationId,
                 organizationId,
                 excludeOfflineAgents: settings.excludeOfflineAgents ?? true,
-                poleId: specificPoleId as any
+                poleId: effectivePoleId as any
             });
 
             if (!result.success && result.reason === "NO_ONLINE_AGENTS") {
@@ -993,6 +997,7 @@ export const analyzeAndRoute = action({
                 await ctx.runAction(internal.whatsapp_actions.sendMessage, {
                     messageId: msgInfo.messageId,
                     organizationId: msgInfo.organizationId,
+                    whatsappChannelId: msgInfo.whatsappChannelId,
                     to: msgInfo.phone,
                     text: replyText
                 });

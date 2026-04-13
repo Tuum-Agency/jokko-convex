@@ -3,6 +3,7 @@ import { mutation, query, internalAction, internalMutation, internalQuery } from
 import { internal, api } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { hasPermission, type Role } from "./lib/permissions";
+import { getMessageCostFCFA, calculateBroadcastCost } from "../lib/whatsapp-pricing";
 
 // List broadcasts for the current organization
 export const list = query({
@@ -156,6 +157,11 @@ export const create = mutation({
             throw new Error("Permission refusée: seuls les admins peuvent créer des broadcasts");
         }
 
+        // Validation: scheduledAt doit être au moins 5 minutes dans le futur
+        if (args.scheduledAt && args.scheduledAt <= Date.now() + 5 * 60 * 1000) {
+            throw new Error("La date de planification doit être au moins 5 minutes dans le futur");
+        }
+
         const id = await ctx.db.insert("broadcasts", {
             organizationId: session.currentOrganizationId,
             name: args.name,
@@ -223,6 +229,11 @@ export const update = mutation({
             throw new Error("Unauthorized");
         }
 
+        // Validation: scheduledAt doit être au moins 5 minutes dans le futur
+        if (args.scheduledAt && args.scheduledAt <= Date.now() + 5 * 60 * 1000) {
+            throw new Error("La date de planification doit être au moins 5 minutes dans le futur");
+        }
+
         const updates: any = {
             updatedAt: Date.now(),
         };
@@ -286,6 +297,7 @@ export const sendSingleToContact = internalMutation({
         templateName: v.string(),
         languageCode: v.string(),
         components: v.optional(v.array(v.any())),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
     },
     handler: async (ctx, args) => {
         // 1. Find OPEN Conversation (using composite index)
@@ -308,6 +320,7 @@ export const sendSingleToContact = internalMutation({
                 organizationId: args.organizationId,
                 contactId: args.contactId,
                 channel: "WHATSAPP",
+                whatsappChannelId: args.whatsappChannelId,
                 status: "RESOLVED", // Broadcast-initiated: don't show as assignable
                 lastMessageAt: Date.now(),
                 lastMessageDirection: "OUTBOUND",
@@ -341,6 +354,7 @@ export const sendSingleToContact = internalMutation({
         await ctx.scheduler.runAfter(0, internal.whatsapp_actions.sendMessage, {
             messageId,
             organizationId: args.organizationId,
+            whatsappChannelId: args.whatsappChannelId,
             to: args.phone,
             type: "template",
             template: {
@@ -393,8 +407,6 @@ export const sendBroadcast = internalAction({
         if (!broadcast || !broadcast.template) return;
 
         // 2. Fetch Contacts
-        // We need all contacts for org to filter. 
-        // Note: For large datasets, this should be paginated or optimized.
         const contacts = await ctx.runQuery(internal.contacts.listAllForOrg, { organizationId: args.organizationId });
 
         // 3. Filter Audience
@@ -411,11 +423,30 @@ export const sendBroadcast = internalAction({
             );
         }
 
-        console.log(`[BROADCAST] Sending ${broadcast.name} to ${targetContacts.length} contacts.`);
+        // 4. Validate & deduct credits before sending (real pricing per country)
+        const { totalCostFCFA } = calculateBroadcastCost(targetContacts.map(c => c.phone));
+        if (totalCostFCFA > 0) {
+            try {
+                await ctx.runMutation(internal.credits.internalDeductCredits, {
+                    organizationId: args.organizationId,
+                    amount: totalCostFCFA,
+                    description: `Campagne "${broadcast.name}" — ${targetContacts.length} messages, ${totalCostFCFA.toLocaleString()} FCFA`,
+                    referenceId: args.broadcastId,
+                });
+            } catch (e: any) {
+                // Insufficient credits — mark broadcast as FAILED
+                await ctx.runMutation(internal.broadcasts.markFailed, {
+                    id: args.broadcastId,
+                    reason: "Crédits insuffisants pour envoyer cette campagne",
+                });
+                return;
+            }
+        }
 
-        // 4. Send Loop
+        console.log(`[BROADCAST] Sending ${broadcast.name} to ${targetContacts.length} contacts (${totalCostFCFA} FCFA).`);
+
+        // 5. Send Loop
         for (const contact of targetContacts) {
-            // Rate limiting or batching could differ, but we rely on Convex scheduler
             await ctx.runMutation(internal.broadcasts.sendSingleToContact, {
                 broadcastId: args.broadcastId,
                 organizationId: args.organizationId,
@@ -423,13 +454,34 @@ export const sendBroadcast = internalAction({
                 phone: contact.phone,
                 templateName: broadcast.template.name,
                 languageCode: broadcast.template.language,
-                components: [] // TODO: Resolve variables if needed (unsupported in UI currently)
+                components: [],
+                whatsappChannelId: broadcast.whatsappChannelId,
             });
         }
 
-        // 5. Mark Completed
+        // 6. Mark Completed
         await ctx.runMutation(internal.broadcasts.markCompleted, { id: args.broadcastId });
     }
+});
+
+export const markFailed = internalMutation({
+    args: {
+        id: v.id("broadcasts"),
+        reason: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.id, {
+            status: "FAILED",
+            updatedAt: Date.now(),
+        });
+
+        await ctx.db.insert("broadcastActivities", {
+            broadcastId: args.id,
+            type: "failures",
+            message: args.reason,
+            createdAt: Date.now(),
+        });
+    },
 });
 
 export const markCompleted = internalMutation({
@@ -610,10 +662,14 @@ export const estimateAudience = query({
             .first();
 
         if (!session?.currentOrganizationId) {
-            return { count: 0 };
+            return { count: 0, estimatedCost: 0, creditBalance: 0, costPerMessage: 0 };
         }
 
         const organizationId = session.currentOrganizationId;
+
+        // Get credit balance
+        const org = await ctx.db.get(organizationId);
+        const creditBalance = org?.creditBalance ?? 0;
 
         const contacts = await ctx.db
             .query("contacts")
@@ -622,25 +678,30 @@ export const estimateAudience = query({
 
         const config = args.audienceConfig;
 
-        if (config.type === "ALL") {
-            return { count: contacts.length };
-        }
+        let targetContacts = contacts;
 
         if (config.type === "TAGS" && config.tags && config.tags.length > 0) {
-            const matched = contacts.filter((c) =>
+            targetContacts = contacts.filter((c) =>
                 c.tags && c.tags.some((t) => config.tags!.includes(t))
             );
-            return { count: matched.length };
-        }
-
-        if (config.type === "COUNTRIES" && config.countries && config.countries.length > 0) {
-            const matched = contacts.filter((c) =>
+        } else if (config.type === "COUNTRIES" && config.countries && config.countries.length > 0) {
+            targetContacts = contacts.filter((c) =>
                 config.countries!.some((prefix) => c.phone.startsWith(prefix))
             );
-            return { count: matched.length };
         }
 
-        return { count: contacts.length };
+        // Calculate cost based on each contact's country
+        const { totalCostFCFA } = calculateBroadcastCost(targetContacts.map(c => c.phone));
+        const avgCostPerMessage = targetContacts.length > 0
+            ? Math.ceil(totalCostFCFA / targetContacts.length)
+            : 0;
+
+        return {
+            count: targetContacts.length,
+            estimatedCost: totalCostFCFA,
+            creditBalance,
+            costPerMessage: avgCostPerMessage,
+        };
     },
 });
 
@@ -713,6 +774,7 @@ export const retryFailed = mutation({
                 templateName: template.name,
                 languageCode: template.language,
                 components: [],
+                whatsappChannelId: broadcast.whatsappChannelId,
             });
 
             retriedCount++;

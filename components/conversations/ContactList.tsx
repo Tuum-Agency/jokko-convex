@@ -444,7 +444,7 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
         let result = conversations
 
         if (channelFilter !== 'all') {
-            result = result.filter((conv: ConversationSummary & { whatsappChannelId?: string }) => conv.whatsappChannelId === channelFilter)
+            result = result.filter((conv: ConversationSummary) => conv.whatsappChannelId === channelFilter)
         }
 
         if (searchQuery.trim()) {
@@ -662,6 +662,43 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
                 </div>
             )}
 
+            {/* ── Channel Filter (prominent, between scope & secondary) ── */}
+            {hasMultipleChannels && (
+                <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                    <button
+                        onClick={() => setChannelFilter('all')}
+                        className={cn(
+                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 cursor-pointer border',
+                            channelFilter === 'all'
+                                ? 'bg-gradient-to-r from-[#14532d] to-[#059669] text-white border-transparent shadow-sm shadow-green-900/20'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+                        )}
+                    >
+                        <Phone className="h-3 w-3" />
+                        Tous les canaux
+                    </button>
+                    {channels.map((ch: { _id: string; label: string; displayPhoneNumber?: string; status: string }) => (
+                        <button
+                            key={ch._id}
+                            onClick={() => setChannelFilter(ch._id)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 cursor-pointer border',
+                                channelFilter === ch._id
+                                    ? 'bg-gradient-to-r from-[#14532d] to-[#059669] text-white border-transparent shadow-sm shadow-green-900/20'
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+                            )}
+                        >
+                            <div className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                ch.status === 'active' ? 'bg-green-400' : ch.status === 'error' ? 'bg-red-400' : 'bg-gray-400',
+                                channelFilter === ch._id && 'bg-white/70'
+                            )} />
+                            {ch.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* ── Level 2: Secondary Filters ── */}
             <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
                 {availableSecondary.map((sf) => {
@@ -683,30 +720,6 @@ export function ContactList({ selectedId, onSelect }: ContactListProps) {
                         </button>
                     )
                 })}
-
-                {/* Channel filter (if multiple) */}
-                {hasMultipleChannels && (
-                    <Select value={channelFilter} onValueChange={setChannelFilter}>
-                        <SelectTrigger className="h-7 text-[11px] w-auto min-w-[110px] border-gray-200 bg-white rounded-full px-2.5 ml-auto shrink-0">
-                            <Phone className="h-3 w-3 mr-1" />
-                            <SelectValue placeholder="Canal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Tous les canaux</SelectItem>
-                            {channels.map((ch: { _id: string; label: string; displayPhoneNumber?: string; status: string }) => (
-                                <SelectItem key={ch._id} value={ch._id}>
-                                    <div className="flex items-center gap-2">
-                                        <div className={cn(
-                                            'h-1.5 w-1.5 rounded-full',
-                                            ch.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                                        )} />
-                                        {ch.label}
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )}
 
                 {/* Sort & Bulk — integrated as icon buttons */}
                 <div className="flex items-center gap-1 ml-auto shrink-0">
