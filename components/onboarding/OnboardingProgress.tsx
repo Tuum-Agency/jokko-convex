@@ -3,6 +3,7 @@
 import {
     Check,
     Building2,
+    CreditCard,
     MessageCircle,
     CheckCircle,
     Circle,
@@ -17,6 +18,7 @@ import type { OnboardingStep, OnboardingStepKey } from '@/lib/onboarding/steps';
 
 const ICON_MAP: Record<string, LucideIcon> = {
     Building2,
+    CreditCard,
     MessageCircle,
     CheckCircle,
     Circle,

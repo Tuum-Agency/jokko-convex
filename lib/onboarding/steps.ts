@@ -7,6 +7,7 @@ import { LucideIcon, Building2, MessageCircle, CheckCircle, UtensilsCrossed, Sto
 
 export type OnboardingStepKey =
     | 'BUSINESS_INFO'
+    | 'PLAN_SELECT'
     | 'WHATSAPP_CONNECT'
     | 'COMPLETED';
 
@@ -82,17 +83,26 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
         validationSchema: businessInfoSchema,
     },
     {
-        key: 'WHATSAPP_CONNECT',
+        key: 'PLAN_SELECT',
         order: 2,
+        title: 'Choisir un plan',
+        description: 'Sélectionnez le plan adapté à vos besoins',
+        icon: 'CreditCard',
+        isSkippable: false,
+        validationSchema: null,
+    },
+    {
+        key: 'WHATSAPP_CONNECT',
+        order: 3,
         title: 'Connexion WhatsApp',
         description: 'Connectez votre numéro WhatsApp Business',
         icon: 'MessageCircle',
-        isSkippable: false,
+        isSkippable: true,
         validationSchema: whatsappConnectSchema,
     },
     {
         key: 'COMPLETED',
-        order: 3,
+        order: 4,
         title: 'Terminé !',
         description: 'Votre espace est prêt',
         icon: 'CheckCircle',

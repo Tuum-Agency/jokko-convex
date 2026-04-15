@@ -123,7 +123,7 @@ export const create = mutation({
             phone: args.phone,
             timezone: args.timezone,
             locale: args.locale,
-            onboardingStep: "WHATSAPP_CONNECT", // Next step
+            onboardingStep: "PLAN_SELECT", // Next step
             ownerId: userId,
             plan: "FREE",
             settings: {
@@ -168,6 +168,43 @@ export const create = mutation({
         }
 
         return orgId;
+    },
+});
+
+// ============================================
+// Update Organization Plan (onboarding step 2)
+// ============================================
+export const updateOrgPlan = mutation({
+    args: {
+        plan: v.union(
+            v.literal("FREE"),
+            v.literal("STARTER"),
+            v.literal("BUSINESS"),
+            v.literal("PRO"),
+        ),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Non authentifié");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            throw new Error("Aucune organisation active");
+        }
+
+        const org = await ctx.db.get(session.currentOrganizationId);
+        if (!org || org.ownerId !== userId) {
+            throw new Error("Seul le propriétaire peut changer le plan");
+        }
+
+        await ctx.db.patch(session.currentOrganizationId, {
+            plan: args.plan,
+            updatedAt: Date.now(),
+        });
     },
 });
 
