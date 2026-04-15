@@ -97,7 +97,19 @@ export default defineSchema({
             verifiedName: v.optional(v.string()),
         })),
         settings: v.optional(v.object({
-            businessHours: v.optional(v.any()),
+            businessHours: v.optional(v.union(
+                v.object({
+                    enabled: v.boolean(),
+                    timezone: v.optional(v.string()),
+                    schedule: v.optional(v.array(v.object({
+                        day: v.string(),
+                        enabled: v.boolean(),
+                        start: v.optional(v.string()),
+                        end: v.optional(v.string()),
+                    }))),
+                }),
+                v.record(v.string(), v.any())
+            )),
             autoReplyEnabled: v.optional(v.boolean()),
             autoReplyMessage: v.optional(v.string()),
             defaultLanguage: v.optional(v.string()),
@@ -1515,6 +1527,21 @@ export default defineSchema({
         status: v.string(), // "PENDING", "APPROVED", "INVITED"
         createdAt: v.number(),
     }).index("by_email", ["email"]),
+
+    // ============================================
+    // Data Deletion Requests (Facebook GDPR compliance)
+    // ============================================
+    dataDeletionRequests: defineTable({
+        facebookScopedUserId: v.string(),
+        confirmationCode: v.string(),
+        status: v.string(), // "PENDING", "COMPLETED", "FAILED"
+        deletedWabaIds: v.optional(v.array(v.string())),
+        deletedChannelCount: v.optional(v.number()),
+        createdAt: v.number(),
+        completedAt: v.optional(v.number()),
+    })
+        .index("by_confirmation_code", ["confirmationCode"])
+        .index("by_facebook_user", ["facebookScopedUserId"]),
 
     // ============================================
     // Contact Segments (Filtres sauvegardés)

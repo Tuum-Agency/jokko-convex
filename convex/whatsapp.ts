@@ -2,6 +2,7 @@ import { action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { encrypt, decrypt } from "./lib/encryption";
 
 /**
  * Helper to get active organization ID for current user
@@ -45,9 +46,10 @@ export const saveWhatsAppConfig = internalMutation({
         verifiedName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const encryptedToken = await encrypt(args.accessToken);
         await ctx.db.patch(args.organizationId, {
             whatsapp: {
-                accessToken: args.accessToken,
+                accessToken: encryptedToken,
                 phoneNumberId: args.phoneNumberId,
                 businessAccountId: args.wabaId,
                 webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "",
@@ -73,7 +75,7 @@ export const getPhoneNumberStatus = action({
         }
 
         const phoneNumberId: string = org.whatsapp.phoneNumberId;
-        const accessToken: string = org.whatsapp.accessToken;
+        const accessToken: string = await decrypt(org.whatsapp.accessToken);
         const res: Response = await fetch(
             `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -97,10 +99,11 @@ export const getChannelStatus = action({
     handler: async (ctx, args): Promise<Record<string, string> | null> => {
         const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
 
-        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const rawToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
         const phoneNumberId: string = channel.phoneNumberId;
 
-        if (!accessToken || !phoneNumberId) return null;
+        if (!rawToken || !phoneNumberId) return null;
+        const accessToken = await decrypt(rawToken);
 
         const res: Response = await fetch(
             `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
@@ -127,12 +130,13 @@ export const sendTestMessageByChannel = action({
     handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
         const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
 
-        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const rawToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
         const phoneNumberId: string = channel.phoneNumberId;
 
-        if (!phoneNumberId || !accessToken) {
+        if (!phoneNumberId || !rawToken) {
             throw new Error("Credentials WhatsApp non configurées pour ce canal");
         }
+        const accessToken = await decrypt(rawToken);
 
         const recipientPhone: string = args.to.replace(/\D/g, '');
 
@@ -363,7 +367,7 @@ export const subscribeWebhook = action({
         }
 
         const wabaId: string = org.whatsapp.businessAccountId;
-        const accessToken: string = org.whatsapp.accessToken;
+        const accessToken: string = await decrypt(org.whatsapp.accessToken);
 
         console.log(`[SUBSCRIBE] Subscribing app to WABA ${wabaId}...`);
         const res: Response = await fetch(
@@ -415,7 +419,8 @@ export const sendTestMessage = action({
 
             const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
             phoneNumberId = org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || "";
-            accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN || "";
+            const rawToken = org?.whatsapp?.accessToken;
+            accessToken = rawToken ? await decrypt(rawToken) : (process.env.WHATSAPP_ACCESS_TOKEN || "");
         }
 
         if (!phoneNumberId || !accessToken) {
@@ -484,7 +489,8 @@ export const diagnoseWebhook = action({
         const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
         if (!org?.whatsapp) return { error: "WhatsApp not configured for this organization", orgId };
 
-        const { phoneNumberId, businessAccountId: wabaId, accessToken } = org.whatsapp;
+        const { phoneNumberId, businessAccountId: wabaId } = org.whatsapp;
+        const accessToken = await decrypt(org.whatsapp.accessToken);
         results.config = {
             phoneNumberId,
             wabaId,

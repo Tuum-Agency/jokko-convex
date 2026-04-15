@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { requireMembership, requirePermission } from "./lib/auth";
 import { getMaxChannels, isUnlimited } from "./lib/planHelpers";
+import { encrypt } from "./lib/encryption";
 
 // ============================================
 // Queries
@@ -296,6 +297,8 @@ export const getOrCreateWaba = internalMutation({
         label: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const encryptedToken = await encrypt(args.accessTokenRef);
+
         // Idempotent: check if WABA already exists
         const existing = await ctx.db
             .query("wabas")
@@ -309,7 +312,7 @@ export const getOrCreateWaba = internalMutation({
             }
             // Always refresh the access token on reconnect
             await ctx.db.patch(existing._id, {
-                accessTokenRef: args.accessTokenRef,
+                accessTokenRef: encryptedToken,
                 updatedAt: Date.now(),
             });
             return existing._id;
@@ -318,7 +321,7 @@ export const getOrCreateWaba = internalMutation({
         return await ctx.db.insert("wabas", {
             organizationId: args.organizationId,
             metaBusinessAccountId: args.metaBusinessAccountId,
-            accessTokenRef: args.accessTokenRef,
+            accessTokenRef: encryptedToken,
             label: args.label,
             createdBy: args.createdBy,
             createdAt: Date.now(),

@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { decrypt } from "./lib/encryption";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -36,7 +37,8 @@ export const downloadMedia = internalAction({
                 const channelData = await ctx.runQuery(internal.channels.getChannelWithWaba, {
                     channelId: args.whatsappChannelId,
                 });
-                accessToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+                const rawToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+                if (rawToken) accessToken = await decrypt(rawToken);
             } catch (e) {
                 console.warn(`[MEDIA DL] Failed to resolve channel ${args.whatsappChannelId}, falling back`, e);
             }
@@ -44,7 +46,8 @@ export const downloadMedia = internalAction({
 
         if (!accessToken) {
             const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
-            accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+            const rawToken = org?.whatsapp?.accessToken;
+            accessToken = rawToken ? await decrypt(rawToken) : (process.env.WHATSAPP_ACCESS_TOKEN || undefined);
         }
         if (!accessToken) {
             console.error(`[MEDIA DL] No access token for org ${args.organizationId}`);
@@ -106,13 +109,13 @@ export const sendMessage = internalAction({
         to: v.string(),
         text: v.optional(v.string()),
         type: v.optional(v.string()), // "text", "image", "video", "audio", "document", "interactive"
-        interactive: v.optional(v.any()), // JSON payload for interactive messages
+        interactive: v.optional(v.record(v.string(), v.any())), // JSON payload for interactive messages
         mediaUrl: v.optional(v.string()),
         caption: v.optional(v.string()),
         mimeType: v.optional(v.string()),
         fileName: v.optional(v.string()),
         replyToWhatsAppId: v.optional(v.string()),
-        template: v.optional(v.any()), // JSON payload for template messages
+        template: v.optional(v.record(v.string(), v.any())), // JSON payload for template messages
     },
     handler: async (ctx, args) => {
         // 1. Resolve credentials: channel-specific → legacy org → env fallback
@@ -125,7 +128,8 @@ export const sendMessage = internalAction({
                     channelId: args.whatsappChannelId,
                 });
                 phoneNumberId = channelData.phoneNumberId;
-                accessToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+                const rawToken = channelData.waba?.accessTokenRef || channelData.orgWhatsapp?.accessToken;
+                if (rawToken) accessToken = await decrypt(rawToken);
             } catch (e) {
                 console.warn(`[OUTBOUND] Failed to resolve channel ${args.whatsappChannelId}, falling back to org`, e);
             }
@@ -134,7 +138,10 @@ export const sendMessage = internalAction({
         if (!phoneNumberId || !accessToken) {
             const org = await ctx.runQuery(internal.utils.getOrganization, { id: args.organizationId });
             phoneNumberId = phoneNumberId || org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
-            accessToken = accessToken || org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+            if (!accessToken) {
+                const rawToken = org?.whatsapp?.accessToken;
+                accessToken = rawToken ? await decrypt(rawToken) : (process.env.WHATSAPP_ACCESS_TOKEN || undefined);
+            }
         }
 
         if (!phoneNumberId || !accessToken) {

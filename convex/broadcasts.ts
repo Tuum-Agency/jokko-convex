@@ -305,7 +305,7 @@ export const sendSingleToContact = internalMutation({
         phone: v.string(),
         templateName: v.string(),
         languageCode: v.string(),
-        components: v.optional(v.array(v.any())),
+        components: v.optional(v.array(v.record(v.string(), v.any()))),
         whatsappChannelId: v.optional(v.id("whatsappChannels")),
     },
     handler: async (ctx, args) => {

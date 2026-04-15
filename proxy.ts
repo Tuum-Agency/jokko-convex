@@ -24,7 +24,9 @@ function isPublicRoute(pathname: string): boolean {
 function hasAuthToken(request: NextRequest): boolean {
     const cookies = request.cookies.getAll()
     return cookies.some(
-        (c) => c.name.includes('AuthToken') || c.name.includes('authToken')
+        (c) => c.name.includes('AuthToken') ||
+               c.name.includes('authToken') ||
+               c.name === '__Secure-jokko-session'
     )
 }
 

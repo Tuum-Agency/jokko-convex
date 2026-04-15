@@ -69,7 +69,7 @@ export const updatePaymentSession = internalMutation({
         sessionId: v.id("paymentSessions"),
         providerSessionId: v.optional(v.string()),
         checkoutUrl: v.optional(v.string()),
-        providerMetadata: v.optional(v.any()),
+        providerMetadata: v.optional(v.record(v.string(), v.any())),
     },
     handler: async (ctx, args) => {
         const { sessionId, ...updates } = args;
@@ -91,7 +91,7 @@ export const completePayment = internalMutation({
         sessionId: v.id("paymentSessions"),
         providerTransactionId: v.optional(v.string()),
         webhookEventId: v.optional(v.string()),
-        providerMetadata: v.optional(v.any()),
+        providerMetadata: v.optional(v.record(v.string(), v.any())),
     },
     handler: async (ctx, args) => {
         const session = await ctx.db.get(args.sessionId);
@@ -160,7 +160,7 @@ export const failPayment = internalMutation({
         sessionId: v.id("paymentSessions"),
         failureReason: v.string(),
         webhookEventId: v.optional(v.string()),
-        providerMetadata: v.optional(v.any()),
+        providerMetadata: v.optional(v.record(v.string(), v.any())),
     },
     handler: async (ctx, args) => {
         const session = await ctx.db.get(args.sessionId);

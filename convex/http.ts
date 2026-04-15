@@ -507,4 +507,118 @@ http.route({
     }),
 });
 
+// ============================================================
+// Facebook Data Deletion Callback (GDPR compliance)
+// ============================================================
+
+async function verifyFacebookSignedRequest(
+    signedRequest: string,
+    appSecret: string
+): Promise<Record<string, any> | null> {
+    const [encodedSig, payload] = signedRequest.split(".");
+    if (!encodedSig || !payload) return null;
+
+    // Compute expected signature using Web Crypto HMAC-SHA256
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(appSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+    );
+    const expectedSig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+
+    // Decode the provided signature from base64url
+    const sigBase64 = encodedSig.replace(/-/g, "+").replace(/_/g, "/");
+    const sigBinary = atob(sigBase64);
+    const sigBytes = new Uint8Array(sigBinary.length);
+    for (let i = 0; i < sigBinary.length; i++) {
+        sigBytes[i] = sigBinary.charCodeAt(i);
+    }
+
+    // Constant-time comparison
+    const expectedBytes = new Uint8Array(expectedSig);
+    if (sigBytes.length !== expectedBytes.length) return null;
+    let mismatch = 0;
+    for (let i = 0; i < sigBytes.length; i++) {
+        mismatch |= sigBytes[i] ^ expectedBytes[i];
+    }
+    if (mismatch !== 0) return null;
+
+    // Decode payload
+    const payloadBase64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const payloadJson = atob(payloadBase64);
+    return JSON.parse(payloadJson);
+}
+
+http.route({
+    path: "/api/facebook/data-deletion",
+    method: "POST",
+    handler: httpAction(async (ctx, request) => {
+        try {
+            const contentType = request.headers.get("content-type") || "";
+            let signedRequest: string | null = null;
+
+            if (contentType.includes("application/x-www-form-urlencoded")) {
+                const text = await request.text();
+                const params = new URLSearchParams(text);
+                signedRequest = params.get("signed_request");
+            } else if (contentType.includes("multipart/form-data")) {
+                const formData = await request.formData();
+                signedRequest = formData.get("signed_request") as string;
+            }
+
+            if (!signedRequest) {
+                return new Response(JSON.stringify({ error: "Missing signed_request" }), {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+
+            const appSecret = process.env.FACEBOOK_APP_SECRET;
+            if (!appSecret) {
+                console.error("[FB DATA DELETION] FACEBOOK_APP_SECRET not set");
+                return new Response(JSON.stringify({ error: "Server configuration error" }), {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+
+            const data = await verifyFacebookSignedRequest(signedRequest, appSecret);
+            if (!data) {
+                return new Response(JSON.stringify({ error: "Invalid signature" }), {
+                    status: 401,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+
+            const userId = data.user_id || "unknown";
+            const confirmationCode = `del_${userId}_${Date.now().toString(36)}`;
+
+            // Execute deletion
+            await ctx.runMutation(internal.facebook.deleteWhatsAppData, {
+                facebookScopedUserId: String(userId),
+                confirmationCode,
+            });
+
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.jokko.co";
+
+            return new Response(JSON.stringify({
+                url: `${appUrl}/privacy`,
+                confirmation_code: confirmationCode,
+            }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        } catch (error) {
+            console.error("[FB DATA DELETION] Error:", String(error));
+            return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+    }),
+});
+
 export default http;

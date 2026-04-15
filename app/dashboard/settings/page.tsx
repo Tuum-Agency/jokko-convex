@@ -677,7 +677,24 @@ function OrganizationSettingsTab() {
     // Initialize business hours
     if (orgSettings?.settings && !hoursInitialized) {
         if (orgSettings.settings.businessHours) {
-            setBusinessHours({ ...DEFAULT_BUSINESS_HOURS, ...orgSettings.settings.businessHours });
+            const bh = orgSettings.settings.businessHours as any;
+            if (bh?.schedule) {
+                // New format: convert schedule array to Record
+                const converted = { ...DEFAULT_BUSINESS_HOURS };
+                for (const item of bh.schedule) {
+                    if (item.day && converted[item.day]) {
+                        converted[item.day] = {
+                            enabled: item.enabled ?? false,
+                            open: item.start || "08:00",
+                            close: item.end || "18:00",
+                        };
+                    }
+                }
+                setBusinessHours(converted);
+            } else {
+                // Legacy format: direct Record
+                setBusinessHours({ ...DEFAULT_BUSINESS_HOURS, ...bh });
+            }
         }
         setHoursInitialized(true);
     }
@@ -717,7 +734,15 @@ function OrganizationSettingsTab() {
             await updateSettings({
                 autoReplyEnabled,
                 autoReplyMessage,
-                businessHours,
+                businessHours: {
+                    enabled: Object.values(businessHours).some(d => d.enabled),
+                    schedule: Object.entries(businessHours).map(([day, cfg]) => ({
+                        day,
+                        enabled: cfg.enabled,
+                        start: cfg.open,
+                        end: cfg.close,
+                    })),
+                },
             });
             toast.success("Paramètres mis à jour", {
                 description: "Les paramètres de réponse automatique et horaires ont été enregistrés.",

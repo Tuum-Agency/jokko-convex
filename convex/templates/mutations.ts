@@ -3,30 +3,33 @@ import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { validateTemplate } from "../lib/templateValidation";
+import {
+    headerValidator, buttonsValidator, carouselCardsValidator,
+    catalogConfigValidator, listConfigValidator, locationConfigValidator,
+    ltoConfigValidator, couponConfigValidator, authConfigValidator, orderConfigValidator,
+} from "../lib/templateValidators";
 
 export const create = mutation({
     args: {
         name: v.string(),
         language: v.string(),
-        category: v.string(), // We'll validate this is a valid TemplateCategory
-        type: v.string(),     // We'll validate this is a valid TemplateType
+        category: v.string(),
+        type: v.string(),
         description: v.optional(v.string()),
 
-        // Flexible fields, validated by logic
-        header: v.optional(v.any()), // v.object({...}) in schema, passing as any for flexibility in args then validating
+        header: headerValidator,
         body: v.optional(v.string()),
         footer: v.optional(v.string()),
-        buttons: v.optional(v.any()),
+        buttons: buttonsValidator,
 
-        // Specific configs
-        carouselCards: v.optional(v.any()),
-        catalogConfig: v.optional(v.any()),
-        listConfig: v.optional(v.any()),
-        locationConfig: v.optional(v.any()),
-        ltoConfig: v.optional(v.any()),
-        couponConfig: v.optional(v.any()),
-        authConfig: v.optional(v.any()),
-        orderConfig: v.optional(v.any()),
+        carouselCards: carouselCardsValidator,
+        catalogConfig: catalogConfigValidator,
+        listConfig: listConfigValidator,
+        locationConfig: locationConfigValidator,
+        ltoConfig: ltoConfigValidator,
+        couponConfig: couponConfigValidator,
+        authConfig: authConfigValidator,
+        orderConfig: orderConfigValidator,
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -95,19 +98,19 @@ export const update = mutation({
         type: v.optional(v.string()),
         description: v.optional(v.string()),
 
-        header: v.optional(v.any()),
+        header: headerValidator,
         body: v.optional(v.string()),
         footer: v.optional(v.string()),
-        buttons: v.optional(v.any()),
+        buttons: buttonsValidator,
 
-        carouselCards: v.optional(v.any()),
-        catalogConfig: v.optional(v.any()),
-        listConfig: v.optional(v.any()),
-        locationConfig: v.optional(v.any()),
-        ltoConfig: v.optional(v.any()),
-        couponConfig: v.optional(v.any()),
-        authConfig: v.optional(v.any()),
-        orderConfig: v.optional(v.any()),
+        carouselCards: carouselCardsValidator,
+        catalogConfig: catalogConfigValidator,
+        listConfig: listConfigValidator,
+        locationConfig: locationConfigValidator,
+        ltoConfig: ltoConfigValidator,
+        couponConfig: couponConfigValidator,
+        authConfig: authConfigValidator,
+        orderConfig: orderConfigValidator,
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);

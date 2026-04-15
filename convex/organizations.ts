@@ -277,7 +277,16 @@ export const updateOrgSettings = mutation({
     args: {
         autoReplyEnabled: v.optional(v.boolean()),
         autoReplyMessage: v.optional(v.string()),
-        businessHours: v.optional(v.any()),
+        businessHours: v.optional(v.object({
+            enabled: v.boolean(),
+            timezone: v.optional(v.string()),
+            schedule: v.optional(v.array(v.object({
+                day: v.string(),
+                enabled: v.boolean(),
+                start: v.optional(v.string()),
+                end: v.optional(v.string()),
+            }))),
+        })),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
