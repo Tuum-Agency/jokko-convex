@@ -17,6 +17,9 @@ importers:
       '@convex-dev/auth':
         specifier: ^0.0.90
         version: 0.0.90(@auth/core@0.37.4)(convex@1.30.0(react@19.2.0))(react@19.2.0)
+      '@convex-dev/rate-limiter':
+        specifier: ^0.3.2
+        version: 0.3.2(convex@1.30.0(react@19.2.0))(react@19.2.0)
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.68.0(react@19.2.0))
@@ -484,6 +487,15 @@ packages:
       '@auth/core': ^0.37.0
       convex: ^1.17.0
       react: ^18.2.0 || ^19.0.0-0
+    peerDependenciesMeta:
+      react:
+        optional: true
+
+  '@convex-dev/rate-limiter@0.3.2':
+    resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
+    peerDependencies:
+      convex: ^1.24.8
+      react: ^18.2.0 || ^19.0.0
     peerDependenciesMeta:
       react:
         optional: true
@@ -6421,6 +6433,12 @@ snapshots:
       oauth4webapi: 3.8.3
       path-to-regexp: 6.3.0
       server-only: 0.0.1
+    optionalDependencies:
+      react: 19.2.0
+
+  '@convex-dev/rate-limiter@0.3.2(convex@1.30.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      convex: 1.30.0(react@19.2.0)
     optionalDependencies:
       react: 19.2.0
 

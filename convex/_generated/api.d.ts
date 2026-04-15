@@ -28,18 +28,23 @@ import type * as emails_invitation from "../emails/invitation.js";
 import type * as emails_password_reset from "../emails/password_reset.js";
 import type * as emails_verification from "../emails/verification.js";
 import type * as engine from "../engine.js";
+import type * as facebook from "../facebook.js";
 import type * as files from "../files.js";
 import type * as flows from "../flows.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
+import type * as lib_encryption from "../lib/encryption.js";
+import type * as lib_encryptionMigration from "../lib/encryptionMigration.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_planHelpers from "../lib/planHelpers.js";
+import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_stripePlans from "../lib/stripePlans.js";
 import type * as lib_templateBuilder from "../lib/templateBuilder.js";
 import type * as lib_templateTypes from "../lib/templateTypes.js";
 import type * as lib_templateValidation from "../lib/templateValidation.js";
+import type * as lib_templateValidators from "../lib/templateValidators.js";
 import type * as lib_visibility from "../lib/visibility.js";
 import type * as messages from "../messages.js";
 import type * as migration from "../migration.js";
@@ -99,18 +104,23 @@ declare const fullApi: ApiFromModules<{
   "emails/password_reset": typeof emails_password_reset;
   "emails/verification": typeof emails_verification;
   engine: typeof engine;
+  facebook: typeof facebook;
   files: typeof files;
   flows: typeof flows;
   http: typeof http;
   invitations: typeof invitations;
   "lib/auth": typeof lib_auth;
   "lib/email": typeof lib_email;
+  "lib/encryption": typeof lib_encryption;
+  "lib/encryptionMigration": typeof lib_encryptionMigration;
   "lib/permissions": typeof lib_permissions;
   "lib/planHelpers": typeof lib_planHelpers;
+  "lib/rateLimits": typeof lib_rateLimits;
   "lib/stripePlans": typeof lib_stripePlans;
   "lib/templateBuilder": typeof lib_templateBuilder;
   "lib/templateTypes": typeof lib_templateTypes;
   "lib/templateValidation": typeof lib_templateValidation;
+  "lib/templateValidators": typeof lib_templateValidators;
   "lib/visibility": typeof lib_visibility;
   messages: typeof messages;
   migration: typeof migration;
@@ -170,4 +180,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

@@ -1,12 +1,14 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx } from "./_generated/server";
 import { getMaxChannels, getConversationLimit, isUnlimited } from "./lib/planHelpers";
+import { requireMembership } from "./lib/auth";
 
 export { getMaxChannels } from "./lib/planHelpers";
 
 export const getUsageStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        await requireMembership(ctx, args.organizationId);
         const org = await ctx.db.get(args.organizationId);
         return org?.usageStats;
     }

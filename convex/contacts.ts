@@ -315,6 +315,11 @@ export const update = mutation({
         const current = await ctx.db.get(id);
         if (!current) throw new Error("Not found");
 
+        // Verify contact belongs to user's active organization
+        if (current.organizationId !== session.currentOrganizationId) {
+            throw new Error("Unauthorized: contact does not belong to your organization");
+        }
+
         // Handle Notes
         let finalNotes: any = current.notes;
 

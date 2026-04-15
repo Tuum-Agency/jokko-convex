@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { encrypt } from "./lib/encryption";
 
 const BATCH_SIZE = 200;
 
@@ -87,10 +88,11 @@ export const migrateOrg = internalMutation({
         if (waba) {
             wabaId = waba._id;
         } else {
+            const encryptedToken = await encrypt(accessToken);
             wabaId = await ctx.db.insert("wabas", {
                 organizationId: args.organizationId,
                 metaBusinessAccountId: businessAccountId,
-                accessTokenRef: accessToken,
+                accessTokenRef: encryptedToken,
                 label: org.name,
                 createdBy: args.createdBy,
                 createdAt: Date.now(),

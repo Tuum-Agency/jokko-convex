@@ -15,8 +15,17 @@ export const { auth, signIn, signOut, store } = convexAuth({
                 };
             },
             validatePasswordRequirements: (password: string) => {
-                if (password.length < 8) {
-                    throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
+                if (password.length < 10) {
+                    throw new Error("Le mot de passe doit contenir au moins 10 caractères.");
+                }
+                if (!/[A-Z]/.test(password)) {
+                    throw new Error("Le mot de passe doit contenir au moins une majuscule.");
+                }
+                if (!/[a-z]/.test(password)) {
+                    throw new Error("Le mot de passe doit contenir au moins une minuscule.");
+                }
+                if (!/[0-9]/.test(password)) {
+                    throw new Error("Le mot de passe doit contenir au moins un chiffre.");
                 }
             },
         }),

@@ -7,6 +7,8 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireMembership } from "./lib/auth";
+import { hasPermission } from "./lib/permissions";
 
 // Get all poles for the current organization
 export const list = query({
@@ -69,7 +71,7 @@ export const list = query({
 
 export const create = mutation({
     args: {
-        organizationId: v.optional(v.id("organizations")), // Optional if implied
+        organizationId: v.optional(v.id("organizations")),
         name: v.string(),
         description: v.optional(v.string()),
         color: v.string(),
@@ -79,16 +81,20 @@ export const create = mutation({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Unauthorized");
 
-        // Resolve Org ID (Similar logic to list)
         let orgId = args.organizationId;
         if (!orgId) {
-            const membership = await ctx.db
-                .query("memberships")
+            const session = await ctx.db
+                .query("userSessions")
                 .withIndex("by_user", (q) => q.eq("userId", userId))
                 .first();
-            if (membership) orgId = membership.organizationId;
+            orgId = session?.currentOrganizationId ?? undefined;
         }
         if (!orgId) throw new Error("No organization found");
+
+        const { membership } = await requireMembership(ctx, orgId);
+        if (!hasPermission(membership.role, "teams:update")) {
+            throw new Error("Permission denied");
+        }
 
         const poleId = await ctx.db.insert("poles", {
             organizationId: orgId,
@@ -113,8 +119,13 @@ export const update = mutation({
         icon: v.string(),
     },
     handler: async (ctx, args) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Unauthorized");
+        const pole = await ctx.db.get(args.id);
+        if (!pole) throw new Error("Not found");
+
+        const { membership } = await requireMembership(ctx, pole.organizationId);
+        if (!hasPermission(membership.role, "teams:update")) {
+            throw new Error("Permission denied");
+        }
 
         await ctx.db.patch(args.id, {
             name: args.name,
@@ -131,12 +142,15 @@ export const remove = mutation({
         id: v.id("poles"),
     },
     handler: async (ctx, args) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Unauthorized");
+        const pole = await ctx.db.get(args.id);
+        if (!pole) throw new Error("Not found");
 
-        // Unassign members from this pole
+        const { membership } = await requireMembership(ctx, pole.organizationId);
+        if (!hasPermission(membership.role, "teams:update")) {
+            throw new Error("Permission denied");
+        }
+
         const members = await ctx.db.query("memberships").filter(q => q.eq(q.field("poleId"), args.id)).collect();
-
         for (const member of members) {
             await ctx.db.patch(member._id, { poleId: undefined });
         }

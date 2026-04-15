@@ -1,40 +1,57 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PUBLIC_ROUTES = [
+    '/',
+    '/sign-in',
+    '/sign-up',
+    '/pricing',
+    '/about',
+    '/contact',
+    '/legal',
+    '/privacy',
+    '/terms',
+    '/api',
+    '/invite',
+]
+
+function isPublicRoute(pathname: string): boolean {
+    return PUBLIC_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+}
+
+function hasAuthToken(request: NextRequest): boolean {
+    const cookies = request.cookies.getAll()
+    return cookies.some(
+        (c) => c.name.includes('AuthToken') ||
+               c.name.includes('authToken') ||
+               c.name === '__Secure-jokko-session'
+    )
+}
+
 export default function proxy(request: NextRequest) {
     const url = request.nextUrl
+    const { pathname } = url
     const hostname = request.headers.get('host') || ''
 
-    // Configuration: Domaine principal
-    // En local, on peut utiliser "localhost:3000" ou un domaine de test
+    // --- Auth gate for protected routes ---
+    if (!isPublicRoute(pathname) && !hasAuthToken(request)) {
+        const signInUrl = new URL('/sign-in', request.url)
+        signInUrl.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(signInUrl)
+    }
+
+    // --- Subdomain routing ---
     const currentHost = hostname.replace(/:\d+$/, '')
-    // Récupérer le domaine racine depuis l'env ou par défaut
     const mainDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'jokko.co'
 
-    // Vérifier si c'est le domaine principal (y compris www)
     const isMainDomain =
         currentHost === mainDomain ||
         currentHost === `www.${mainDomain}` ||
         currentHost === 'localhost'
 
-    // Si c'est un sous-domaine
     if (!isMainDomain) {
-        // Extraire le sous-domaine (ex: "client" de "client.jokko.co")
-        const subdomain = currentHost.replace(`.${mainDomain}`, '')
-
-        // Réécrire l'URL pour pointer vers un dossier dynamique interne
-        // Par exemple: /_sites/[subdomain]/path
-        // Cela permet de gérer le contenu spécifique au tenant sans changer l'URL du navigateur
-
-        // Note: Assurez-vous d'avoir une structure de dossier comme `app/[domain]` ou `app/_sites/[site]`
-        // Si vous n'avez pas encore cette structure, Next.js affichera la page par défaut de la racine,
-        // mais l'URL restera correcte (pas de redirect vers www)
-
-        console.log(`Rewriting subdomain ${subdomain} to internal path`)
-
-        // Décommenter la ligne suivante si vous utilisez une structure `app/[domain]`
-        // return NextResponse.rewrite(new URL(`/${subdomain}${url.pathname}`, request.url))
-
         return NextResponse.next()
     }
 

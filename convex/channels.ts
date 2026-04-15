@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { requireMembership, requirePermission } from "./lib/auth";
 import { getMaxChannels, isUnlimited } from "./lib/planHelpers";
+import { encrypt } from "./lib/encryption";
 
 // ============================================
 // Queries
@@ -23,8 +24,10 @@ export const list = query({
                 const team = ch.primaryTeamId ? await ctx.db.get(ch.primaryTeamId) : null;
                 const pole = ch.poleId ? await ctx.db.get(ch.poleId) : null;
                 const waba = await ctx.db.get(ch.wabaId);
+                // Strip sensitive token fields before returning to client
+                const { webhookVerifyTokenRef, ...safeChannel } = ch as any;
                 return {
-                    ...ch,
+                    ...safeChannel,
                     primaryTeam: team ? { _id: team._id, name: team.name, color: team.color } : null,
                     pole: pole ? { _id: pole._id, name: pole.name, color: pole.color, icon: pole.icon } : null,
                     waba: waba ? { _id: waba._id, label: waba.label, metaBusinessAccountId: waba.metaBusinessAccountId } : null,
@@ -47,8 +50,10 @@ export const getById = query({
         const team = channel.primaryTeamId ? await ctx.db.get(channel.primaryTeamId) : null;
         const waba = await ctx.db.get(channel.wabaId);
 
+        // Strip sensitive token fields
+        const { webhookVerifyTokenRef, ...safeChannel } = channel as any;
         return {
-            ...channel,
+            ...safeChannel,
             primaryTeam: team ? { _id: team._id, name: team.name } : null,
             waba: waba ? { _id: waba._id, label: waba.label, metaBusinessAccountId: waba.metaBusinessAccountId } : null,
         };
@@ -292,6 +297,8 @@ export const getOrCreateWaba = internalMutation({
         label: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const encryptedToken = await encrypt(args.accessTokenRef);
+
         // Idempotent: check if WABA already exists
         const existing = await ctx.db
             .query("wabas")
@@ -305,7 +312,7 @@ export const getOrCreateWaba = internalMutation({
             }
             // Always refresh the access token on reconnect
             await ctx.db.patch(existing._id, {
-                accessTokenRef: args.accessTokenRef,
+                accessTokenRef: encryptedToken,
                 updatedAt: Date.now(),
             });
             return existing._id;
@@ -314,7 +321,7 @@ export const getOrCreateWaba = internalMutation({
         return await ctx.db.insert("wabas", {
             organizationId: args.organizationId,
             metaBusinessAccountId: args.metaBusinessAccountId,
-            accessTokenRef: args.accessTokenRef,
+            accessTokenRef: encryptedToken,
             label: args.label,
             createdBy: args.createdBy,
             createdAt: Date.now(),

@@ -172,15 +172,15 @@ export const internalDeductCredits = internalMutation({
 });
 
 /**
- * Debug: Add credits (Dev only or for testing)
+ * Debug: Add credits (internal only — not callable from clients)
  */
-export const debugAddCredits = mutation({
+export const debugAddCredits = internalMutation({
     args: {
+        organizationId: v.id("organizations"),
         amount: v.number(),
     },
     handler: async (ctx, args) => {
-        const orgId = await getCurrentOrgId(ctx);
-        if (!orgId) throw new Error("Unauthorized");
+        const orgId = args.organizationId;
 
         const org = await ctx.db.get(orgId);
         if (!org) throw new Error("Org not found");

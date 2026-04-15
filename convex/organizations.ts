@@ -16,6 +16,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { rateLimiter } from "./lib/rateLimits";
 
 export const listMine = query({
     args: {},
@@ -33,7 +34,16 @@ export const listMine = query({
         const orgs = await Promise.all(
             memberships.map(async (m) => {
                 const org = await ctx.db.get(m.organizationId);
-                return org;
+                if (!org) return null;
+                // Strip sensitive fields before returning to client
+                const { whatsapp, stripe, ...safeOrg } = org;
+                return {
+                    ...safeOrg,
+                    whatsapp: whatsapp ? {
+                        phoneNumberId: whatsapp.phoneNumberId,
+                        businessAccountId: whatsapp.businessAccountId,
+                    } : undefined,
+                };
             })
         );
 
@@ -94,6 +104,8 @@ export const create = mutation({
             throw new Error("Unauthorized");
         }
 
+        await rateLimiter.limit(ctx, "createOrganization", { key: userId, throws: true });
+
         if (args.slug) {
             const existing = await ctx.db
                 .query("organizations")
@@ -123,7 +135,7 @@ export const create = mutation({
             phone: args.phone,
             timezone: args.timezone,
             locale: args.locale,
-            onboardingStep: "WHATSAPP_CONNECT", // Next step
+            onboardingStep: "PLAN_SELECT", // Next step
             ownerId: userId,
             plan: "FREE",
             settings: {
@@ -168,6 +180,43 @@ export const create = mutation({
         }
 
         return orgId;
+    },
+});
+
+// ============================================
+// Update Organization Plan (onboarding step 2)
+// ============================================
+export const updateOrgPlan = mutation({
+    args: {
+        plan: v.union(
+            v.literal("FREE"),
+            v.literal("STARTER"),
+            v.literal("BUSINESS"),
+            v.literal("PRO"),
+        ),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Non authentifié");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+        if (!session?.currentOrganizationId) {
+            throw new Error("Aucune organisation active");
+        }
+
+        const org = await ctx.db.get(session.currentOrganizationId);
+        if (!org || org.ownerId !== userId) {
+            throw new Error("Seul le propriétaire peut changer le plan");
+        }
+
+        await ctx.db.patch(session.currentOrganizationId, {
+            plan: args.plan,
+            updatedAt: Date.now(),
+        });
     },
 });
 
@@ -228,7 +277,16 @@ export const updateOrgSettings = mutation({
     args: {
         autoReplyEnabled: v.optional(v.boolean()),
         autoReplyMessage: v.optional(v.string()),
-        businessHours: v.optional(v.any()),
+        businessHours: v.optional(v.object({
+            enabled: v.boolean(),
+            timezone: v.optional(v.string()),
+            schedule: v.optional(v.array(v.object({
+                day: v.string(),
+                enabled: v.boolean(),
+                start: v.optional(v.string()),
+                end: v.optional(v.string()),
+            }))),
+        })),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);

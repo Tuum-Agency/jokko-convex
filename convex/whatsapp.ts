@@ -2,6 +2,7 @@ import { action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { encrypt, decrypt } from "./lib/encryption";
 
 /**
  * Helper to get active organization ID for current user
@@ -45,9 +46,10 @@ export const saveWhatsAppConfig = internalMutation({
         verifiedName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const encryptedToken = await encrypt(args.accessToken);
         await ctx.db.patch(args.organizationId, {
             whatsapp: {
-                accessToken: args.accessToken,
+                accessToken: encryptedToken,
                 phoneNumberId: args.phoneNumberId,
                 businessAccountId: args.wabaId,
                 webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "",
@@ -73,7 +75,7 @@ export const getPhoneNumberStatus = action({
         }
 
         const phoneNumberId: string = org.whatsapp.phoneNumberId;
-        const accessToken: string = org.whatsapp.accessToken;
+        const accessToken: string = await decrypt(org.whatsapp.accessToken);
         const res: Response = await fetch(
             `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -97,10 +99,11 @@ export const getChannelStatus = action({
     handler: async (ctx, args): Promise<Record<string, string> | null> => {
         const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
 
-        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const rawToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
         const phoneNumberId: string = channel.phoneNumberId;
 
-        if (!accessToken || !phoneNumberId) return null;
+        if (!rawToken || !phoneNumberId) return null;
+        const accessToken = await decrypt(rawToken);
 
         const res: Response = await fetch(
             `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=quality_rating,platform_type,status,name_status,messaging_limit_tier`,
@@ -127,12 +130,13 @@ export const sendTestMessageByChannel = action({
     handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
         const channel: any = await ctx.runQuery(internal.channels.getChannelWithWaba, { channelId: args.channelId });
 
-        const accessToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
+        const rawToken: string = channel.waba?.accessTokenRef || channel.orgWhatsapp?.accessToken || "";
         const phoneNumberId: string = channel.phoneNumberId;
 
-        if (!phoneNumberId || !accessToken) {
+        if (!phoneNumberId || !rawToken) {
             throw new Error("Credentials WhatsApp non configurées pour ce canal");
         }
+        const accessToken = await decrypt(rawToken);
 
         const recipientPhone: string = args.to.replace(/\D/g, '');
 
@@ -172,13 +176,18 @@ export const fetchWhatsAppPhoneNumbers = action({
         accessToken: v.string(),
     },
     handler: async (ctx, args) => {
+        // Auth check: require authenticated user with active org
+        const orgId: string | null = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("Not authenticated or no active organization");
+
         const allWabaIds: string[] = [];
 
         // Helper: fetch phone numbers for a single WABA
         async function fetchPhonesForWaba(wabaId: string): Promise<any[]> {
             console.log(`[WABA] Fetching phones for WABA ${wabaId}...`);
             const res = await fetch(
-                `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status&access_token=${args.accessToken}`
+                `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status`,
+                { headers: { Authorization: `Bearer ${args.accessToken}` } }
             );
             if (!res.ok) {
                 console.error(`[WABA] Failed to fetch phones for ${wabaId}`);
@@ -198,7 +207,9 @@ export const fetchWhatsAppPhoneNumbers = action({
 
         // 1. Primary: /me/whatsapp_business_accounts (may return multiple)
         console.log("Fetching WABAs...");
-        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
+        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts`, {
+            headers: { Authorization: `Bearer ${args.accessToken}` },
+        });
         if (wabaResponse.ok) {
             const wabaData = await wabaResponse.json();
             console.log(`[WABA Fetch] Found ${wabaData.data?.length || 0} WABAs`);
@@ -212,11 +223,15 @@ export const fetchWhatsAppPhoneNumbers = action({
         // 2. Fallback: /me/businesses → owned_whatsapp_business_accounts
         if (allWabaIds.length === 0) {
             console.log("No WABAs from primary, trying /me/businesses...");
-            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${args.accessToken}`);
+            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses`, {
+                headers: { Authorization: `Bearer ${args.accessToken}` },
+            });
             if (businessesResponse.ok) {
                 const businessData = await businessesResponse.json();
                 for (const business of (businessData.data || [])) {
-                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts?access_token=${args.accessToken}`);
+                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts`, {
+                        headers: { Authorization: `Bearer ${args.accessToken}` },
+                    });
                     if (wabaRes.ok) {
                         const wabaResData = await wabaRes.json();
                         for (const waba of (wabaResData.data || [])) {
@@ -352,7 +367,7 @@ export const subscribeWebhook = action({
         }
 
         const wabaId: string = org.whatsapp.businessAccountId;
-        const accessToken: string = org.whatsapp.accessToken;
+        const accessToken: string = await decrypt(org.whatsapp.accessToken);
 
         console.log(`[SUBSCRIBE] Subscribing app to WABA ${wabaId}...`);
         const res: Response = await fetch(
@@ -385,6 +400,10 @@ export const sendTestMessage = action({
         useEnvCredentials: v.optional(v.boolean()),
     },
     handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
+        // Auth check
+        const orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("Not authenticated or no active organization");
+
         let phoneNumberId: string = "";
         let accessToken: string = "";
 
@@ -400,7 +419,8 @@ export const sendTestMessage = action({
 
             const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
             phoneNumberId = org?.whatsapp?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || "";
-            accessToken = org?.whatsapp?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN || "";
+            const rawToken = org?.whatsapp?.accessToken;
+            accessToken = rawToken ? await decrypt(rawToken) : (process.env.WHATSAPP_ACCESS_TOKEN || "");
         }
 
         if (!phoneNumberId || !accessToken) {
@@ -447,13 +467,14 @@ export const diagnoseWebhook = action({
         organizationId: v.optional(v.id("organizations")),
     },
     handler: async (ctx, args) => {
+        // Auth check: require authenticated user
+        const activeOrg = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!activeOrg) throw new Error("Not authenticated or no active organization");
+
         const results: Record<string, any> = {};
 
         // 1. Get org
-        let orgId: any = args.organizationId;
-        if (!orgId) {
-            orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
-        }
+        let orgId: any = args.organizationId || activeOrg;
         if (!orgId) {
             // List all orgs with WhatsApp configured
             const orgs = await ctx.runQuery(internal.utils.listWhatsAppOrgs);
@@ -468,7 +489,8 @@ export const diagnoseWebhook = action({
         const org: any = await ctx.runQuery(internal.utils.getOrganization, { id: orgId });
         if (!org?.whatsapp) return { error: "WhatsApp not configured for this organization", orgId };
 
-        const { phoneNumberId, businessAccountId: wabaId, accessToken } = org.whatsapp;
+        const { phoneNumberId, businessAccountId: wabaId } = org.whatsapp;
+        const accessToken = await decrypt(org.whatsapp.accessToken);
         results.config = {
             phoneNumberId,
             wabaId,

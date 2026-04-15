@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, SkipForward } from 'lucide-react';
 import { useMutation, useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -19,10 +19,11 @@ interface WhatsAppNumber {
     display_phone_number: string;
     verified_name: string;
     quality_rating: string;
+    wabaId: string;
 }
 
 export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
-    const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'ERROR'>('IDLE');
+    const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'SELECTING' | 'SAVING' | 'SKIPPING' | 'ERROR'>('IDLE');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Facebook SDK
@@ -30,7 +31,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
     // Data State
     const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppNumber[]>([]);
     const [selectedPhoneId, setSelectedPhoneId] = useState<string | null>(null);
 
@@ -56,7 +56,6 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
         try {
             const data = await fetchNumbers({ accessToken: token });
-            setWabaId(data.wabaId ?? null);
             setPhoneNumbers(data.phoneNumbers);
 
             if (data.phoneNumbers.length > 0) {
@@ -75,18 +74,19 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
 
     // Step 2: Finalize — use addChannel which handles token exchange + WABA + channel creation
     async function handleConfirmSelection() {
-        if (!accessToken || !wabaId || !selectedPhoneId) return;
+        if (!accessToken || !selectedPhoneId) return;
 
         const selectedPhone = phoneNumbers.find(p => p.id === selectedPhoneId);
+        if (!selectedPhone?.wabaId) return;
 
         setStatus('SAVING');
         try {
             await addChannel({
                 accessToken,
-                wabaId,
+                wabaId: selectedPhone.wabaId,
                 phoneNumberId: selectedPhoneId,
-                displayPhoneNumber: selectedPhone?.display_phone_number,
-                verifiedName: selectedPhone?.verified_name,
+                displayPhoneNumber: selectedPhone.display_phone_number,
+                verifiedName: selectedPhone.verified_name,
             });
             await completeOnboarding();
             onComplete();
@@ -97,11 +97,23 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
         }
     }
 
+    // Skip: complete onboarding without WhatsApp
+    async function handleSkip() {
+        setStatus('SKIPPING');
+        try {
+            await completeOnboarding();
+            onComplete();
+        } catch (error) {
+            console.error("Skip failed", error);
+            setStatus('IDLE');
+        }
+    }
+
     // ==========================================
     // RENDER
     // ==========================================
 
-    // Show selection UI if selecting OR saving (after selection)
+    // Show selection UI if selecting OR saving
     if (status === 'SELECTING' || status === 'SAVING') {
         return (
             <div className="space-y-6">
@@ -118,7 +130,7 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                         {phoneNumbers.map((phone) => (
                             <div key={phone.id} className="flex items-center space-x-2 mb-2 last:mb-0">
                                 <RadioGroupItem value={phone.id} id={phone.id} />
-                                <Label htmlFor={phone.id} className="flex flex-col cursor-pointer w-full p-3 rounded-lg border bg-white hover:border-blue-500 transition-colors">
+                                <Label htmlFor={phone.id} className="flex flex-col cursor-pointer w-full p-3 rounded-lg border bg-white hover:border-green-500 transition-colors">
                                     <span className="font-semibold text-gray-900">{phone.verified_name || 'Numéro sans nom'}</span>
                                     <span className="text-sm text-gray-500">{phone.display_phone_number}</span>
                                     <span className="text-xs text-green-600 mt-1">Qualité: {phone.quality_rating}</span>
@@ -139,15 +151,23 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                         "Confirmer ce numéro"
                     )}
                 </Button>
+
+                <button
+                    onClick={handleSkip}
+                    disabled={status === 'SAVING'}
+                    className="w-full text-center text-sm text-gray-500 hover:text-gray-700 transition-colors py-1"
+                >
+                    Passer cette étape
+                </button>
             </div>
         )
     }
 
     return (
         <div className="space-y-6 text-center">
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">Connexion WhatsApp Business</h3>
-                <p className="text-blue-700 text-sm mb-4">
+            <div className="bg-green-50 p-6 rounded-xl border border-green-100">
+                <h3 className="text-lg font-semibold text-green-900 mb-2">Connexion WhatsApp Business</h3>
+                <p className="text-green-700 text-sm mb-4">
                     Utilisez votre compte Facebook pour connecter votre numéro WhatsApp Business en quelques clics.
                 </p>
 
@@ -162,9 +182,9 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                 <div className="flex justify-center p-4">
                     <Button
                         onClick={launchWhatsAppSignup}
-                        disabled={!fbReady || status === 'FETCHING'}
+                        disabled={!fbReady || status === 'FETCHING' || status === 'SKIPPING'}
                         size="lg"
-                        className="h-12 bg-gradient-to-r from-[#1877F2] to-[#166fe5] hover:from-[#166fe5] hover:to-[#1565d8] text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 transition-all duration-300 flex items-center gap-2"
+                        className="h-12 bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#20bd5a] hover:to-[#0f7a6e] text-white font-semibold rounded-xl shadow-lg shadow-green-600/25 hover:shadow-green-600/40 transition-all duration-300 flex items-center gap-2"
                     >
                         {status === 'FETCHING' || !fbReady ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -177,10 +197,26 @@ export function WhatsAppConnectStep({ onComplete }: WhatsAppConnectStepProps) {
                     </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                    Une fenêtre popup va s'ouvrir. Assurez-vous de désactiver votre bloqueur de popups.
+                    Une fenêtre popup va s&apos;ouvrir. Assurez-vous de désactiver votre bloqueur de popups.
                 </p>
             </div>
 
+            {/* Skip option */}
+            <button
+                onClick={handleSkip}
+                disabled={status === 'FETCHING' || status === 'SKIPPING'}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
+            >
+                {status === 'SKIPPING' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                    <SkipForward className="w-3.5 h-3.5" />
+                )}
+                Passer cette étape — je connecterai WhatsApp plus tard
+            </button>
+            <p className="text-[11px] text-gray-400">
+                Vous pourrez connecter WhatsApp depuis Paramètres &gt; Canaux à tout moment.
+            </p>
         </div>
     );
 }

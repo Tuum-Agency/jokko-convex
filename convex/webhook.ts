@@ -6,11 +6,11 @@ import { Id } from "./_generated/dataModel";
 // Gérer un message entrant (internal only — called from http.ts webhook handler)
 export const handleIncomingMessage = internalMutation({
     args: {
-        // v.any() pour accepter tous les formats de message WhatsApp
+        // v.record() pour accepter tous les formats de message WhatsApp
         // (v.object strict rejetait les champs inconnus envoyés par Meta)
-        message: v.any(),
+        message: v.record(v.string(), v.any()),
         phoneNumberId: v.optional(v.string()),
-        contact: v.optional(v.any()),
+        contact: v.optional(v.record(v.string(), v.any())),
     },
     handler: async (ctx, args) => {
         const { message, phoneNumberId } = args;
@@ -348,7 +348,7 @@ export const handleStatusUpdate = internalMutation({
         waMessageId: v.string(),
         status: v.string(),
         timestamp: v.string(),
-        errors: v.optional(v.any()),
+        errors: v.optional(v.array(v.record(v.string(), v.any()))),
     },
     handler: async (ctx, args) => {
         const message = await ctx.db

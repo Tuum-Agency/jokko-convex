@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { OnboardingProgress } from './OnboardingProgress';
 import { BusinessInfoStep } from './steps/BusinessInfoStep';
+import { PlanSelectStep } from './steps/PlanSelectStep';
 import { WhatsAppConnectStep } from './steps/WhatsAppConnectStep';
 import { CompletionStep } from './steps/CompletionStep';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import {
 
 const STEP_COMPONENTS: Record<OnboardingStepKey, React.ComponentType<{ onComplete: () => void }>> = {
     BUSINESS_INFO: BusinessInfoStep,
+    PLAN_SELECT: PlanSelectStep,
     WHATSAPP_CONNECT: WhatsAppConnectStep,
     COMPLETED: CompletionStep,
 };

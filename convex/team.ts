@@ -34,7 +34,8 @@ export const listMembers = query({
                 .query("memberships")
                 .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", orgId!))
                 .first();
-            if (membership) currentUserRole = membership.role.toLowerCase();
+            if (!membership) return { members: [], total: 0, currentUserRole, limit: 3 };
+            currentUserRole = membership.role.toLowerCase();
         }
 
         if (!orgId) return { members: [], total: 0, currentUserRole, limit: 3 };
