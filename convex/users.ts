@@ -44,12 +44,38 @@ export const currentUserRole = query({
 
 
 /**
- * Get user by ID
+ * Get user by ID (authenticated only, scoped to org co-members)
  */
 export const get = query({
     args: { id: v.id("users") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
+        const callerId = await getAuthUserId(ctx);
+        if (!callerId) throw new Error("Not authenticated");
+
+        const user = await ctx.db.get(args.id);
+        if (!user) return null;
+
+        // Allow reading own profile
+        if (callerId === args.id) return user;
+
+        // Verify caller shares at least one organization with target user
+        const callerMemberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_user", (q) => q.eq("userId", callerId))
+            .collect();
+        const callerOrgIds = new Set(callerMemberships.map((m) => m.organizationId));
+
+        const targetMemberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_user", (q) => q.eq("userId", args.id))
+            .collect();
+        const shares = targetMemberships.some((m) => callerOrgIds.has(m.organizationId));
+
+        if (!shares) throw new Error("Unauthorized");
+
+        // Strip sensitive fields
+        const { tokenIdentifier, ...safeUser } = user as any;
+        return safeUser;
     },
 });
 

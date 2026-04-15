@@ -16,6 +16,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { rateLimiter } from "./lib/rateLimits";
 
 export const listMine = query({
     args: {},
@@ -33,7 +34,16 @@ export const listMine = query({
         const orgs = await Promise.all(
             memberships.map(async (m) => {
                 const org = await ctx.db.get(m.organizationId);
-                return org;
+                if (!org) return null;
+                // Strip sensitive fields before returning to client
+                const { whatsapp, stripe, ...safeOrg } = org;
+                return {
+                    ...safeOrg,
+                    whatsapp: whatsapp ? {
+                        phoneNumberId: whatsapp.phoneNumberId,
+                        businessAccountId: whatsapp.businessAccountId,
+                    } : undefined,
+                };
             })
         );
 
@@ -93,6 +103,8 @@ export const create = mutation({
         if (!userId) {
             throw new Error("Unauthorized");
         }
+
+        await rateLimiter.limit(ctx, "createOrganization", { key: userId, throws: true });
 
         if (args.slug) {
             const existing = await ctx.db

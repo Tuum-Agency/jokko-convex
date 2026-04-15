@@ -374,6 +374,7 @@ http.route({
             }
         } catch (error) {
             console.error("[Stripe Webhook] Error processing event:", String(error));
+            return new Response("Processing error", { status: 500 });
         }
 
         return new Response("OK", { status: 200 });
@@ -499,6 +500,7 @@ http.route({
             }
         } catch (error) {
             console.error("[Wave Webhook] Error processing event:", String(error));
+            return new Response("Processing error", { status: 500 });
         }
 
         return new Response("OK", { status: 200 });

@@ -23,8 +23,10 @@ export const list = query({
                 const team = ch.primaryTeamId ? await ctx.db.get(ch.primaryTeamId) : null;
                 const pole = ch.poleId ? await ctx.db.get(ch.poleId) : null;
                 const waba = await ctx.db.get(ch.wabaId);
+                // Strip sensitive token fields before returning to client
+                const { webhookVerifyTokenRef, ...safeChannel } = ch as any;
                 return {
-                    ...ch,
+                    ...safeChannel,
                     primaryTeam: team ? { _id: team._id, name: team.name, color: team.color } : null,
                     pole: pole ? { _id: pole._id, name: pole.name, color: pole.color, icon: pole.icon } : null,
                     waba: waba ? { _id: waba._id, label: waba.label, metaBusinessAccountId: waba.metaBusinessAccountId } : null,
@@ -47,8 +49,10 @@ export const getById = query({
         const team = channel.primaryTeamId ? await ctx.db.get(channel.primaryTeamId) : null;
         const waba = await ctx.db.get(channel.wabaId);
 
+        // Strip sensitive token fields
+        const { webhookVerifyTokenRef, ...safeChannel } = channel as any;
         return {
-            ...channel,
+            ...safeChannel,
             primaryTeam: team ? { _id: team._id, name: team.name } : null,
             waba: waba ? { _id: waba._id, label: waba.label, metaBusinessAccountId: waba.metaBusinessAccountId } : null,
         };

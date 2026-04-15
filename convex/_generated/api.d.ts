@@ -36,6 +36,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_planHelpers from "../lib/planHelpers.js";
+import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_stripePlans from "../lib/stripePlans.js";
 import type * as lib_templateBuilder from "../lib/templateBuilder.js";
 import type * as lib_templateTypes from "../lib/templateTypes.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/permissions": typeof lib_permissions;
   "lib/planHelpers": typeof lib_planHelpers;
+  "lib/rateLimits": typeof lib_rateLimits;
   "lib/stripePlans": typeof lib_stripePlans;
   "lib/templateBuilder": typeof lib_templateBuilder;
   "lib/templateTypes": typeof lib_templateTypes;
@@ -170,4 +172,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

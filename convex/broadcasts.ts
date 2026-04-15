@@ -229,6 +229,15 @@ export const update = mutation({
             throw new Error("Unauthorized");
         }
 
+        // RBAC: require ADMIN or OWNER
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", broadcast.organizationId))
+            .first();
+        if (!membership || !hasPermission(membership.role as Role, "broadcasts:create")) {
+            throw new Error("Permission denied");
+        }
+
         // Validation: scheduledAt doit être au moins 5 minutes dans le futur
         if (args.scheduledAt && args.scheduledAt <= Date.now() + 5 * 60 * 1000) {
             throw new Error("La date de planification doit être au moins 5 minutes dans le futur");
@@ -618,6 +627,15 @@ export const duplicate = mutation({
 
         if (session?.currentOrganizationId !== original.organizationId) {
             throw new Error("Unauthorized");
+        }
+
+        // RBAC: require ADMIN or OWNER
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", original.organizationId))
+            .first();
+        if (!membership || !hasPermission(membership.role as Role, "broadcasts:create")) {
+            throw new Error("Permission denied");
         }
 
         const newId = await ctx.db.insert("broadcasts", {

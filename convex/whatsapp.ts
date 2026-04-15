@@ -172,13 +172,18 @@ export const fetchWhatsAppPhoneNumbers = action({
         accessToken: v.string(),
     },
     handler: async (ctx, args) => {
+        // Auth check: require authenticated user with active org
+        const orgId: string | null = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("Not authenticated or no active organization");
+
         const allWabaIds: string[] = [];
 
         // Helper: fetch phone numbers for a single WABA
         async function fetchPhonesForWaba(wabaId: string): Promise<any[]> {
             console.log(`[WABA] Fetching phones for WABA ${wabaId}...`);
             const res = await fetch(
-                `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status&access_token=${args.accessToken}`
+                `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,platform_type,status`,
+                { headers: { Authorization: `Bearer ${args.accessToken}` } }
             );
             if (!res.ok) {
                 console.error(`[WABA] Failed to fetch phones for ${wabaId}`);
@@ -198,7 +203,9 @@ export const fetchWhatsAppPhoneNumbers = action({
 
         // 1. Primary: /me/whatsapp_business_accounts (may return multiple)
         console.log("Fetching WABAs...");
-        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts?access_token=${args.accessToken}`);
+        const wabaResponse = await fetch(`https://graph.facebook.com/v19.0/me/whatsapp_business_accounts`, {
+            headers: { Authorization: `Bearer ${args.accessToken}` },
+        });
         if (wabaResponse.ok) {
             const wabaData = await wabaResponse.json();
             console.log(`[WABA Fetch] Found ${wabaData.data?.length || 0} WABAs`);
@@ -212,11 +219,15 @@ export const fetchWhatsAppPhoneNumbers = action({
         // 2. Fallback: /me/businesses → owned_whatsapp_business_accounts
         if (allWabaIds.length === 0) {
             console.log("No WABAs from primary, trying /me/businesses...");
-            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${args.accessToken}`);
+            const businessesResponse = await fetch(`https://graph.facebook.com/v19.0/me/businesses`, {
+                headers: { Authorization: `Bearer ${args.accessToken}` },
+            });
             if (businessesResponse.ok) {
                 const businessData = await businessesResponse.json();
                 for (const business of (businessData.data || [])) {
-                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts?access_token=${args.accessToken}`);
+                    const wabaRes = await fetch(`https://graph.facebook.com/v19.0/${business.id}/owned_whatsapp_business_accounts`, {
+                        headers: { Authorization: `Bearer ${args.accessToken}` },
+                    });
                     if (wabaRes.ok) {
                         const wabaResData = await wabaRes.json();
                         for (const waba of (wabaResData.data || [])) {
@@ -385,6 +396,10 @@ export const sendTestMessage = action({
         useEnvCredentials: v.optional(v.boolean()),
     },
     handler: async (ctx, args): Promise<{ success: boolean; messageId: string | undefined }> => {
+        // Auth check
+        const orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!orgId) throw new Error("Not authenticated or no active organization");
+
         let phoneNumberId: string = "";
         let accessToken: string = "";
 
@@ -447,13 +462,14 @@ export const diagnoseWebhook = action({
         organizationId: v.optional(v.id("organizations")),
     },
     handler: async (ctx, args) => {
+        // Auth check: require authenticated user
+        const activeOrg = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
+        if (!activeOrg) throw new Error("Not authenticated or no active organization");
+
         const results: Record<string, any> = {};
 
         // 1. Get org
-        let orgId: any = args.organizationId;
-        if (!orgId) {
-            orgId = await ctx.runQuery(internal.whatsapp.getActiveOrgId);
-        }
+        let orgId: any = args.organizationId || activeOrg;
         if (!orgId) {
             // List all orgs with WhatsApp configured
             const orgs = await ctx.runQuery(internal.utils.listWhatsAppOrgs);

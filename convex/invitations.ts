@@ -24,6 +24,13 @@ export const list = query({
 
         if (!orgId) return { invitations: [], total: 0 };
 
+        // Verify caller is a member of the target org
+        const callerMembership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) => q.eq("userId", userId).eq("organizationId", orgId!))
+            .first();
+        if (!callerMembership) return { invitations: [], total: 0 };
+
         const invitations = await ctx.db
             .query("invitations")
             .withIndex("by_org_status", (q) => q.eq("organizationId", orgId!).eq("status", "PENDING"))
