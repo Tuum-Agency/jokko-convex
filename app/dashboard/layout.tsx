@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardLayoutClient } from "./_components/dashboard-layout-client";
@@ -35,12 +35,26 @@ export default function DashboardLayout({
     }, [user, router]);
 
     // 2. Session Init (only after onboarding is complete)
+    const [sessionRetries, setSessionRetries] = useState(0);
     useEffect(() => {
         if (sessionData === null && user && user.onboardingCompleted === true) {
-            console.log(`[DashboardLayout] Initializing session...`);
-            ensureSession();
+            if (sessionRetries >= 3) {
+                console.log(`[DashboardLayout] Session init failed after retries, redirecting to onboarding`);
+                router.push('/onboarding');
+                return;
+            }
+            console.log(`[DashboardLayout] Initializing session (attempt ${sessionRetries + 1})...`);
+            ensureSession()
+                .then((result) => {
+                    if (!result) {
+                        setSessionRetries((r) => r + 1);
+                    }
+                })
+                .catch(() => {
+                    setSessionRetries((r) => r + 1);
+                });
         }
-    }, [sessionData, user, ensureSession]);
+    }, [sessionData, user, ensureSession, sessionRetries, router]);
 
     // 3. Subdomain Redirect
     useEffect(() => {

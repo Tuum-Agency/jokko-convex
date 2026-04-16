@@ -6,6 +6,17 @@ import { ReactNode } from "react";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+// Auth presence cookie name (lightweight flag for server-side proxy check)
+const AUTH_PRESENCE_COOKIE = '__jokko_auth';
+
+function getCookieProps() {
+    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes("localhost");
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
+    const domainProp = isLocal ? "" : `; domain=.${rootDomain}`;
+    const secureProp = isLocal ? "" : "; Secure";
+    return { isLocal, domainProp, secureProp };
+}
+
 // Custom storage that uses cookies to share tokens across subdomains
 const cookieStorage = {
     getItem: (key: string) => {
@@ -15,19 +26,20 @@ const cookieStorage = {
     },
     setItem: (key: string, value: string) => {
         if (typeof document === 'undefined') return;
-
-        const isLocal = window.location.hostname.includes("localhost");
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
-        const domainProp = isLocal ? "" : `; domain=.${rootDomain}`;
+        const { domainProp, secureProp } = getCookieProps();
 
         const expires = new Date();
         expires.setTime(expires.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const expStr = expires.toUTCString();
 
-        const secureProp = isLocal ? "" : "; Secure";
-        document.cookie = `${key}=${encodeURIComponent(value)}${domainProp}; path=/; expires=${expires.toUTCString()}; SameSite=Lax${secureProp}`;
+        // Store the token (Convex client reads it back via getItem)
+        document.cookie = `${key}=${encodeURIComponent(value)}${domainProp}; path=/; expires=${expStr}; SameSite=Lax${secureProp}`;
 
-        // Mirror auth token to HttpOnly cookie for defense-in-depth
-        if (key.includes('AuthToken') || key.includes('authToken')) {
+        // Set a lightweight presence cookie for the server-side proxy auth gate
+        if (key.includes('convexAuth') || key.includes('AuthToken') || key.includes('authToken')) {
+            document.cookie = `${AUTH_PRESENCE_COOKIE}=1${domainProp}; path=/; expires=${expStr}; SameSite=Lax${secureProp}`;
+
+            // Mirror auth token to HttpOnly cookie for defense-in-depth
             fetch('/api/auth/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -37,16 +49,13 @@ const cookieStorage = {
     },
     removeItem: (key: string) => {
         if (typeof document === 'undefined') return;
+        const { domainProp, secureProp } = getCookieProps();
 
-        const isLocal = window.location.hostname.includes("localhost");
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
-        const domainProp = isLocal ? "" : `; domain=.${rootDomain}`;
-
-        const secureProp = isLocal ? "" : "; Secure";
         document.cookie = `${key}=${domainProp}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secureProp}`;
 
-        // Clear HttpOnly cookie
-        if (key.includes('AuthToken') || key.includes('authToken')) {
+        // Clear presence and HttpOnly cookies
+        if (key.includes('convexAuth') || key.includes('AuthToken') || key.includes('authToken')) {
+            document.cookie = `${AUTH_PRESENCE_COOKIE}=${domainProp}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secureProp}`;
             fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
         }
     }
