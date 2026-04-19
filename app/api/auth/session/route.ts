@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const COOKIE_NAME = "__Secure-jokko-session";
 const MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+function getCookieName(isLocal: boolean): string {
+    return isLocal ? "jokko-session" : "__Secure-jokko-session";
+}
 
 function getCookieOptions(isLocal: boolean) {
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
@@ -11,7 +14,7 @@ function getCookieOptions(isLocal: boolean) {
         sameSite: "lax" as const,
         path: "/",
         maxAge: MAX_AGE,
-        ...(isLocal ? {} : { domain: `.${rootDomain}` }),
+        ...(isLocal ? { domain: "localhost" } : { domain: `.${rootDomain}` }),
     };
 }
 
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
 
         const isLocal = req.headers.get("host")?.includes("localhost") ?? false;
         const response = NextResponse.json({ ok: true });
-        response.cookies.set(COOKIE_NAME, token, getCookieOptions(isLocal));
+        response.cookies.set(getCookieName(isLocal), token, getCookieOptions(isLocal));
         return response;
     } catch {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -42,9 +45,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const isLocal = req.headers.get("host")?.includes("localhost") ?? false;
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(COOKIE_NAME, "", {
-        ...getCookieOptions(isLocal),
-        maxAge: 0,
-    });
+    const opts = { ...getCookieOptions(isLocal), maxAge: 0 };
+    response.cookies.set(getCookieName(isLocal), "", opts);
     return response;
 }
