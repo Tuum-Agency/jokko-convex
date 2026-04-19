@@ -45,6 +45,7 @@ import type * as crm_dispatcher from "../crm/dispatcher.js";
 import type * as crm_enqueue from "../crm/enqueue.js";
 import type * as crm_importer from "../crm/importer.js";
 import type * as crm_oauth from "../crm/oauth.js";
+import type * as crm_optin from "../crm/optin.js";
 import type * as crm_poller from "../crm/poller.js";
 import type * as crm_registry from "../crm/registry.js";
 import type * as crm_webhooks from "../crm/webhooks.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "crm/enqueue": typeof crm_enqueue;
   "crm/importer": typeof crm_importer;
   "crm/oauth": typeof crm_oauth;
+  "crm/optin": typeof crm_optin;
   "crm/poller": typeof crm_poller;
   "crm/registry": typeof crm_registry;
   "crm/webhooks": typeof crm_webhooks;

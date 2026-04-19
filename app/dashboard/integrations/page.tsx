@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Dialog,
     DialogContent,
@@ -18,6 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { DisconnectDialog } from "@/components/integrations/disconnect-dialog";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -44,9 +46,90 @@ const PROVIDER_INSTANCE_HINT: Record<string, { label: string; placeholder: strin
     },
 };
 
+interface OAuthErrorMapping {
+    title: string;
+    description: string;
+    severity: "error" | "warning" | "info";
+}
+
+const OAUTH_ERROR_MATRIX: Record<string, OAuthErrorMapping> = {
+    invalid_grant: {
+        title: "Autorisation expirée",
+        description: "Reconnectez-vous pour continuer.",
+        severity: "error",
+    },
+    redirect_uri_mismatch: {
+        title: "Configuration incorrecte",
+        description:
+            "L'URI de redirection côté fournisseur ne correspond pas. Contactez le support.",
+        severity: "error",
+    },
+    scope_denied: {
+        title: "Permissions refusées",
+        description: "Vous avez refusé certaines permissions nécessaires. Réessayez.",
+        severity: "warning",
+    },
+    access_denied: {
+        title: "Permissions refusées",
+        description: "Vous avez refusé certaines permissions nécessaires. Réessayez.",
+        severity: "warning",
+    },
+    user_cancelled: {
+        title: "Connexion annulée",
+        description: "Vous avez annulé la connexion. Réessayez quand vous êtes prêt.",
+        severity: "info",
+    },
+    provider_down: {
+        title: "Service temporairement indisponible",
+        description: "Réessayez dans quelques minutes.",
+        severity: "warning",
+    },
+    rate_limited_callback: {
+        title: "Trop de tentatives",
+        description: "Patientez 5 minutes avant de réessayer.",
+        severity: "warning",
+    },
+    state_expired: {
+        title: "Tentative expirée",
+        description: "Votre tentative a expiré après 10 minutes. Recommencez.",
+        severity: "info",
+    },
+    state_consumed: {
+        title: "Tentative déjà utilisée",
+        description: "Recommencez une nouvelle connexion.",
+        severity: "info",
+    },
+    missing_params: {
+        title: "Paramètres manquants",
+        description: "La réponse du fournisseur est incomplète. Recommencez.",
+        severity: "error",
+    },
+    server_misconfigured: {
+        title: "Configuration serveur",
+        description: "Contactez le support : la plateforme n'est pas correctement configurée.",
+        severity: "error",
+    },
+    oauth_exchange_failed: {
+        title: "Échec de l'échange OAuth",
+        description: "La connexion n'a pas pu être finalisée. Réessayez.",
+        severity: "error",
+    },
+};
+
+function resolveOAuthError(code: string): OAuthErrorMapping {
+    return (
+        OAUTH_ERROR_MATRIX[code] ?? {
+            title: "Connexion échouée",
+            description: code,
+            severity: "error",
+        }
+    );
+}
+
 export default function IntegrationsPage() {
     const providers = useQuery(api.crm.connections.listAvailableProviders);
     const connections = useQuery(api.crm.connections.listForCurrentOrganization);
+    const optInStats = useQuery(api.crm.optin.getImportedOptInStats);
     const startOAuth = useAction(api.crm.oauth.start);
     const connectApiKey = useAction(api.crm.apikey.connectWithApiKey);
     const disconnect = useMutation(api.crm.connections.disconnect);
@@ -61,19 +144,33 @@ export default function IntegrationsPage() {
     const [apiKeyInput, setApiKeyInput] = useState("");
     const [instanceInput, setInstanceInput] = useState("");
     const [submittingKey, setSubmittingKey] = useState(false);
+    const [disconnectTarget, setDisconnectTarget] = useState<{
+        id: Id<"crmConnections">;
+        label: string;
+    } | null>(null);
+    const [disconnecting, setDisconnecting] = useState(false);
+    const [showOptInBanner, setShowOptInBanner] = useState(false);
 
     useEffect(() => {
         const err = searchParams.get("error");
         const connected = searchParams.get("connected");
+        const justConnected = searchParams.get("just_connected") === "1";
         if (err) {
+            const mapping = resolveOAuthError(err);
             const detail = searchParams.get("detail");
-            toast.error(
-                detail ? `Connexion échouée (${err}) : ${detail}` : `Connexion échouée : ${err}`,
-            );
+            if (mapping.severity === "error") {
+                toast.error(mapping.title + (detail ? ` : ${detail}` : ""), {
+                    description: mapping.description,
+                });
+            } else {
+                toast(mapping.title, { description: mapping.description });
+            }
             router.replace("/dashboard/integrations");
         } else if (connected) {
             toast.success(`Connecté avec succès à ${connected}`);
-            router.replace("/dashboard/integrations");
+            router.replace("/dashboard/integrations?just_connected=1");
+        } else if (justConnected) {
+            setShowOptInBanner(true);
         }
     }, [searchParams, router]);
 
@@ -135,6 +232,7 @@ export default function IntegrationsPage() {
             setApiKeyDialog(null);
             setApiKeyInput("");
             setInstanceInput("");
+            router.replace("/dashboard/integrations?just_connected=1");
         } catch (e) {
             const msg = e instanceof Error ? e.message : "Erreur inconnue";
             toast.error(`Connexion échouée : ${msg}`);
@@ -143,17 +241,18 @@ export default function IntegrationsPage() {
         }
     }
 
-    async function handleDisconnect(connectionId: Id<"crmConnections">, provider: string) {
-        const confirmed = window.confirm(
-            `Déconnecter ${provider} ? Les tokens seront immédiatement supprimés.`,
-        );
-        if (!confirmed) return;
+    async function handleDisconnectConfirm() {
+        if (!disconnectTarget) return;
+        setDisconnecting(true);
         try {
-            await disconnect({ connectionId });
-            toast.success(`${provider} déconnecté`);
+            await disconnect({ connectionId: disconnectTarget.id });
+            toast.success(`${disconnectTarget.label} déconnecté`);
+            setDisconnectTarget(null);
         } catch (e) {
             const msg = e instanceof Error ? e.message : "Erreur inconnue";
             toast.error(`Échec de la déconnexion : ${msg}`);
+        } finally {
+            setDisconnecting(false);
         }
     }
 
@@ -182,6 +281,41 @@ export default function IntegrationsPage() {
                     les événements de conversation.
                 </p>
             </div>
+
+            {showOptInBanner && optInStats && optInStats.imported > 0 && (
+                <Alert>
+                    <AlertTitle>
+                        {optInStats.imported} contacts importés · {optInStats.granted} /{" "}
+                        {optInStats.imported} opt-ins collectés
+                    </AlertTitle>
+                    <AlertDescription>
+                        Tous les contacts importés sont en statut <code>unknown</code> pour respecter
+                        le RGPD. Vous devez collecter les opt-ins via l&apos;une de ces méthodes :
+                        <ul className="mt-2 list-disc pl-5 space-y-1 text-sm">
+                            <li>
+                                <strong>Réponse WhatsApp entrante</strong> — le premier message du
+                                contact vaut opt-in implicite.
+                            </li>
+                            <li>
+                                <strong>Formulaire web</strong> — intégrez un formulaire de
+                                consentement sur votre site.
+                            </li>
+                            <li>
+                                <strong>Import CSV attesté</strong> — uploadez un CSV avec colonne{" "}
+                                <code>optin_date</code> et attestez les consentements.
+                            </li>
+                        </ul>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => setShowOptInBanner(false)}
+                        >
+                            Plus tard
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
                 {providers.map((p) => {
@@ -242,7 +376,10 @@ export default function IntegrationsPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() =>
-                                                        handleDisconnect(existing._id, p.displayName)
+                                                        setDisconnectTarget({
+                                                            id: existing._id,
+                                                            label: p.displayName,
+                                                        })
                                                     }
                                                 >
                                                     Déconnecter
@@ -342,6 +479,14 @@ export default function IntegrationsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <DisconnectDialog
+                open={disconnectTarget !== null}
+                providerLabel={disconnectTarget?.label ?? ""}
+                busy={disconnecting}
+                onCancel={() => setDisconnectTarget(null)}
+                onConfirm={handleDisconnectConfirm}
+            />
         </div>
     );
 }
