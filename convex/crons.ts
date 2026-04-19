@@ -25,4 +25,7 @@ crons.interval("process-scheduled-broadcasts", { minutes: 1 }, internal.broadcas
 // Expire stale payment sessions every 5 minutes
 crons.interval("expire-payment-sessions", { minutes: 5 }, internal.payments.expirePaymentSessions);
 
+// Drain CRM sync queue every 20 seconds (pushes conversation events to CRMs)
+crons.interval("crm-dispatcher-tick", { seconds: 20 }, internal.crm.dispatcher.runTick);
+
 export default crons;

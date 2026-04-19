@@ -2,10 +2,32 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
+import { handle as crmWebhookHandle } from "./crm/webhooks";
 
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
+
+http.route({
+    path: "/webhooks/crm/hubspot",
+    method: "POST",
+    handler: crmWebhookHandle,
+});
+http.route({
+    path: "/webhooks/crm/pipedrive",
+    method: "POST",
+    handler: crmWebhookHandle,
+});
+http.route({
+    path: "/webhooks/crm/sellsy",
+    method: "POST",
+    handler: crmWebhookHandle,
+});
+http.route({
+    path: "/webhooks/crm/axonaut",
+    method: "POST",
+    handler: crmWebhookHandle,
+});
 
 /**
  * Vérifie la signature HMAC-SHA256 du webhook WhatsApp via Web Crypto API.

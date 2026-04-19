@@ -1,12 +1,12 @@
 /**
  * CRM connections — Convex mutations + queries.
- * Phase 1: list providers, list connections, minimal reads. Connect/disconnect arrive in Phase 2.
  */
 
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { listProviders } from "./core/providers";
+import { hasPermission } from "../lib/permissions";
 import type { CRMProvider } from "./core/types";
 
 /**
@@ -106,5 +106,65 @@ export const getConnection = query({
             instanceUrl: conn.instanceUrl,
             debugMode: conn.debugMode,
         };
+    },
+});
+
+/**
+ * Disconnects a CRM connection.
+ * Erases encrypted tokens immediately (per design §5.1), sets status to "disconnected",
+ * records audit log. Does NOT delete crmContactLinks (keeps historical mapping).
+ * Requires `integrations:manage` permission.
+ */
+export const disconnect = mutation({
+    args: { connectionId: v.id("crmConnections") },
+    handler: async (ctx, { connectionId }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("unauthenticated");
+
+        const conn = await ctx.db.get(connectionId);
+        if (!conn) throw new Error("connection_not_found");
+
+        const session = await ctx.db
+            .query("userSessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+        if (session?.currentOrganizationId !== conn.organizationId) {
+            throw new Error("forbidden");
+        }
+
+        const membership = await ctx.db
+            .query("memberships")
+            .withIndex("by_user_org", (q) =>
+                q.eq("userId", userId).eq("organizationId", conn.organizationId),
+            )
+            .first();
+        if (!membership) throw new Error("forbidden");
+        if (!hasPermission(membership.role, "integrations:manage")) {
+            throw new Error("forbidden");
+        }
+
+        const now = Date.now();
+        await ctx.db.patch(connectionId, {
+            status: "disconnected",
+            accessTokenEnc: undefined,
+            refreshTokenEnc: undefined,
+            apiKeyEnc: undefined,
+            tokenExpiresAt: undefined,
+            revokedAt: now,
+            revokedBy: userId,
+            updatedAt: now,
+        });
+
+        await ctx.db.insert("integrationAuditLog", {
+            organizationId: conn.organizationId,
+            userId,
+            connectionId,
+            provider: conn.provider,
+            action: "disconnect",
+            severity: "info",
+            createdAt: now,
+        });
+
+        return { ok: true as const };
     },
 });
