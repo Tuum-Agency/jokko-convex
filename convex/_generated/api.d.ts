@@ -31,6 +31,7 @@ import type * as crm_adapters_salesforce_index from "../crm/adapters/salesforce/
 import type * as crm_adapters_salesforce_rest from "../crm/adapters/salesforce/rest.js";
 import type * as crm_adapters_sellsy_index from "../crm/adapters/sellsy/index.js";
 import type * as crm_adapters_sellsy_rest from "../crm/adapters/sellsy/rest.js";
+import type * as crm_admin from "../crm/admin.js";
 import type * as crm_apikey from "../crm/apikey.js";
 import type * as crm_connections from "../crm/connections.js";
 import type * as crm_core_constants from "../crm/core/constants.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "crm/adapters/salesforce/rest": typeof crm_adapters_salesforce_rest;
   "crm/adapters/sellsy/index": typeof crm_adapters_sellsy_index;
   "crm/adapters/sellsy/rest": typeof crm_adapters_sellsy_rest;
+  "crm/admin": typeof crm_admin;
   "crm/apikey": typeof crm_apikey;
   "crm/connections": typeof crm_connections;
   "crm/core/constants": typeof crm_core_constants;

@@ -225,15 +225,30 @@ export default function IntegrationsPage() {
                                                 </p>
                                             )}
                                         </div>
-                                        {existing.status !== "disconnected" && (
+                                        <div className="flex items-center gap-2">
                                             <Button
-                                                variant="outline"
+                                                variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleDisconnect(existing._id, p.displayName)}
+                                                onClick={() =>
+                                                    router.push(
+                                                        `/dashboard/integrations/${existing._id}`,
+                                                    )
+                                                }
                                             >
-                                                Déconnecter
+                                                Détails
                                             </Button>
-                                        )}
+                                            {existing.status !== "disconnected" && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        handleDisconnect(existing._id, p.displayName)
+                                                    }
+                                                >
+                                                    Déconnecter
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
