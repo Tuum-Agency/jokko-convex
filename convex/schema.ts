@@ -391,6 +391,31 @@ export default defineSchema({
         isWhatsApp: v.optional(v.boolean()),
         isBlocked: v.optional(v.boolean()), // Blocked status
 
+        // WhatsApp opt-in (RGPD strict) — required before any outbound campaign
+        whatsappOptIn: v.optional(v.object({
+            status: v.union(
+                v.literal("granted"),
+                v.literal("revoked"),
+                v.literal("unknown"),
+            ),
+            source: v.optional(v.union(
+                v.literal("inbound_reply"),
+                v.literal("web_form"),
+                v.literal("csv_attested"),
+                v.literal("crm_import_unknown"),
+                v.literal("manual"),
+            )),
+            at: v.optional(v.number()),
+            by: v.optional(v.id("users")),
+            proofRef: v.optional(v.string()),
+            textVersion: v.optional(v.string()),
+        })),
+
+        // Canonical E.164 (set by CRM integration import + inbound webhook).
+        // Coexists with `phone` to avoid backfilling legacy data at once.
+        phoneE164: v.optional(v.string()),
+        phoneCountryCode: v.optional(v.string()),
+
         // Search & Sort
         searchName: v.string(), // Concatenated field for search (name + phone + email)
 
@@ -826,6 +851,7 @@ export default defineSchema({
         updatedAt: v.number(),
         lastConnectedAt: v.optional(v.number()),
         lastWebhookAt: v.optional(v.number()),
+        callingEnabled: v.optional(v.boolean()),
     })
         .index("by_org", ["organizationId"])
         .index("by_phone_id", ["phoneNumberId"])
@@ -1560,5 +1586,279 @@ export default defineSchema({
         updatedAt: v.number(),
     })
         .index("by_organization", ["organizationId"]),
+
+    // ============================================
+    // CRM INTEGRATIONS (Phase 1 — fondations)
+    // ============================================
+
+    crmConnections: defineTable({
+        organizationId: v.id("organizations"),
+        provider: v.string(),
+        authMode: v.union(v.literal("oauth2"), v.literal("apiKey")),
+        status: v.union(
+            v.literal("active"),
+            v.literal("degraded"),
+            v.literal("reconnect_required"),
+            v.literal("disconnected"),
+        ),
+        accessTokenEnc: v.optional(v.string()),
+        refreshTokenEnc: v.optional(v.string()),
+        apiKeyEnc: v.optional(v.string()),
+        tokenExpiresAt: v.optional(v.number()),
+        instanceUrl: v.optional(v.string()),
+        scopes: v.optional(v.array(v.string())),
+        remoteAccountId: v.string(),
+        remoteAccountLabel: v.optional(v.string()),
+        scalingMode: v.union(v.literal("standard"), v.literal("large")),
+        debugMode: v.optional(v.boolean()),
+        debugModeExpiresAt: v.optional(v.number()),
+        refreshInFlight: v.optional(v.boolean()),
+        refreshStartedAt: v.optional(v.number()),
+        lastPollAt: v.optional(v.number()),
+        nextPollAt: v.optional(v.number()),
+        connectedAt: v.number(),
+        connectedBy: v.id("users"),
+        lastSyncAt: v.optional(v.number()),
+        lastSuccessfulRefreshAt: v.optional(v.number()),
+        lastErrorAt: v.optional(v.number()),
+        lastErrorCode: v.optional(v.string()),
+        lastErrorMessageSanitized: v.optional(v.string()),
+        revokedAt: v.optional(v.number()),
+        revokedBy: v.optional(v.id("users")),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_organization_status", ["organizationId", "status"])
+        .index("by_provider_remoteAccountId", ["provider", "remoteAccountId"])
+        .index("by_nextPollAt", ["nextPollAt"]),
+
+    crmRemoteAccountQuota: defineTable({
+        provider: v.string(),
+        remoteAccountId: v.string(),
+        windowStartMs: v.number(),
+        callsUsed: v.number(),
+        rateLimitPerHour: v.number(),
+        circuitState: v.union(
+            v.literal("closed"),
+            v.literal("half_open"),
+            v.literal("open"),
+        ),
+        circuitOpenedAt: v.optional(v.number()),
+        consecutiveErrors: v.number(),
+        lastBackoffMs: v.optional(v.number()),
+        updatedAt: v.number(),
+    }).index("by_provider_account", ["provider", "remoteAccountId"]),
+
+    crmContactLinks: defineTable({
+        organizationId: v.id("organizations"),
+        contactId: v.id("contacts"),
+        connectionId: v.id("crmConnections"),
+        provider: v.string(),
+        externalId: v.string(),
+        linkStatus: v.union(
+            v.literal("linked"),
+            v.literal("unlinked"),
+            v.literal("conflict"),
+        ),
+        linkMethod: v.union(
+            v.literal("phone"),
+            v.literal("email"),
+            v.literal("manual"),
+            v.literal("import"),
+        ),
+        matchConfidence: v.optional(
+            v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+        ),
+        externalOwnerId: v.optional(v.string()),
+        externalTags: v.optional(v.array(v.string())),
+        externalStage: v.optional(v.string()),
+        externalLifecycleStage: v.optional(v.string()),
+        externalCustomSnapshot: v.optional(v.any()),
+        lastPulledAt: v.number(),
+        lastPushedAt: v.optional(v.number()),
+        lastSeenExternalUpdateAt: v.optional(v.number()),
+        linkedAt: v.number(),
+        unlinkedAt: v.optional(v.number()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_contact", ["contactId"])
+        .index("by_org_provider_external", ["organizationId", "provider", "externalId"])
+        .index("by_connection", ["connectionId"]),
+
+    crmDeals: defineTable({
+        organizationId: v.id("organizations"),
+        connectionId: v.id("crmConnections"),
+        provider: v.string(),
+        externalId: v.string(),
+        contactId: v.optional(v.id("contacts")),
+        contactExternalId: v.optional(v.string()),
+        title: v.string(),
+        pipeline: v.optional(v.string()),
+        stage: v.optional(v.string()),
+        status: v.optional(v.string()),
+        ownerId: v.optional(v.string()),
+        amount: v.optional(v.number()),
+        currency: v.optional(v.string()),
+        rawSnapshot: v.optional(v.any()),
+        rawSnapshotVersion: v.optional(v.number()),
+        lastSeenExternalUpdateAt: v.optional(v.number()),
+        syncedAt: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_org_provider_external", ["organizationId", "provider", "externalId"])
+        .index("by_contact", ["contactId"]),
+
+    crmSyncQueue: defineTable({
+        organizationId: v.id("organizations"),
+        connectionId: v.id("crmConnections"),
+        eventType: v.string(),
+        payload: v.any(),
+        idempotencyKey: v.string(),
+        entityType: v.optional(v.string()),
+        entityId: v.optional(v.string()),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("succeeded"),
+            v.literal("failed"),
+            v.literal("dead_letter"),
+        ),
+        retryCount: v.number(),
+        nextAttemptAt: v.number(),
+        lockedAt: v.optional(v.number()),
+        processingStartedAt: v.optional(v.number()),
+        lastAttemptAt: v.optional(v.number()),
+        deadLetteredAt: v.optional(v.number()),
+        lastError: v.optional(v.string()),
+        enqueuedAtMs: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_idempotency", ["idempotencyKey"])
+        .index("by_status_nextAttempt", ["status", "nextAttemptAt"])
+        .index("by_connection_status", ["connectionId", "status"])
+        .index("by_org_status", ["organizationId", "status"]),
+
+    crmImportJobs: defineTable({
+        organizationId: v.id("organizations"),
+        connectionId: v.id("crmConnections"),
+        jobType: v.union(v.literal("initial_import"), v.literal("resync")),
+        phase: v.union(v.literal("contacts"), v.literal("deals")),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("running"),
+            v.literal("paused"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("cancelled"),
+        ),
+        cursor: v.optional(v.string()),
+        totalEstimated: v.optional(v.number()),
+        processed: v.number(),
+        matched: v.optional(v.number()),
+        created: v.optional(v.number()),
+        skipped: v.optional(v.number()),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+        lastHeartbeatAt: v.optional(v.number()),
+        errorDetails: v.optional(v.string()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_connection", ["connectionId"])
+        .index("by_status_heartbeat", ["status", "lastHeartbeatAt"]),
+
+    crmWebhookReceipts: defineTable({
+        organizationId: v.optional(v.id("organizations")),
+        connectionId: v.optional(v.id("crmConnections")),
+        provider: v.string(),
+        eventKey: v.string(),
+        eventType: v.optional(v.string()),
+        entityType: v.optional(v.string()),
+        entityExternalId: v.optional(v.string()),
+        receivedAt: v.number(),
+        processedAt: v.optional(v.number()),
+        status: v.union(
+            v.literal("received"),
+            v.literal("processed"),
+            v.literal("ignored"),
+            v.literal("deferred"),
+            v.literal("failed"),
+            v.literal("superseded_by_resync"),
+        ),
+        rawBodySanitized: v.optional(v.string()),
+        rawBodyCapturedAt: v.optional(v.number()),
+        lastError: v.optional(v.string()),
+    })
+        .index("by_eventKey", ["eventKey"])
+        .index("by_connection_received", ["connectionId", "receivedAt"])
+        .index("by_status_received", ["status", "receivedAt"]),
+
+    integrationAuditLog: defineTable({
+        organizationId: v.id("organizations"),
+        userId: v.optional(v.id("users")),
+        connectionId: v.optional(v.id("crmConnections")),
+        provider: v.optional(v.string()),
+        action: v.string(),
+        severity: v.union(
+            v.literal("info"),
+            v.literal("warning"),
+            v.literal("error"),
+        ),
+        entityType: v.optional(v.string()),
+        entityId: v.optional(v.string()),
+        metadataSanitized: v.optional(v.any()),
+        createdAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_org_created", ["organizationId", "createdAt"])
+        .index("by_connection", ["connectionId"]),
+
+    crmOAuthAttempts: defineTable({
+        state: v.string(),
+        provider: v.string(),
+        organizationId: v.id("organizations"),
+        userId: v.id("users"),
+        codeVerifier: v.string(),
+        redirectUri: v.string(),
+        expiresAt: v.number(),
+        consumedAt: v.optional(v.number()),
+        createdAt: v.number(),
+    })
+        .index("by_state", ["state"])
+        .index("by_expires", ["expiresAt"]),
+
+    integrationMetrics: defineTable({
+        organizationId: v.id("organizations"),
+        connectionId: v.id("crmConnections"),
+        provider: v.string(),
+        periodStart: v.number(),
+        webhooksReceived: v.number(),
+        webhooksProcessed: v.number(),
+        webhooksIgnored: v.number(),
+        webhooksFailed: v.number(),
+        pushesEnqueued: v.number(),
+        pushesSucceeded: v.number(),
+        pushesFailed: v.number(),
+        pushesDLQ: v.number(),
+        pullBatchesSucceeded: v.number(),
+        pullBatchesFailed: v.number(),
+        pushLatencyCount: v.number(),
+        pushLatencySumMs: v.number(),
+        pushLatencyMaxMs: v.number(),
+        pushLatencyLt100: v.number(),
+        pushLatencyLt500: v.number(),
+        pushLatencyLt1000: v.number(),
+        pushLatencyLt2000: v.number(),
+        pushLatencyLt30000: v.number(),
+        pushLatencyGte30000: v.number(),
+    })
+        .index("by_connection_period", ["connectionId", "periodStart"])
+        .index("by_org_period", ["organizationId", "periodStart"]),
 });
 
