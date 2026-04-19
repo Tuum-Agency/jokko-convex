@@ -3,6 +3,10 @@
 # Playwright auth state
 e2e/.auth/
 
+# Playwright reports & test results
+/playwright-report
+/test-results
+
 # dependencies
 /node_modules
 /.pnp
