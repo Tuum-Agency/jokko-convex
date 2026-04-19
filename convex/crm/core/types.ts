@@ -136,7 +136,7 @@ export interface CRMAdapter {
 
     revokeToken?(p: { accessToken?: string; refreshToken?: string }): Promise<void>;
 
-    validateApiKey?(p: { apiKey: string }): Promise<{
+    validateApiKey?(p: { apiKey: string; instanceUrl?: string }): Promise<{
         ok: boolean;
         accountInfo?: { remoteAccountId: string; remoteAccountLabel?: string };
     }>;

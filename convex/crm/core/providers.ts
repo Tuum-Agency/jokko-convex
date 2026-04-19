@@ -95,7 +95,7 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
         key: "axonaut",
         displayName: "Axonaut",
         authMode: "apiKey",
-        availability: "coming_soon",
+        availability: "available",
         docsUrl: "https://axonaut.com/api/v2/doc",
         capabilities: {
             authMode: "apiKey",
@@ -114,7 +114,7 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
         key: "nocrm",
         displayName: "noCRM.io",
         authMode: "apiKey",
-        availability: "coming_soon",
+        availability: "available",
         docsUrl: "https://nocrm.io/help/api/",
         capabilities: {
             authMode: "apiKey",

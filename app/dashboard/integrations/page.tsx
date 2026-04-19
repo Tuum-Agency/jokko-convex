@@ -8,6 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -27,15 +37,30 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
     disconnected: "Déconnecté",
 };
 
+const PROVIDER_INSTANCE_HINT: Record<string, { label: string; placeholder: string } | undefined> = {
+    nocrm: {
+        label: "Sous-domaine noCRM.io",
+        placeholder: "monentreprise (sera utilisé comme https://monentreprise.nocrm.io)",
+    },
+};
+
 export default function IntegrationsPage() {
     const providers = useQuery(api.crm.connections.listAvailableProviders);
     const connections = useQuery(api.crm.connections.listForCurrentOrganization);
     const startOAuth = useAction(api.crm.oauth.start);
+    const connectApiKey = useAction(api.crm.apikey.connectWithApiKey);
     const disconnect = useMutation(api.crm.connections.disconnect);
 
     const router = useRouter();
     const searchParams = useSearchParams();
     const [starting, setStarting] = useState<string | null>(null);
+    const [apiKeyDialog, setApiKeyDialog] = useState<{
+        providerKey: string;
+        providerLabel: string;
+    } | null>(null);
+    const [apiKeyInput, setApiKeyInput] = useState("");
+    const [instanceInput, setInstanceInput] = useState("");
+    const [submittingKey, setSubmittingKey] = useState(false);
 
     useEffect(() => {
         const err = searchParams.get("error");
@@ -64,15 +89,57 @@ export default function IntegrationsPage() {
         return map;
     }, [connections]);
 
-    async function handleConnect(provider: string) {
-        setStarting(provider);
+    async function handleConnect(provider: { key: string; displayName: string; authMode: string }) {
+        if (provider.authMode === "apiKey") {
+            setApiKeyDialog({ providerKey: provider.key, providerLabel: provider.displayName });
+            setApiKeyInput("");
+            setInstanceInput("");
+            return;
+        }
+        setStarting(provider.key);
         try {
-            const { authorizeUrl } = await startOAuth({ provider, scalingMode: "standard" });
+            const { authorizeUrl } = await startOAuth({
+                provider: provider.key,
+                scalingMode: "standard",
+            });
             window.location.assign(authorizeUrl);
         } catch (e) {
             const msg = e instanceof Error ? e.message : "Erreur inconnue";
             toast.error(`Impossible de démarrer la connexion : ${msg}`);
             setStarting(null);
+        }
+    }
+
+    async function handleApiKeySubmit() {
+        if (!apiKeyDialog) return;
+        const trimmed = apiKeyInput.trim();
+        if (!trimmed) {
+            toast.error("Clé API requise");
+            return;
+        }
+        const hint = PROVIDER_INSTANCE_HINT[apiKeyDialog.providerKey];
+        const instanceUrl = hint ? instanceInput.trim() : undefined;
+        if (hint && !instanceUrl) {
+            toast.error(hint.label + " requis");
+            return;
+        }
+        setSubmittingKey(true);
+        try {
+            await connectApiKey({
+                provider: apiKeyDialog.providerKey,
+                apiKey: trimmed,
+                instanceUrl: instanceUrl || undefined,
+                scalingMode: "standard",
+            });
+            toast.success(`Connecté avec succès à ${apiKeyDialog.providerLabel}`);
+            setApiKeyDialog(null);
+            setApiKeyInput("");
+            setInstanceInput("");
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Erreur inconnue";
+            toast.error(`Connexion échouée : ${msg}`);
+        } finally {
+            setSubmittingKey(false);
         }
     }
 
@@ -101,6 +168,10 @@ export default function IntegrationsPage() {
             </div>
         );
     }
+
+    const activeHint = apiKeyDialog
+        ? PROVIDER_INSTANCE_HINT[apiKeyDialog.providerKey]
+        : undefined;
 
     return (
         <div className="p-6 space-y-6">
@@ -168,7 +239,7 @@ export default function IntegrationsPage() {
 
                                 <div className="flex items-center gap-2">
                                     <Button
-                                        onClick={() => handleConnect(p.key)}
+                                        onClick={() => handleConnect(p)}
                                         disabled={!isAvailable || isBusy}
                                     >
                                         {isBusy
@@ -193,6 +264,69 @@ export default function IntegrationsPage() {
                     );
                 })}
             </div>
+
+            <Dialog
+                open={apiKeyDialog !== null}
+                onOpenChange={(open) => {
+                    if (!open && !submittingKey) {
+                        setApiKeyDialog(null);
+                        setApiKeyInput("");
+                        setInstanceInput("");
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Connecter {apiKeyDialog?.providerLabel ?? ""}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Collez votre clé API. Elle sera chiffrée avant d&apos;être stockée.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        {activeHint && (
+                            <div className="space-y-1">
+                                <Label htmlFor="crm-instance">{activeHint.label}</Label>
+                                <Input
+                                    id="crm-instance"
+                                    value={instanceInput}
+                                    onChange={(e) => setInstanceInput(e.target.value)}
+                                    placeholder={activeHint.placeholder}
+                                    disabled={submittingKey}
+                                />
+                            </div>
+                        )}
+                        <div className="space-y-1">
+                            <Label htmlFor="crm-apikey">Clé API</Label>
+                            <Input
+                                id="crm-apikey"
+                                type="password"
+                                value={apiKeyInput}
+                                onChange={(e) => setApiKeyInput(e.target.value)}
+                                autoComplete="off"
+                                disabled={submittingKey}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setApiKeyDialog(null);
+                                setApiKeyInput("");
+                                setInstanceInput("");
+                            }}
+                            disabled={submittingKey}
+                        >
+                            Annuler
+                        </Button>
+                        <Button onClick={handleApiKeySubmit} disabled={submittingKey}>
+                            {submittingKey ? "Validation…" : "Valider"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
