@@ -109,6 +109,7 @@ export const runTick = internalAction({
                 const page = await adapter.pullContactsPage({
                     ctx: callCtx,
                     cursor: job.cursor,
+                    sinceMs: job.sinceMs,
                 });
                 await ctx.runMutation(internal.crm.importer._persistContactBatch, {
                     jobId,
@@ -150,6 +151,7 @@ export const runTick = internalAction({
                 const page = await adapter.pullDealsPage({
                     ctx: callCtx,
                     cursor: job.cursor,
+                    sinceMs: job.sinceMs,
                 });
                 await ctx.runMutation(internal.crm.importer._persistDealBatch, {
                     jobId,

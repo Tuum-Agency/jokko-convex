@@ -27,7 +27,12 @@ import { logJson, newCorrelationId, sanitizeError } from "./core/logger";
 import { OAUTH } from "./core/constants";
 import type { CRMProvider } from "./core/types";
 
-const SUPPORTED_OAUTH_PROVIDERS: CRMProvider[] = ["hubspot"];
+const SUPPORTED_OAUTH_PROVIDERS: CRMProvider[] = [
+    "hubspot",
+    "pipedrive",
+    "sellsy",
+    "salesforce",
+];
 
 function oauthRedirectUri(provider: string): string {
     const base = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL;

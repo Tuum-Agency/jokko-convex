@@ -1746,7 +1746,11 @@ export default defineSchema({
     crmImportJobs: defineTable({
         organizationId: v.id("organizations"),
         connectionId: v.id("crmConnections"),
-        jobType: v.union(v.literal("initial_import"), v.literal("resync")),
+        jobType: v.union(
+            v.literal("initial_import"),
+            v.literal("resync"),
+            v.literal("delta_poll"),
+        ),
         phase: v.union(v.literal("contacts"), v.literal("deals")),
         status: v.union(
             v.literal("pending"),
@@ -1757,6 +1761,7 @@ export default defineSchema({
             v.literal("cancelled"),
         ),
         cursor: v.optional(v.string()),
+        sinceMs: v.optional(v.number()),
         totalEstimated: v.optional(v.number()),
         processed: v.number(),
         matched: v.optional(v.number()),

@@ -28,4 +28,7 @@ crons.interval("expire-payment-sessions", { minutes: 5 }, internal.payments.expi
 // Drain CRM sync queue every 20 seconds (pushes conversation events to CRMs)
 crons.interval("crm-dispatcher-tick", { seconds: 20 }, internal.crm.dispatcher.runTick);
 
+// Poll active CRM connections for delta sync every minute
+crons.interval("crm-poller-tick", { minutes: 1 }, internal.crm.poller.runTick);
+
 export default crons;

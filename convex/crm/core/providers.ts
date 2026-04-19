@@ -38,7 +38,7 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
         key: "pipedrive",
         displayName: "Pipedrive",
         authMode: "oauth2",
-        availability: "coming_soon",
+        availability: "available",
         docsUrl: "https://developers.pipedrive.com/docs/api/v1",
         capabilities: {
             authMode: "oauth2",
@@ -57,7 +57,7 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
         key: "salesforce",
         displayName: "Salesforce",
         authMode: "oauth2",
-        availability: "coming_soon",
+        availability: "available",
         docsUrl: "https://developer.salesforce.com/docs/apis",
         capabilities: {
             authMode: "oauth2",
@@ -76,7 +76,7 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
         key: "sellsy",
         displayName: "Sellsy",
         authMode: "oauth2",
-        availability: "coming_soon",
+        availability: "available",
         docsUrl: "https://api.sellsy.com/doc/v2/",
         capabilities: {
             authMode: "oauth2",
