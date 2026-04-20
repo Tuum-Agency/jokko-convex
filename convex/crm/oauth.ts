@@ -15,6 +15,7 @@ import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { hasPermission } from "../lib/permissions";
+import { requirePlanFeatureInAction } from "../lib/planFeatures";
 import { getAdapter } from "./registry";
 import {
     generateNonce,
@@ -65,7 +66,7 @@ async function beginOAuthFlow(
         throw new Error(`Fournisseur OAuth non supporté au MVP : ${params.provider}`);
     }
 
-    const { organizationId, role } = await ctx.runQuery(
+    const { organizationId, role, plan } = await ctx.runQuery(
         internal.crm.oauth._sessionContext,
         { userId },
     );
@@ -73,6 +74,8 @@ async function beginOAuthFlow(
     if (!hasPermission(role, "integrations:manage")) {
         throw new Error("Permission refusée : integrations:manage");
     }
+    // Feature gate plan : intégrations CRM réservées au plan PRO+
+    await requirePlanFeatureInAction(plan, "integrations_crm");
 
     const verifier = generatePkceVerifier();
     const challenge = await pkceChallengeFromVerifier(verifier);
@@ -164,16 +167,22 @@ export const _sessionContext = internalQuery({
             .withIndex("by_user", (q) => q.eq("userId", userId))
             .first();
         const organizationId = session?.currentOrganizationId;
-        if (!organizationId) return { organizationId: null, role: "AGENT" as const };
-        const membership = await ctx.db
-            .query("memberships")
-            .withIndex("by_user_org", (q) =>
-                q.eq("userId", userId).eq("organizationId", organizationId),
-            )
-            .first();
+        if (!organizationId) {
+            return { organizationId: null, role: "AGENT" as const, plan: "FREE" as string };
+        }
+        const [membership, org] = await Promise.all([
+            ctx.db
+                .query("memberships")
+                .withIndex("by_user_org", (q) =>
+                    q.eq("userId", userId).eq("organizationId", organizationId),
+                )
+                .first(),
+            ctx.db.get(organizationId),
+        ]);
         return {
             organizationId: organizationId as string | null,
             role: (membership?.role ?? "AGENT") as "OWNER" | "ADMIN" | "AGENT",
+            plan: (org?.plan ?? "FREE") as string,
         };
     },
 });

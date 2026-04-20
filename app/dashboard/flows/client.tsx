@@ -27,10 +27,13 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@/components/ui/empty';
+import { FeatureGate } from '@/components/plan/FeatureGate';
+import { usePlanFeature } from '@/hooks/use-plan-feature';
 
 export function FlowsPageClient() {
     const router = useRouter();
     const role = useQuery(api.users.currentUserRole);
+    const { allowed: planAllowed, isLoading: planLoading } = usePlanFeature('flows');
 
     const flows = useQuery(api.flows.list);
     const createFlow = useMutation(api.flows.create);
@@ -64,6 +67,21 @@ export function FlowsPageClient() {
                         Vous n'avez pas les autorisations nécessaires pour accéder à cette page.
                     </AlertDescription>
                 </Alert>
+            </div>
+        );
+    }
+
+    if (planLoading) {
+        return (
+            <div className="p-8 space-y-6">
+                <Skeleton className="h-40 w-full" />
+            </div>
+        );
+    }
+    if (!planAllowed) {
+        return (
+            <div className="p-6">
+                <FeatureGate feature="flows">{null}</FeatureGate>
             </div>
         );
     }

@@ -19,6 +19,7 @@ import {
     ChevronLeft,
     HelpCircle,
     Plug,
+    Lock,
 } from 'lucide-react'
 
 import { useQuery } from 'convex/react'
@@ -28,27 +29,40 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCurrentOrg } from '@/hooks/use-current-org'
 import {
+    planIncludesFeature,
+    minPlanForFeature,
+    type PlanFeature,
+    type PlanKey,
+} from '@/lib/planFeatures'
+import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
 
-// Navigation items
-const mainNavigation = [
+// Navigation items. `feature` = clé de gating plan (optionnel). Non défini → pas de gating.
+type NavItem = {
+    name: string
+    href: string
+    icon: typeof LayoutDashboard
+    feature?: PlanFeature
+}
+
+const mainNavigation: NavItem[] = [
     { name: 'Dashboard', href: '', icon: LayoutDashboard },
     { name: 'Conversations', href: '/conversations', icon: MessageSquare },
     { name: 'Contacts', href: '/contacts', icon: Users },
     { name: 'Team', href: '/team', icon: UsersRound },
     { name: 'Attribution', href: '/assignments', icon: UserCheck },
     { name: 'Modèles', href: '/modeles', icon: FileText },
-    { name: 'Campagnes', href: '/campagnes', icon: Send },
-    { name: 'Automatisation', href: '/automatisations', icon: Workflow },
-    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+    { name: 'Campagnes', href: '/campagnes', icon: Send, feature: 'broadcasts' },
+    { name: 'Automatisation', href: '/automatisations', icon: Workflow, feature: 'flows' },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp, feature: 'analytics_advanced' },
 ]
 
-const bottomNavigation = [
-    { name: 'Intégrations', href: '/integrations', icon: Plug },
+const bottomNavigation: NavItem[] = [
+    { name: 'Intégrations', href: '/integrations', icon: Plug, feature: 'integrations_crm' },
     { name: 'Facturation', href: '/billing', icon: CreditCard },
     { name: 'Paramètres', href: '/settings', icon: Settings },
 ]
@@ -89,8 +103,16 @@ export function Sidebar({
         return true
     })
 
+    const currentPlan = (currentOrg?.plan as PlanKey | undefined) ?? null
+    const computeLock = (item: NavItem) => {
+        if (!item.feature || !currentPlan) return { locked: false, minPlan: null as PlanKey | null }
+        const allowed = planIncludesFeature(currentPlan, item.feature)
+        return { locked: !allowed, minPlan: allowed ? null : minPlanForFeature(item.feature) }
+    }
+
     const navItems = filteredNavigation.map(item => {
-        const itemWithBadge = { ...item, badge: undefined as number | undefined }
+        const { locked, minPlan } = computeLock(item)
+        const itemWithBadge = { ...item, badge: undefined as number | undefined, locked, minPlan }
         if (item.name === 'Conversations') itemWithBadge.badge = stats?.unread || undefined
         if (item.name === 'Attribution') itemWithBadge.badge = stats?.unassigned || undefined
         return itemWithBadge
@@ -173,15 +195,22 @@ export function Sidebar({
                         {navItems.map((item) => {
                             const active = isActive(item.href)
                             const Icon = item.icon
+                            // Item verrouillé (plan insuffisant) → redirige vers billing
+                            // et affiche un cadenas. On ne masque pas : l'utilisateur
+                            // voit ce qu'il débloque en upgradant.
+                            const targetHref = item.locked
+                                ? `${basePath}/billing`
+                                : `${basePath}${item.href}`
 
                             const linkContent = (
                                 <Link
-                                    href={`${basePath}${item.href}`}
+                                    href={targetHref}
                                     className={cn(
                                         'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
                                         active
                                             ? 'text-white bg-white/15'
-                                            : 'text-white/60 hover:text-white hover:bg-white/8'
+                                            : 'text-white/60 hover:text-white hover:bg-white/8',
+                                        item.locked && 'opacity-70'
                                     )}
                                 >
                                     <Icon
@@ -206,8 +235,16 @@ export function Sidebar({
                                         )}
                                     </AnimatePresence>
 
+                                    {/* Lock icon (plan verrouillé) */}
+                                    {item.locked && !isCollapsed && (
+                                        <Lock className="ml-auto h-3.5 w-3.5 text-white/50" aria-label={`Plan ${item.minPlan} requis`} />
+                                    )}
+                                    {item.locked && isCollapsed && (
+                                        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400" aria-label={`Plan ${item.minPlan} requis`} />
+                                    )}
+
                                     {/* Badge */}
-                                    {item.badge && !isCollapsed && (
+                                    {item.badge && !item.locked && !isCollapsed && (
                                         <motion.span
                                             initial={{ scale: 0 }}
                                             animate={{ scale: 1 }}
@@ -218,7 +255,7 @@ export function Sidebar({
                                     )}
 
                                     {/* Badge dot when collapsed */}
-                                    {item.badge && isCollapsed && (
+                                    {item.badge && !item.locked && isCollapsed && (
                                         <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                     )}
                                 </Link>
@@ -229,7 +266,12 @@ export function Sidebar({
                                     <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
                                     <TooltipContent side="right" className="flex items-center gap-2">
                                         {item.name}
-                                        {item.badge && (
+                                        {item.locked && item.minPlan && (
+                                            <span className="rounded-full bg-amber-400/20 text-amber-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                                                {item.minPlan}+
+                                            </span>
+                                        )}
+                                        {item.badge && !item.locked && (
                                             <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-xs font-semibold text-white">
                                                 {item.badge}
                                             </span>
@@ -296,15 +338,20 @@ export function Sidebar({
                         {filteredBottomNavigation.map((item) => {
                             const active = isActive(item.href)
                             const Icon = item.icon
+                            const { locked, minPlan } = computeLock(item)
+                            const targetHref = locked
+                                ? `${basePath}/billing`
+                                : `${basePath}${item.href}`
 
                             const linkContent = (
                                 <Link
-                                    href={`${basePath}${item.href}`}
+                                    href={targetHref}
                                     className={cn(
                                         'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
                                         active
                                             ? 'text-white bg-white/15'
-                                            : 'text-white/60 hover:text-white hover:bg-white/8'
+                                            : 'text-white/60 hover:text-white hover:bg-white/8',
+                                        locked && 'opacity-70'
                                     )}
                                 >
                                     <Icon
@@ -328,13 +375,27 @@ export function Sidebar({
                                             </motion.span>
                                         )}
                                     </AnimatePresence>
+
+                                    {locked && !isCollapsed && (
+                                        <Lock className="ml-auto h-3.5 w-3.5 text-white/50" aria-label={`Plan ${minPlan} requis`} />
+                                    )}
+                                    {locked && isCollapsed && (
+                                        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400" aria-label={`Plan ${minPlan} requis`} />
+                                    )}
                                 </Link>
                             )
 
                             return isCollapsed ? (
                                 <Tooltip key={item.name}>
                                     <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                                    <TooltipContent side="right">{item.name}</TooltipContent>
+                                    <TooltipContent side="right" className="flex items-center gap-2">
+                                        {item.name}
+                                        {locked && minPlan && (
+                                            <span className="rounded-full bg-amber-400/20 text-amber-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                                                {minPlan}+
+                                            </span>
+                                        )}
+                                    </TooltipContent>
                                 </Tooltip>
                             ) : (
                                 <div key={item.name}>{linkContent}</div>

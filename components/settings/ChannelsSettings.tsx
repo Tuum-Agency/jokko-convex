@@ -133,7 +133,9 @@ export function ChannelsSettings() {
         return () => { cancelled = true }
     }, [channels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const activeChannels = channels.filter((c: any) => c.status !== 'disabled')
+    const activeChannels = channels.filter(
+        (c: any) => c.status !== 'disabled' && c.status !== 'banned',
+    )
     const channelsWithTokenError = channels.filter((c: any) => tokenErrors[c._id])
     const downgradedChannels = channels.filter(
         (c: any) => c.status === 'disabled' && c.disabledReason === 'plan_downgrade',

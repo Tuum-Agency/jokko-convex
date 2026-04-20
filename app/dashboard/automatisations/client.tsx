@@ -7,10 +7,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AutomationTable } from './components/AutomationTable';
+import { FeatureGate } from '@/components/plan/FeatureGate';
+import { usePlanFeature } from '@/hooks/use-plan-feature';
 
 export default function AutomationsClient() {
     const role = useQuery(api.users.currentUserRole);
     const flows = useQuery(api.flows.list);
+    const { allowed: planAllowed, isLoading: planLoading } = usePlanFeature('flows');
     const [searchTerm, setSearchTerm] = useState('');
 
     if (role === undefined) {
@@ -35,6 +38,22 @@ export default function AutomationsClient() {
                         Vous n&apos;avez pas les autorisations nécessaires pour accéder à cette page.
                     </AlertDescription>
                 </Alert>
+            </div>
+        );
+    }
+
+    // Gating plan : affiche le paywall si le plan courant n'inclut pas les flows
+    if (planLoading) {
+        return (
+            <div className="space-y-6 p-4 sm:p-6">
+                <Skeleton className="h-40 w-full rounded-lg" />
+            </div>
+        );
+    }
+    if (!planAllowed) {
+        return (
+            <div className="p-4 sm:p-6">
+                <FeatureGate feature="flows">{null}</FeatureGate>
             </div>
         );
     }

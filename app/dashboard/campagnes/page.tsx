@@ -9,12 +9,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { FeatureGate } from "@/components/plan/FeatureGate";
+import { usePlanFeature } from "@/hooks/use-plan-feature";
 
 const formatCurrency = (n: number) => new Intl.NumberFormat('fr-SN', { style: 'currency', currency: 'XOF' }).format(n);
 
 export default function BroadcastsPage() {
     const role = useQuery(api.users.currentUserRole);
     const creditBalance = useQuery(api.credits.getBalance);
+    const { allowed: planAllowed, isLoading: planLoading } = usePlanFeature('broadcasts');
 
     if (role === undefined) {
         return (
@@ -50,6 +53,21 @@ export default function BroadcastsPage() {
                         Vous n&apos;avez pas les autorisations nécessaires pour accéder à cette page.
                     </AlertDescription>
                 </Alert>
+            </div>
+        );
+    }
+
+    if (planLoading) {
+        return (
+            <div className="p-4 sm:p-6">
+                <Skeleton className="h-40 w-full rounded-lg" />
+            </div>
+        );
+    }
+    if (!planAllowed) {
+        return (
+            <div className="p-4 sm:p-6">
+                <FeatureGate feature="broadcasts">{null}</FeatureGate>
             </div>
         );
     }
