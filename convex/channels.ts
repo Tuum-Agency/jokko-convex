@@ -141,7 +141,12 @@ export const create = mutation({
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .collect();
 
-        const activeChannels = existingChannels.filter((c) => c.status !== "disabled");
+        // Exclure "disabled" ET "banned" — cohérent avec planLimits.ts et
+        // enforceChannelDowngrade. Un canal banned par Meta ne doit pas compter
+        // dans le quota (sinon on bloque la création d'un remplaçant).
+        const activeChannels = existingChannels.filter(
+            (c) => c.status !== "disabled" && c.status !== "banned",
+        );
         const maxChannels = await getMaxChannels(ctx, org.plan);
 
         if (!isUnlimited(maxChannels) && activeChannels.length >= maxChannels) {
@@ -357,7 +362,12 @@ export const internalCreate = internalMutation({
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .collect();
 
-        const activeChannels = existingChannels.filter((c) => c.status !== "disabled");
+        // Exclure "disabled" ET "banned" — cohérent avec planLimits.ts et
+        // enforceChannelDowngrade. Un canal banned par Meta ne doit pas compter
+        // dans le quota (sinon on bloque la création d'un remplaçant).
+        const activeChannels = existingChannels.filter(
+            (c) => c.status !== "disabled" && c.status !== "banned",
+        );
         const maxChannels = await getMaxChannels(ctx, org.plan);
 
         if (!isUnlimited(maxChannels) && activeChannels.length >= maxChannels) {

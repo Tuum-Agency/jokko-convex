@@ -17,6 +17,7 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { rateLimiter } from "./lib/rateLimits";
+import { enforceChannelDowngrade } from "./lib/planEnforcement";
 
 export const listMine = query({
     args: {},
@@ -137,7 +138,10 @@ export const create = mutation({
             locale: args.locale,
             onboardingStep: "PLAN_SELECT", // Next step
             ownerId: userId,
-            plan: "FREE",
+            // Défaut STARTER : FREE n'est pas exposé publiquement et est
+            // un état interne legacy. Les quotas STARTER sont équivalents
+            // à FREE mais l'utilisateur peut upgrader depuis le pricing.
+            plan: "STARTER",
             settings: {
                 assignment: {
                     autoAssignEnabled: true,
@@ -217,6 +221,11 @@ export const updateOrgPlan = mutation({
             plan: args.plan,
             updatedAt: Date.now(),
         });
+
+        // Si le nouveau plan a des quotas inférieurs, désactiver les canaux
+        // excédentaires, mettre en pause les broadcasts concernés et notifier.
+        // Sans ça, un downgrade via UI bypasserait toutes les limites.
+        await enforceChannelDowngrade(ctx, session.currentOrganizationId, args.plan);
     },
 });
 

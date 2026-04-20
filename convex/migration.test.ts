@@ -14,6 +14,23 @@ describe("Migration", () => {
 
         // Setup: user + org with legacy WhatsApp config
         const setup = await t.run(async (ctx: any) => {
+            await ctx.db.insert("plans", {
+                key: "BUSINESS",
+                name: "Business",
+                description: "Pour les PME en croissance.",
+                maxAgents: 5,
+                maxWhatsappChannels: 3,
+                maxConversationsPerMonth: 5000,
+                maxTemplates: 20,
+                historyDays: -1,
+                monthlyPriceFCFA: 30000,
+                yearlyPriceFCFA: 288000,
+                yearlyMonthlyPriceFCFA: 24000,
+                features: [],
+                supportLevel: "Prioritaire",
+                sortOrder: 2,
+                isActive: true,
+            });
             const uid = await ctx.db.insert("users", { email: "owner@test.com", name: "Owner" });
             const oid = await ctx.db.insert("organizations", {
                 name: "Migrating Org",

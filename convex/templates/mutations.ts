@@ -246,6 +246,10 @@ export const seedStandard = mutation({
             return { message: "Standard templates already exist", inserted: 0 };
         }
 
+        // Guard quota : même pour le seed, on respecte la limite du plan.
+        // Sans ce guard, un plan saturé pourrait dépasser via ce endpoint.
+        await assertWithinLimit(ctx, orgId, "templates");
+
         // Insert hello_world
         await ctx.db.insert("templates", {
             organizationId: orgId,
