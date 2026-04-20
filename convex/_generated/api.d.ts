@@ -14,6 +14,8 @@ import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as broadcasts from "../broadcasts.js";
+import type * as call_actions from "../call_actions.js";
+import type * as calls from "../calls.js";
 import type * as channels from "../channels.js";
 import type * as cleanup from "../cleanup.js";
 import type * as contacts from "../contacts.js";
@@ -123,6 +125,8 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   billing: typeof billing;
   broadcasts: typeof broadcasts;
+  call_actions: typeof call_actions;
+  calls: typeof calls;
   channels: typeof channels;
   cleanup: typeof cleanup;
   contacts: typeof contacts;

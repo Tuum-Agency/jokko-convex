@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Sidebar, DashboardHeader } from '@/components/dashboard'
 import { BrowserNotifications } from '@/components/browser-notifications'
 import { NotificationBanner } from '@/components/dashboard/notification-banner'
+import { CallNotificationProvider } from '@/components/calls/call-notification-provider'
 import { usePresence } from '@/hooks/use-presence'
 import { useCurrentOrg } from '@/hooks/use-current-org'
 import { Id } from '@/convex/_generated/dataModel'
@@ -50,6 +51,7 @@ export function DashboardLayoutClient({
             <div className="flex flex-1 flex-col overflow-hidden">
                 <NotificationBanner />
                 <BrowserNotifications />
+                <CallNotificationProvider />
                 {/* Header with mobile sidebar */}
                 <DashboardHeader
                     basePath={basePath}

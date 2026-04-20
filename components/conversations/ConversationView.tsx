@@ -33,7 +33,6 @@ import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'da
 import { fr } from 'date-fns/locale'
 import {
     ArrowLeft,
-    Phone,
     MoreVertical,
     Info,
     Archive,
@@ -75,7 +74,7 @@ import { ForwardMessageModal } from './ForwardMessageModal'
 import { AssignmentBadge } from './AssignmentBadge'
 import { AssignmentDropdown } from './AssignmentDropdown'
 import { ButtonGroup } from '@/components/ui/button-group'
-// import { CallButton } from '@/components/calls/call-button' // Fonctionnalite d'appel audio desactivee temporairement
+import { CallButton } from '@/components/calls/call-button'
 import { useMessages, type Message } from '@/hooks/useMessages'
 import { useConversations } from '@/hooks/useConversations'
 import { useTypingIndicator } from '@/hooks/useRealtime'
@@ -301,22 +300,12 @@ function ConversationHeader({
                             onAssignmentChange={onAssignmentChange}
                         />
 
-                        {/* Appel audio - Bientot disponible */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1.5 text-gray-500 border-gray-200 bg-gray-50/50 cursor-not-allowed hover:bg-gray-50/50 hover:text-gray-500"
-                                >
-                                    <Phone className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Bientot</span>
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Les appels audio seront bientot disponibles</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        {/* Appel audio */}
+                        <CallButton
+                            conversationId={conversation.id}
+                            contactPhone={conversation.contact?.phone}
+                            contactName={conversation.contact?.name ?? undefined}
+                        />
                     </ButtonGroup>
                 )}
 

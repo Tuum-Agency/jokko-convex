@@ -39,4 +39,7 @@ crons.daily(
     internal.crm.contactLinks.purgeStaleLinks,
 );
 
+// Expire ringing calls that were never answered (60s timeout) -> MISSED
+crons.interval("expire-missed-calls", { minutes: 1 }, internal.calls.expireMissedCalls);
+
 export default crons;
