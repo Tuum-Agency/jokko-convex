@@ -780,7 +780,8 @@ export default defineSchema({
             v.literal("completed"),
             v.literal("failures"),
             v.literal("cancelled"),
-            v.literal("retry")
+            v.literal("retry"),
+            v.literal("paused")
         ),
         message: v.string(),
         createdAt: v.number(),
@@ -846,6 +847,11 @@ export default defineSchema({
             v.literal("disabled"),
             v.literal("banned"),
         ),
+        disabledReason: v.optional(v.union(
+            v.literal("manual"),
+            v.literal("plan_downgrade"),
+        )),
+        disabledAt: v.optional(v.number()),
         createdBy: v.id("users"),
         createdAt: v.number(),
         updatedAt: v.number(),

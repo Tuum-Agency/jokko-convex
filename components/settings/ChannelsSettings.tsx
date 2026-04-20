@@ -114,6 +114,9 @@ export function ChannelsSettings() {
 
     const activeChannels = channels.filter((c: any) => c.status !== 'disabled')
     const channelsWithTokenError = channels.filter((c: any) => tokenErrors[c._id])
+    const downgradedChannels = channels.filter(
+        (c: any) => c.status === 'disabled' && c.disabledReason === 'plan_downgrade',
+    )
     const maxChannels = currentPlan?.maxWhatsappChannels ?? 1
     const canAddMore = isUnlimited(maxChannels) || activeChannels.length < maxChannels
     const usagePercent = isUnlimited(maxChannels) ? 0 : Math.round((activeChannels.length / maxChannels) * 100)
@@ -269,6 +272,37 @@ export function ChannelsSettings() {
                         </div>
                     )}
                 </CardHeader>
+
+                {/* Plan downgrade banner */}
+                {downgradedChannels.length > 0 && (
+                    <div className="mx-6 mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-amber-800">
+                                    {downgradedChannels.length === 1
+                                        ? `Le canal "${downgradedChannels[0].label}" a été désactivé après un changement de plan`
+                                        : `${downgradedChannels.length} canaux ont été désactivés après un changement de plan`}
+                                </p>
+                                <p className="text-xs text-amber-700 mt-0.5">
+                                    Votre plan actuel {currentPlan?.name ? `(${currentPlan.name})` : ''} autorise
+                                    {' '}{isUnlimited(maxChannels) ? '\u221E' : maxChannels} canal{maxChannels > 1 ? 'aux' : ''} actif{maxChannels > 1 ? 's' : ''}.
+                                    Passez à un plan supérieur pour les réactiver.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 rounded-full cursor-pointer bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                                onClick={() => { window.location.href = '/dashboard/billing' }}
+                            >
+                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                Mettre à niveau
+                            </Button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Token expiration banner */}
                 {channelsWithTokenError.length > 0 && (

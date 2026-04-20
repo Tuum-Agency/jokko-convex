@@ -4,6 +4,8 @@ import { requirePermission } from "./lib/auth";
 import { sendInvitationEmail } from "./lib/email";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { assertWithinLimit } from "./lib/planLimits";
+import { getMaxAgents, isUnlimited } from "./lib/planHelpers";
 
 // LIST PENDING INVITATIONS
 export const list = query({
@@ -176,6 +178,9 @@ export const createRecord = internalMutation({
             // We'll throw if direct auth fails.
             throw new Error("Could not resolve inviter");
         }
+
+        // Plan limit: block new invitations if the agent quota is already saturated.
+        await assertWithinLimit(ctx, args.organizationId, "agents");
 
         await ctx.db.insert("invitations", {
             organizationId: args.organizationId,
@@ -370,11 +375,28 @@ export const acceptLink = mutation({
         console.log(`[AcceptLink] Validating email. Invitation: '${invitationEmail}', User: '${userEmail}'`);
 
         if (invitationEmail !== userEmail) {
-            // In some cases user might use different email? 
+            // In some cases user might use different email?
             // Ideally we enforce it.
             console.error(`Email mismatch details: Invitation Email [${invitationEmail}] vs User Email [${userEmail}]`);
             // We throw the error but now we have logs
             throw new Error("Email mismatch");
+        }
+
+        // Plan limit re-check at acceptance time: count actual memberships only
+        // (the invite being accepted is itself counted as pending; we don't want
+        // to double-count it). Protects against concurrent acceptances when
+        // multiple PENDING invitations exceed quota.
+        const org = await ctx.db.get(invitation.organizationId);
+        if (!org) throw new Error("Organization not found");
+        const existingMemberships = await ctx.db
+            .query("memberships")
+            .withIndex("by_organization", (q) => q.eq("organizationId", invitation.organizationId))
+            .collect();
+        const maxAgents = await getMaxAgents(ctx, org.plan);
+        if (!isUnlimited(maxAgents) && existingMemberships.length >= maxAgents) {
+            throw new Error(
+                `Limite atteinte pour le plan ${org.plan} : agents (max ${maxAgents}). Supprimez un membre avant d'accepter cette invitation.`,
+            );
         }
 
         // Create Membership
