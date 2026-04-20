@@ -26,17 +26,15 @@ export default function OnboardingLayout({
 
     if (user === undefined) {
         return (
-            <div className="h-screen w-full flex items-center justify-center bg-gray-50">
+            <div className="h-screen w-full flex items-center justify-center bg-gray-50/50">
                 <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-2xl">
-                {children}
-            </div>
+        <div className="min-h-screen bg-gray-50/50">
+            {children}
         </div>
     );
 }

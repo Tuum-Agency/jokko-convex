@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, ArrowRight, Globe, CheckIcon, XIcon } from 'lucide-react';
+import { Loader2, ArrowRight, Globe, CheckIcon, XIcon, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Form,
     FormControl,
@@ -23,6 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 import {
     businessInfoSchema,
@@ -56,7 +58,6 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
 
     const createOrg = useMutation(api.organizations.create);
 
-    // Slug check logic
     const slug = form.watch('slug');
     const checkSlug = useQuery(api.organizations.checkSlug, slug && slug.length >= 3 ? { slug } : "skip");
     const [slugStatus, setSlugStatus] = useState<'checking' | 'available' | 'taken' | null>(null);
@@ -108,24 +109,28 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
         }
     }
 
+    const inputClass = "h-11 rounded-xl border-gray-200 bg-gray-50 focus-visible:bg-white focus-visible:border-green-500 focus-visible:ring-green-500/20 transition-colors";
+    const selectTriggerClass = "h-11 rounded-xl border-gray-200 bg-gray-50 data-[state=open]:bg-white hover:bg-white focus:bg-white focus:border-green-500 focus:ring-green-500/20 transition-colors";
+
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Business Name */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 <FormField
                     control={form.control}
                     name="businessName"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Nom de l&apos;entreprise *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">
+                                Nom de l&apos;entreprise <span className="text-green-600">*</span>
+                            </FormLabel>
                             <FormControl>
                                 <Input
                                     placeholder="Ma Super Entreprise"
                                     disabled={isLoading}
+                                    className={inputClass}
                                     {...field}
                                     onChange={(e) => {
                                         field.onChange(e);
-                                        // Auto-generate slug if not manually edited
                                         const slug = e.target.value
                                             .toLowerCase()
                                             .replace(/\s+/g, '-')
@@ -134,7 +139,7 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                                     }}
                                 />
                             </FormControl>
-                            <FormDescription>
+                            <FormDescription className="text-xs text-gray-500">
                                 Le nom qui sera affiché dans vos messages WhatsApp
                             </FormDescription>
                             <FormMessage />
@@ -142,19 +147,20 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                     )}
                 />
 
-                {/* Slug (subdomain) */}
                 <FormField
                     control={form.control}
                     name="slug"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Identifiant unique (slug) *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">
+                                Identifiant unique (slug) <span className="text-green-600">*</span>
+                            </FormLabel>
                             <FormControl>
                                 <div className="relative">
                                     <Input
                                         placeholder="mon-entreprise"
                                         disabled={isLoading}
-                                        className="pr-10"
+                                        className={cn(inputClass, 'pr-10')}
                                         {...field}
                                         onChange={(e) => {
                                             const value = e.target.value
@@ -164,31 +170,32 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                                             field.onChange(value);
                                         }}
                                     />
-                                    <Globe className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Globe className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
                             </FormControl>
                             {field.value && (
-                                <div className={`flex items-center gap-2 mt-2 p-2 rounded-md border text-xs
-                                    ${slugStatus === 'available' ? 'bg-green-50 border-green-100 text-green-700' : ''}
-                                    ${slugStatus === 'taken' ? 'bg-red-50 border-red-100 text-red-700' : ''}
-                                    ${slugStatus === 'checking' ? 'bg-gray-50 border-gray-100 text-gray-500' : ''}
-                                `}>
-                                    {slugStatus === 'checking' && <Loader2 className="h-3 w-3 animate-spin" />}
-                                    {slugStatus === 'available' && <CheckIcon className="h-3 w-3" />}
-                                    {slugStatus === 'taken' && <XIcon className="h-3 w-3" />}
+                                <div className={cn(
+                                    'flex items-center gap-2 mt-2 px-3 py-2 rounded-lg border text-xs transition-colors',
+                                    slugStatus === 'available' && 'bg-green-50 border-green-200 text-green-700',
+                                    slugStatus === 'taken' && 'bg-red-50 border-red-200 text-red-700',
+                                    slugStatus === 'checking' && 'bg-gray-50 border-gray-200 text-gray-500',
+                                )}>
+                                    {slugStatus === 'checking' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                    {slugStatus === 'available' && <CheckIcon className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                                    {slugStatus === 'taken' && <XIcon className="h-3.5 w-3.5" strokeWidth={2.5} />}
 
                                     <span className="font-medium">
                                         {field.value}.jokko.com
                                     </span>
 
-                                    <span className="ml-auto">
+                                    <span className="ml-auto font-medium">
                                         {slugStatus === 'checking' && 'Vérification...'}
                                         {slugStatus === 'available' && 'Disponible'}
                                         {slugStatus === 'taken' && 'Déjà pris'}
                                     </span>
                                 </div>
                             )}
-                            <FormDescription>
+                            <FormDescription className="text-xs text-gray-500">
                                 Votre URL d&apos;accès au dashboard.
                             </FormDescription>
                             <FormMessage />
@@ -196,20 +203,21 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                     )}
                 />
 
-                {/* Business Sector */}
                 <FormField
                     control={form.control}
                     name="businessSector"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Secteur d&apos;activité *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">
+                                Secteur d&apos;activité <span className="text-green-600">*</span>
+                            </FormLabel>
                             <Select
                                 onValueChange={field.onChange}
                                 defaultValue={field.value}
                                 disabled={isLoading}
                             >
                                 <FormControl>
-                                    <SelectTrigger>
+                                    <SelectTrigger className={selectTriggerClass}>
                                         <SelectValue placeholder="Sélectionnez votre secteur" />
                                     </SelectTrigger>
                                 </FormControl>
@@ -217,7 +225,7 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                                     {BUSINESS_SECTORS.map((sector) => (
                                         <SelectItem key={sector.value} value={sector.value}>
                                             <div className="flex items-center gap-2">
-                                                <sector.icon className="h-4 w-4 text-muted-foreground" />
+                                                <sector.icon className="h-4 w-4 text-gray-500" />
                                                 <span>{sector.label}</span>
                                             </div>
                                         </SelectItem>
@@ -229,62 +237,68 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                     )}
                 />
 
-                {/* Website */}
-                <FormField
-                    control={form.control}
-                    name="businessWebsite"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Site web (optionnel)</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type="url"
-                                    placeholder="https://www.example.com"
-                                    disabled={isLoading}
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                {/* Phone */}
-                <FormField
-                    control={form.control}
-                    name="businessPhone"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Téléphone (optionnel)</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type="tel"
-                                    placeholder="+221 77 123 45 67"
-                                    disabled={isLoading}
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                {/* Timezone & Locale row */}
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {/* Timezone */}
+                    <FormField
+                        control={form.control}
+                        name="businessWebsite"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-sm font-medium text-gray-700">
+                                    Site web
+                                </FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="url"
+                                        placeholder="https://www.example.com"
+                                        disabled={isLoading}
+                                        className={inputClass}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="businessPhone"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-sm font-medium text-gray-700">
+                                    Téléphone
+                                </FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="tel"
+                                        placeholder="+221 77 123 45 67"
+                                        disabled={isLoading}
+                                        className={inputClass}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="timezone"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Fuseau horaire</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700">
+                                    Fuseau horaire
+                                </FormLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     defaultValue={field.value}
                                     disabled={isLoading}
                                 >
                                     <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className={selectTriggerClass}>
                                             <SelectValue placeholder="Sélectionnez" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -301,20 +315,21 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                         )}
                     />
 
-                    {/* Locale */}
                     <FormField
                         control={form.control}
                         name="locale"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Langue</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700">
+                                    Langue
+                                </FormLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     defaultValue={field.value}
                                     disabled={isLoading}
                                 >
                                     <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className={selectTriggerClass}>
                                             <SelectValue placeholder="Sélectionnez" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -332,22 +347,25 @@ export function BusinessInfoStep({ onComplete }: BusinessInfoStepProps) {
                     />
                 </div>
 
-                {/* Error */}
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</p>}
+                {error && (
+                    <Alert variant="destructive" className="border-red-200 bg-red-50">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-red-700">{error}</AlertDescription>
+                    </Alert>
+                )}
 
-                {/* Submit */}
                 <Button
                     type="submit"
                     size="lg"
                     disabled={isLoading || slugStatus === 'taken' || slugStatus === 'checking'}
-                    className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-lg shadow-green-600/25 hover:shadow-green-600/40 transition-all duration-300 group"
+                    className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all group"
                 >
                     {isLoading ? (
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : (
                         <>
                             Continuer
-                            <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                            <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
                         </>
                     )}
                 </Button>
