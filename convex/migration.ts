@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { encrypt } from "./lib/encryption";
+import { assertWithinLimit } from "./lib/planLimits";
 
 const BATCH_SIZE = 200;
 
@@ -110,6 +111,10 @@ export const migrateOrg = internalMutation({
         if (channel) {
             channelId = channel._id;
         } else {
+            // Guard plan limit — même en migration on respecte le quota.
+            // Évite qu'une org en FREE/STARTER se retrouve avec 2 canaux
+            // après migration depuis le format legacy org.whatsapp.
+            await assertWithinLimit(ctx, args.organizationId, "channels");
             channelId = await ctx.db.insert("whatsappChannels", {
                 organizationId: args.organizationId,
                 wabaId,
