@@ -157,6 +157,26 @@ export const create = mutation({
             throw new Error("Permission refusée: seuls les admins peuvent créer des broadcasts");
         }
 
+        // Plan gate: the org must have at least one active WhatsApp channel
+        // allowed by its current plan. Prevents creating broadcasts when all
+        // channels have been disabled after a downgrade.
+        const channels = await ctx.db
+            .query("whatsappChannels")
+            .withIndex("by_org", (q) => q.eq("organizationId", session.currentOrganizationId!))
+            .collect();
+        const hasActiveChannel = channels.some((c) => c.status === "active");
+        if (!hasActiveChannel) {
+            throw new Error(
+                "Aucun canal WhatsApp actif. Activez ou reconnectez un canal avant de créer un broadcast.",
+            );
+        }
+        if (args.whatsappChannelId) {
+            const target = channels.find((c) => c._id === args.whatsappChannelId);
+            if (!target || target.status !== "active") {
+                throw new Error("Le canal sélectionné n'est pas actif pour votre plan.");
+            }
+        }
+
         // Validation: scheduledAt doit être au moins 5 minutes dans le futur
         if (args.scheduledAt && args.scheduledAt <= Date.now() + 5 * 60 * 1000) {
             throw new Error("La date de planification doit être au moins 5 minutes dans le futur");

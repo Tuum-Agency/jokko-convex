@@ -1,6 +1,112 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, type MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { planFromPriceId } from "./lib/stripePlans";
+import { getMaxChannels, isUnlimited } from "./lib/planHelpers";
+
+/**
+ * Applique la règle de cascade lors d'un downgrade de plan :
+ * désactive les canaux WhatsApp excédentaires en gardant en priorité
+ * le canal default/primary, puis les plus anciens.
+ *
+ * - status -> "disabled"
+ * - disabledReason -> "plan_downgrade"
+ * - disabledAt -> timestamp
+ *
+ * Met également en pause les broadcasts SCHEDULED liés aux canaux désactivés
+ * et notifie l'OWNER de l'organisation.
+ */
+async function enforceChannelDowngrade(
+    ctx: MutationCtx,
+    organizationId: Id<"organizations">,
+    newPlan: string,
+): Promise<number> {
+    const maxChannels = await getMaxChannels(ctx, newPlan);
+    if (isUnlimited(maxChannels)) return 0;
+
+    const channels = await ctx.db
+        .query("whatsappChannels")
+        .withIndex("by_org", (q) => q.eq("organizationId", organizationId))
+        .collect();
+
+    const activeChannels = channels.filter((c) => c.status !== "disabled" && c.status !== "banned");
+    if (activeChannels.length <= maxChannels) return 0;
+
+    // Règle déterministe : default/primary d'abord, puis les plus anciens
+    const sorted = [...activeChannels].sort((a, b) => {
+        if (a.isOrgDefault && !b.isOrgDefault) return -1;
+        if (!a.isOrgDefault && b.isOrgDefault) return 1;
+        return a.createdAt - b.createdAt;
+    });
+
+    const toKeep = sorted.slice(0, maxChannels);
+    const toDisable = sorted.slice(maxChannels);
+    const now = Date.now();
+    const disabledIds: Id<"whatsappChannels">[] = [];
+
+    for (const ch of toDisable) {
+        await ctx.db.patch(ch._id, {
+            status: "disabled",
+            disabledReason: "plan_downgrade",
+            disabledAt: now,
+            isOrgDefault: false,
+            updatedAt: now,
+        });
+        disabledIds.push(ch._id);
+    }
+
+    // Assurer qu'un canal default reste si la liste à garder en contient au moins un
+    const hasDefault = toKeep.some((c) => c.isOrgDefault);
+    if (!hasDefault && toKeep.length > 0) {
+        await ctx.db.patch(toKeep[0]._id, { isOrgDefault: true, updatedAt: now });
+    }
+
+    // Pause des broadcasts SCHEDULED qui ciblent les canaux désactivés
+    if (disabledIds.length > 0) {
+        const scheduled = await ctx.db
+            .query("broadcasts")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .filter((q) => q.eq(q.field("status"), "SCHEDULED"))
+            .collect();
+        for (const b of scheduled) {
+            if (b.whatsappChannelId && disabledIds.includes(b.whatsappChannelId)) {
+                await ctx.db.patch(b._id, { status: "DRAFT", updatedAt: now });
+                await ctx.db.insert("broadcastActivities", {
+                    broadcastId: b._id,
+                    type: "paused",
+                    message: `Campagne dépubliée : canal désactivé après passage au plan ${newPlan}`,
+                    createdAt: now,
+                });
+            }
+        }
+    }
+
+    // Notifications — on notifie OWNER et ADMIN de l'organisation
+    const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+        .collect();
+    for (const m of memberships) {
+        if (m.role !== "OWNER" && m.role !== "ADMIN") continue;
+        await ctx.db.insert("notifications", {
+            organizationId,
+            userId: m.userId,
+            type: "PLAN_DOWNGRADE",
+            title: "Canaux désactivés après changement de plan",
+            message: `Votre plan ${newPlan} autorise ${maxChannels} canal${maxChannels > 1 ? "aux" : ""}. ${disabledIds.length} canal${disabledIds.length > 1 ? "aux ont été désactivés" : " a été désactivé"}.`,
+            link: "/dashboard/channels",
+            isRead: false,
+            metadata: {
+                disabledChannelIds: disabledIds.map((id) => id.toString()),
+                newPlan,
+                maxChannels,
+            },
+            createdAt: now,
+        });
+    }
+
+    return disabledIds.length;
+}
 
 /**
  * Persist the Stripe customer ID immediately after creation.
@@ -57,6 +163,9 @@ export const handleCheckoutCompleted = internalMutation({
             },
             updatedAt: Date.now(),
         });
+
+        // Cascade enforcement si le nouveau plan a des limites inférieures
+        await enforceChannelDowngrade(ctx, org._id as Id<"organizations">, plan);
     },
 });
 
@@ -107,6 +216,8 @@ export const updateSubscription = internalMutation({
             },
             updatedAt: Date.now(),
         });
+
+        await enforceChannelDowngrade(ctx, org._id, plan);
     },
 });
 
@@ -140,5 +251,32 @@ export const cancelSubscription = internalMutation({
             },
             updatedAt: Date.now(),
         });
+
+        await enforceChannelDowngrade(ctx, org._id, "FREE");
+    },
+});
+
+/**
+ * Migration / régularisation rétroactive : applique la règle de cascade
+ * à toutes les organisations existantes. Utile après le déploiement
+ * pour désactiver les canaux excédentaires d'orgs déjà en dépassement.
+ */
+export const backfillPlanLimits = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const orgs = await ctx.db.query("organizations").collect();
+        let totalDisabled = 0;
+        let orgsAffected = 0;
+        for (const org of orgs) {
+            const disabled = await enforceChannelDowngrade(ctx, org._id, org.plan);
+            if (disabled > 0) {
+                totalDisabled += disabled;
+                orgsAffected += 1;
+            }
+        }
+        console.log(
+            `[backfillPlanLimits] Désactivé ${totalDisabled} canaux dans ${orgsAffected} orgs`,
+        );
+        return { totalDisabled, orgsAffected };
     },
 });

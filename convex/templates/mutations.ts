@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { validateTemplate } from "../lib/templateValidation";
+import { assertWithinLimit } from "../lib/planLimits";
 import {
     headerValidator, buttonsValidator, carouselCardsValidator,
     catalogConfigValidator, listConfigValidator, locationConfigValidator,
@@ -41,6 +42,9 @@ export const create = mutation({
             .first();
 
         if (!session || !session.currentOrganizationId) throw new Error("No active organization");
+
+        // Plan limit: block template creation when quota is reached.
+        await assertWithinLimit(ctx, session.currentOrganizationId, "templates");
 
         // Validate
         const validation = validateTemplate(args);
