@@ -14,6 +14,7 @@ import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { hasPermission } from "../lib/permissions";
+import { requirePlanFeatureInAction } from "../lib/planFeatures";
 import { getAdapter } from "./registry";
 import { getProviderInfo } from "./core/providers";
 import { encrypt } from "../lib/encryption";
@@ -47,7 +48,7 @@ export const connectWithApiKey = action({
             throw new Error(`Le fournisseur ${provided} n'utilise pas une clé API`);
         }
 
-        const { organizationId, role } = await ctx.runQuery(
+        const { organizationId, role, plan } = await ctx.runQuery(
             internal.crm.oauth._sessionContext,
             { userId },
         );
@@ -55,6 +56,8 @@ export const connectWithApiKey = action({
         if (!hasPermission(role, "integrations:manage")) {
             throw new Error("Permission refusée : integrations:manage");
         }
+        // Feature gate plan : intégrations CRM réservées au plan PRO+
+        await requirePlanFeatureInAction(plan, "integrations_crm");
 
         const trimmedKey = args.apiKey.trim();
         if (!trimmedKey) throw new Error("Clé API requise");

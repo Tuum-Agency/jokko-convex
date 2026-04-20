@@ -71,6 +71,7 @@ import type * as lib_email from "../lib/email.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_encryptionMigration from "../lib/encryptionMigration.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_planEnforcement from "../lib/planEnforcement.js";
 import type * as lib_planHelpers from "../lib/planHelpers.js";
 import type * as lib_planLimits from "../lib/planLimits.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
@@ -181,6 +182,7 @@ declare const fullApi: ApiFromModules<{
   "lib/encryption": typeof lib_encryption;
   "lib/encryptionMigration": typeof lib_encryptionMigration;
   "lib/permissions": typeof lib_permissions;
+  "lib/planEnforcement": typeof lib_planEnforcement;
   "lib/planHelpers": typeof lib_planHelpers;
   "lib/planLimits": typeof lib_planLimits;
   "lib/rateLimits": typeof lib_rateLimits;

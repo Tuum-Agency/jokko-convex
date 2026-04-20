@@ -3,6 +3,7 @@ import { mutation, query, internalAction, internalMutation, internalQuery } from
 import { internal, api } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { hasPermission, type Role } from "./lib/permissions";
+import { requirePlanFeature } from "./lib/planFeatures";
 import { getMessageCostFCFA, calculateBroadcastCost } from "../lib/whatsapp-pricing";
 
 // List broadcasts for the current organization
@@ -148,6 +149,9 @@ export const create = mutation({
         if (!session?.currentOrganizationId) {
             throw new Error("No organization selected");
         }
+
+        // Feature gate plan : broadcasts réservé BUSINESS+
+        await requirePlanFeature(ctx, session.currentOrganizationId, "broadcasts");
 
         // Permission check: only ADMIN+ can create broadcasts
         const membership = await ctx.db.query("memberships")
