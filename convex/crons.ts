@@ -31,4 +31,12 @@ crons.interval("crm-dispatcher-tick", { seconds: 20 }, internal.crm.dispatcher.r
 // Poll active CRM connections for delta sync every minute
 crons.interval("crm-poller-tick", { minutes: 1 }, internal.crm.poller.runTick);
 
+// Purge crmContactLinks for CRMs disconnected more than 7 days ago
+// (matches the grace period advertised in DisconnectDialog).
+crons.daily(
+    "crm-contact-links-purge",
+    { hourUTC: 3, minuteUTC: 30 },
+    internal.crm.contactLinks.purgeStaleLinks,
+);
+
 export default crons;

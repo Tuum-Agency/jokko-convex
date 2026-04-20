@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --experimental-https -p 1000",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "ngrok": "npx ngrok http 3001"
+    "start": "next start -p 1000",
+    "lint": "eslint"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",

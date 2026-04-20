@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
+import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api";
 
 /**
@@ -46,10 +47,22 @@ export async function GET(
         destination.searchParams.set("connectionId", result.connectionId);
         return NextResponse.redirect(destination);
     } catch (e) {
+        destination.searchParams.set("provider", provider);
+
+        if (e instanceof ConvexError) {
+            const data = e.data as { code?: string; existingProvider?: string } | string;
+            if (typeof data === "object" && data?.code === "ANOTHER_PROVIDER_CONNECTED") {
+                destination.searchParams.set("error", "another_provider_connected");
+                if (data.existingProvider) {
+                    destination.searchParams.set("existingProvider", data.existingProvider);
+                }
+                return NextResponse.redirect(destination);
+            }
+        }
+
         const message = e instanceof Error ? e.message : "oauth_failed";
         destination.searchParams.set("error", "oauth_exchange_failed");
         destination.searchParams.set("detail", message.slice(0, 200));
-        destination.searchParams.set("provider", provider);
         return NextResponse.redirect(destination);
     }
 }

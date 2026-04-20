@@ -10,7 +10,9 @@ import {
     MapPin,
     Tag,
     FileText,
-    Loader2
+    Loader2,
+    ExternalLink,
+    Lock,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -32,6 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { PhoneInput } from './PhoneInput';
 import { detectCountry } from '@/lib/contacts/validation';
+import { useCrmLink } from '@/hooks/use-crm-link';
 
 // Helper to wrap input with icon
 function InputWithIcon({ leftIcon, className, ...props }: any) {
@@ -82,6 +85,9 @@ export function ContactForm({
     isLoading,
     onCancel
 }: ContactFormProps) {
+
+    const crmLink = useCrmLink(mode === 'edit' ? initialData?.id : null);
+    const isCrmLinked = !!crmLink;
 
     // Extract tags from initialData if present
     const initialTags = initialData?.tags
@@ -157,11 +163,36 @@ export function ContactForm({
         await onSubmit(payload);
     };
 
+    const coreDisabled = isLoading || isCrmLinked;
+
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)}>
                 <Card className="border-0 shadow-none">
                     <CardContent className="space-y-4 px-0 pb-0">
+                        {isCrmLinked && crmLink && (
+                            <div className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                <div className="flex items-center gap-2 font-medium">
+                                    <Lock className="h-4 w-4" />
+                                    Contact synchronisé avec {crmLink.providerLabel}
+                                </div>
+                                <p className="text-xs text-amber-800">
+                                    Les informations principales sont gérées dans {crmLink.providerLabel}.
+                                    Vous pouvez ajouter des tags ou des notes locales côté Jokko.
+                                </p>
+                                {crmLink.externalUrl && (
+                                    <a
+                                        href={crmLink.externalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex w-fit items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+                                    >
+                                        Éditer dans {crmLink.providerLabel}
+                                        <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                )}
+                            </div>
+                        )}
                         {/* Phone */}
                         <FormField
                             control={form.control}
@@ -176,7 +207,7 @@ export function ContactForm({
                                             onChange={(val) => field.onChange(val)}
                                             onBlur={field.onBlur}
                                             error={fieldState.error?.message}
-                                            disabled={isLoading}
+                                            disabled={coreDisabled}
                                         />
                                     </FormControl>
                                     <FormDescription>
@@ -198,7 +229,7 @@ export function ContactForm({
                                             <InputWithIcon
                                                 placeholder="Amadou"
                                                 leftIcon={<User className="h-4 w-4" />}
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -215,7 +246,7 @@ export function ContactForm({
                                         <FormControl>
                                             <Input
                                                 placeholder="Diallo"
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -236,7 +267,7 @@ export function ContactForm({
                                             type="email"
                                             placeholder="amadou@example.com"
                                             leftIcon={<Mail className="h-4 w-4" />}
-                                            disabled={isLoading}
+                                            disabled={coreDisabled}
                                             {...field}
                                         />
                                     </FormControl>
@@ -257,7 +288,7 @@ export function ContactForm({
                                             <InputWithIcon
                                                 placeholder="Jokko SAS"
                                                 leftIcon={<Building2 className="h-4 w-4" />}
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -274,7 +305,7 @@ export function ContactForm({
                                         <FormControl>
                                             <Input
                                                 placeholder="Directeur commercial"
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -294,7 +325,7 @@ export function ContactForm({
                                         <InputWithIcon
                                             placeholder="123 Rue de Dakar"
                                             leftIcon={<MapPin className="h-4 w-4" />}
-                                            disabled={isLoading}
+                                            disabled={coreDisabled}
                                             {...field}
                                         />
                                     </FormControl>
@@ -312,7 +343,7 @@ export function ContactForm({
                                         <FormControl>
                                             <Input
                                                 placeholder="Dakar"
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -329,7 +360,7 @@ export function ContactForm({
                                         <FormControl>
                                             <Input
                                                 placeholder="Sénégal"
-                                                disabled={isLoading}
+                                                disabled={coreDisabled}
                                                 {...field}
                                             />
                                         </FormControl>

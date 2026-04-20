@@ -1,0 +1,150 @@
+{
+    "$description": "Jeu de contacts de test utilisé pour seeder les CRMs (HubSpot, Pipedrive, Sellsy, Salesforce, Axonaut, noCRM.io).",
+    "$version": "1.0.0",
+    "contacts": [
+        {
+            "firstName": "Awa",
+            "lastName": "Diop",
+            "email": "awa.diop@baobabtech.sn",
+            "phone": "+221771234567",
+            "company": "Baobab Tech",
+            "jobTitle": "CEO",
+            "city": "Dakar",
+            "country": "Senegal",
+            "lifecycleStage": "customer",
+            "tags": ["vip", "whatsapp"]
+        },
+        {
+            "firstName": "Mamadou",
+            "lastName": "Ndiaye",
+            "email": "m.ndiaye@teranga-logistics.com",
+            "phone": "+221772345678",
+            "company": "Teranga Logistics",
+            "jobTitle": "Operations Manager",
+            "city": "Thiès",
+            "country": "Senegal",
+            "lifecycleStage": "opportunity",
+            "tags": ["logistics", "b2b"]
+        },
+        {
+            "firstName": "Fatou",
+            "lastName": "Sarr",
+            "email": "fatou.sarr@akwabagroup.ci",
+            "phone": "+2250707123456",
+            "company": "Akwaba Group",
+            "jobTitle": "Marketing Director",
+            "city": "Abidjan",
+            "country": "Côte d'Ivoire",
+            "lifecycleStage": "lead",
+            "tags": ["marketing", "agency"]
+        },
+        {
+            "firstName": "Ibrahim",
+            "lastName": "Touré",
+            "email": "ibrahim.toure@kairadigital.ml",
+            "phone": "+22370123456",
+            "company": "Kaira Digital",
+            "jobTitle": "CTO",
+            "city": "Bamako",
+            "country": "Mali",
+            "lifecycleStage": "lead",
+            "tags": ["tech", "startup"]
+        },
+        {
+            "firstName": "Aminata",
+            "lastName": "Ba",
+            "email": "a.ba@saharamedia.mr",
+            "phone": "+22241234567",
+            "company": "Sahara Media",
+            "jobTitle": "Content Strategist",
+            "city": "Nouakchott",
+            "country": "Mauritania",
+            "lifecycleStage": "subscriber",
+            "tags": ["media", "content"]
+        },
+        {
+            "firstName": "Ousmane",
+            "lastName": "Fall",
+            "email": "ousmane.fall@ndamli-retail.sn",
+            "phone": "+221773456789",
+            "company": "Ndamli Retail",
+            "jobTitle": "Founder",
+            "city": "Saint-Louis",
+            "country": "Senegal",
+            "lifecycleStage": "customer",
+            "tags": ["retail", "whatsapp"]
+        },
+        {
+            "firstName": "Khadija",
+            "lastName": "El Amrani",
+            "email": "k.elamrani@atlasconseil.ma",
+            "phone": "+212661234567",
+            "company": "Atlas Conseil",
+            "jobTitle": "Senior Consultant",
+            "city": "Casablanca",
+            "country": "Morocco",
+            "lifecycleStage": "opportunity",
+            "tags": ["consulting", "b2b"]
+        },
+        {
+            "firstName": "Jean-Baptiste",
+            "lastName": "Koffi",
+            "email": "jb.koffi@lagoon-fintech.ci",
+            "phone": "+2250708234567",
+            "company": "Lagoon Fintech",
+            "jobTitle": "Head of Product",
+            "city": "Abidjan",
+            "country": "Côte d'Ivoire",
+            "lifecycleStage": "lead",
+            "tags": ["fintech", "product"]
+        },
+        {
+            "firstName": "Sophie",
+            "lastName": "Martin",
+            "email": "sophie.martin@pangea-export.fr",
+            "phone": "+33612345678",
+            "company": "Pangea Export",
+            "jobTitle": "International Sales",
+            "city": "Paris",
+            "country": "France",
+            "lifecycleStage": "subscriber",
+            "tags": ["export", "europe"]
+        },
+        {
+            "firstName": "Chinedu",
+            "lastName": "Okafor",
+            "email": "chinedu@naijaventures.ng",
+            "phone": "+2348012345678",
+            "company": "Naija Ventures",
+            "jobTitle": "Investment Analyst",
+            "city": "Lagos",
+            "country": "Nigeria",
+            "lifecycleStage": "lead",
+            "tags": ["vc", "investment"]
+        },
+        {
+            "firstName": "Aïssatou",
+            "lastName": "Camara",
+            "email": "aissatou.camara@conakrysoft.gn",
+            "phone": "+224622345678",
+            "company": "Conakry Software",
+            "jobTitle": "Lead Developer",
+            "city": "Conakry",
+            "country": "Guinea",
+            "lifecycleStage": "customer",
+            "tags": ["tech", "dev"]
+        },
+        {
+            "firstName": "Paulo",
+            "lastName": "Gomes",
+            "email": "paulo.gomes@capverde-tours.cv",
+            "phone": "+2389123456",
+            "company": "CapVerde Tours",
+            "jobTitle": "General Manager",
+            "city": "Praia",
+            "country": "Cape Verde",
+            "lifecycleStage": "opportunity",
+            "tags": ["tourism", "b2c"]
+        }
+    ]
+}

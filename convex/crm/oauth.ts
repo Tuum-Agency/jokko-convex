@@ -3,9 +3,10 @@
  * Runs in Convex default runtime (fetch + Web Crypto available).
  */
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import {
     action,
+    ActionCtx,
     internalMutation,
     internalQuery,
     MutationCtx,
@@ -34,10 +35,87 @@ const SUPPORTED_OAUTH_PROVIDERS: CRMProvider[] = [
     "salesforce",
 ];
 
-function oauthRedirectUri(provider: string): string {
+const LOCALHOST_REDIRECT_BASE = "https://localhost:1000";
+
+function defaultRedirectBase(): string {
     const base = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL;
     if (!base) throw new Error("SITE_URL env var required for OAuth redirect");
+    return base.replace(/\/$/, "");
+}
+
+function oauthRedirectUri(provider: string, baseOverride?: string): string {
+    const base = baseOverride ?? defaultRedirectBase();
     return `${base.replace(/\/$/, "")}/api/crm/oauth/${provider}/callback`;
+}
+
+async function beginOAuthFlow(
+    ctx: ActionCtx,
+    params: {
+        provider: CRMProvider;
+        scalingMode?: "standard" | "large";
+        redirectBaseOverride?: string;
+        mode: "standard" | "local";
+    },
+): Promise<{ authorizeUrl: string }> {
+    const correlationId = newCorrelationId(`oauth_${params.mode === "local" ? "start_local" : "start"}`);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié");
+
+    if (!SUPPORTED_OAUTH_PROVIDERS.includes(params.provider)) {
+        throw new Error(`Fournisseur OAuth non supporté au MVP : ${params.provider}`);
+    }
+
+    const { organizationId, role } = await ctx.runQuery(
+        internal.crm.oauth._sessionContext,
+        { userId },
+    );
+    if (!organizationId) throw new Error("Aucune organisation active");
+    if (!hasPermission(role, "integrations:manage")) {
+        throw new Error("Permission refusée : integrations:manage");
+    }
+
+    const verifier = generatePkceVerifier();
+    const challenge = await pkceChallengeFromVerifier(verifier);
+    const nonce = generateNonce();
+    const state = await signState({
+        nonce,
+        provider: params.provider,
+        organizationId,
+        userId,
+        createdAtMs: Date.now(),
+    });
+
+    const redirectUri = oauthRedirectUri(params.provider, params.redirectBaseOverride);
+    await ctx.runMutation(internal.crm.oauth._persistAttempt, {
+        state,
+        provider: params.provider,
+        organizationId: organizationId as Id<"organizations">,
+        userId,
+        codeVerifier: verifier,
+        redirectUri,
+        scalingMode: params.scalingMode ?? "standard",
+    });
+
+    const adapter = getAdapter(params.provider);
+    if (!adapter.buildAuthorizeUrl) {
+        throw new Error(`Adapter ${params.provider} n'expose pas buildAuthorizeUrl`);
+    }
+    const authorizeUrl = adapter.buildAuthorizeUrl({
+        state,
+        redirectUri,
+        codeChallenge: challenge,
+    });
+
+    logJson("info", {
+        module: "crm.oauth",
+        event: params.mode === "local" ? "start_local" : "start",
+        provider: params.provider,
+        organizationId,
+        correlationId,
+        redirectUri,
+    });
+
+    return { authorizeUrl };
 }
 
 export const start = action({
@@ -46,65 +124,35 @@ export const start = action({
         scalingMode: v.optional(v.union(v.literal("standard"), v.literal("large"))),
     },
     handler: async (ctx, { provider, scalingMode }): Promise<{ authorizeUrl: string }> => {
-        const correlationId = newCorrelationId("oauth_start");
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Non authentifié");
-
-        const provided = provider as CRMProvider;
-        if (!SUPPORTED_OAUTH_PROVIDERS.includes(provided)) {
-            throw new Error(`Fournisseur OAuth non supporté au MVP : ${provider}`);
-        }
-
-        const { organizationId, role } = await ctx.runQuery(
-            internal.crm.oauth._sessionContext,
-            { userId },
-        );
-        if (!organizationId) throw new Error("Aucune organisation active");
-        if (!hasPermission(role, "integrations:manage")) {
-            throw new Error("Permission refusée : integrations:manage");
-        }
-
-        const verifier = generatePkceVerifier();
-        const challenge = await pkceChallengeFromVerifier(verifier);
-        const nonce = generateNonce();
-        const state = await signState({
-            nonce,
-            provider: provided,
-            organizationId,
-            userId,
-            createdAtMs: Date.now(),
+        return beginOAuthFlow(ctx, {
+            provider: provider as CRMProvider,
+            scalingMode,
+            mode: "standard",
         });
+    },
+});
 
-        const redirectUri = oauthRedirectUri(provided);
-        await ctx.runMutation(internal.crm.oauth._persistAttempt, {
-            state,
-            provider: provided,
-            organizationId: organizationId as Id<"organizations">,
-            userId,
-            codeVerifier: verifier,
-            redirectUri,
-            scalingMode: scalingMode ?? "standard",
+/**
+ * Dev-only: force the OAuth callback to hit the local Next dev server
+ * (`https://localhost:1000/api/crm/oauth/{provider}/callback`) regardless of
+ * the deployment's SITE_URL. Let us test OAuth flows locally without having
+ * to re-point SITE_URL in prod.
+ *
+ * Requires the provider's developer portal to whitelist the localhost redirect
+ * URL alongside the prod URL.
+ */
+export const startLocal = action({
+    args: {
+        provider: v.string(),
+        scalingMode: v.optional(v.union(v.literal("standard"), v.literal("large"))),
+    },
+    handler: async (ctx, { provider, scalingMode }): Promise<{ authorizeUrl: string }> => {
+        return beginOAuthFlow(ctx, {
+            provider: provider as CRMProvider,
+            scalingMode,
+            redirectBaseOverride: LOCALHOST_REDIRECT_BASE,
+            mode: "local",
         });
-
-        const adapter = getAdapter(provided);
-        if (!adapter.buildAuthorizeUrl) {
-            throw new Error(`Adapter ${provided} n'expose pas buildAuthorizeUrl`);
-        }
-        const authorizeUrl = adapter.buildAuthorizeUrl({
-            state,
-            redirectUri,
-            codeChallenge: challenge,
-        });
-
-        logJson("info", {
-            module: "crm.oauth",
-            event: "start",
-            provider: provided,
-            organizationId,
-            correlationId,
-        });
-
-        return { authorizeUrl };
     },
 });
 
@@ -271,9 +319,11 @@ export const _finalizeConnection = internalMutation({
             )
             .first();
         if (existingActive && existingActive.provider !== args.provider) {
-            throw new Error(
-                `Une connexion ${existingActive.provider} est déjà active. Déconnectez-la avant d'ajouter ${args.provider}.`,
-            );
+            throw new ConvexError({
+                code: "ANOTHER_PROVIDER_CONNECTED",
+                existingProvider: existingActive.provider,
+                attemptedProvider: args.provider,
+            });
         }
 
         const sameProviderAccount = await ctx.db

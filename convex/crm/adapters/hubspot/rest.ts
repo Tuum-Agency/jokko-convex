@@ -29,6 +29,7 @@ const DEFAULT_SCOPES = [
     "crm.objects.contacts.read",
     "crm.objects.contacts.write",
     "crm.objects.deals.read",
+    "crm.objects.deals.write",
     "oauth",
 ];
 
@@ -373,6 +374,93 @@ export async function findContactByPhone(p: {
         if (json.results[0]) return toUnifiedContact(json.results[0]);
     }
     return null;
+}
+
+export type SeedContactInput = {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    jobTitle?: string;
+    city?: string;
+    country?: string;
+    lifecycleStage?: string;
+};
+
+export type SeedContactResult = {
+    input: SeedContactInput;
+    status: "created" | "existing" | "failed";
+    externalId?: string;
+    error?: string;
+};
+
+function toHubspotProps(c: SeedContactInput): Record<string, string> {
+    const props: Record<string, string> = {};
+    if (c.firstName) props.firstname = c.firstName;
+    if (c.lastName) props.lastname = c.lastName;
+    if (c.email) props.email = c.email;
+    if (c.phone) props.phone = c.phone;
+    if (c.company) props.company = c.company;
+    if (c.jobTitle) props.jobtitle = c.jobTitle;
+    if (c.city) props.city = c.city;
+    if (c.country) props.country = c.country;
+    if (c.lifecycleStage) props.lifecyclestage = c.lifecycleStage;
+    return props;
+}
+
+export async function createContactsBatch(p: {
+    ctx: AdapterCallCtx;
+    contacts: SeedContactInput[];
+}): Promise<SeedContactResult[]> {
+    const accessToken = p.ctx.credentials.accessToken;
+    if (!accessToken) throw new CRMAuthError("missing access token", { provider: "hubspot" });
+    if (p.contacts.length === 0) return [];
+
+    const results: SeedContactResult[] = [];
+
+    for (let i = 0; i < p.contacts.length; i += 100) {
+        const batch = p.contacts.slice(i, i + 100);
+        const inputs = batch.map((c) => ({ properties: toHubspotProps(c) }));
+
+        try {
+            const json = (await hubspotFetch(`/crm/v3/objects/contacts/batch/create`, {
+                accessToken,
+                method: "POST",
+                body: JSON.stringify({ inputs }),
+            })) as {
+                results: Array<{ id: string; properties: Record<string, string | null> }>;
+            };
+
+            for (let j = 0; j < batch.length; j++) {
+                results.push({
+                    input: batch[j],
+                    status: "created",
+                    externalId: json.results[j]?.id,
+                });
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const isDuplicate = /CONFLICT|already exists|duplicate/i.test(msg);
+
+            for (const c of batch) {
+                if (isDuplicate && c.email) {
+                    try {
+                        const existing = await findContactByEmail({ ctx: p.ctx, email: c.email });
+                        if (existing?.externalId) {
+                            results.push({ input: c, status: "existing", externalId: existing.externalId });
+                            continue;
+                        }
+                    } catch {
+                        /* fallthrough */
+                    }
+                }
+                results.push({ input: c, status: "failed", error: msg });
+            }
+        }
+    }
+
+    return results;
 }
 
 const EVENT_LABELS: Record<string, string> = {

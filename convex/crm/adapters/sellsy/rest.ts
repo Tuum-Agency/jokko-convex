@@ -24,7 +24,7 @@ import type {
 const SELLSY_API = "https://api.sellsy.com/v2";
 const SELLSY_AUTH = "https://login.sellsy.com/oauth2/authorization";
 const SELLSY_TOKEN = "https://login.sellsy.com/oauth2/access-tokens";
-const DEFAULT_SCOPES = ["customers.read", "opportunities.read", "comments.write"];
+const DEFAULT_SCOPES = ["contacts.read", "opportunities.read", "comments.write"];
 
 function env(name: string): string {
     const v = process.env[name];

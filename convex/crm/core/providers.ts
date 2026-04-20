@@ -31,7 +31,12 @@ export const PROVIDER_INFO: Record<CRMProvider, ProviderInfo> = {
             pageSizeLarge: 100,
             pollIntervalStandardMs: 10 * 60_000,
             pollIntervalLargeMs: 3 * 60_000,
-            requiredScopes: ["crm.objects.contacts.read", "crm.objects.deals.read"],
+            requiredScopes: [
+                "crm.objects.contacts.read",
+                "crm.objects.contacts.write",
+                "crm.objects.deals.read",
+                "crm.objects.deals.write",
+            ],
         },
     },
     pipedrive: {

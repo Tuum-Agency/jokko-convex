@@ -3,10 +3,18 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import {
+    action,
+    internalMutation,
+    internalQuery,
+    query,
+} from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { listProviders } from "./core/providers";
+import { getProviderInfo, listProviders } from "./core/providers";
 import { hasPermission } from "../lib/permissions";
+import { decrypt } from "../lib/encryption";
+import { getAdapter } from "./registry";
 import type { CRMProvider } from "./core/types";
 
 /**
@@ -24,6 +32,7 @@ export const listAvailableProviders = query({
             docsUrl: p.docsUrl,
             supportsDeals: p.capabilities.supportsDeals,
             supportsWebhooks: p.capabilities.supportsWebhooks,
+            supportsRevoke: p.capabilities.supportsRevoke,
         }));
     },
 });
@@ -110,17 +119,14 @@ export const getConnection = query({
 });
 
 /**
- * Disconnects a CRM connection.
- * Erases encrypted tokens immediately (per design §5.1), sets status to "disconnected",
- * records audit log. Does NOT delete crmContactLinks (keeps historical mapping).
- * Requires `integrations:manage` permission.
+ * Internal: loads enough state to perform a disconnect + remote revocation.
+ * Enforces organization scoping + `integrations:manage` permission.
+ * Returns encrypted tokens that the caller (an `action`) will decrypt and
+ * pass to the adapter's `revokeToken` before wiping them.
  */
-export const disconnect = mutation({
-    args: { connectionId: v.id("crmConnections") },
-    handler: async (ctx, { connectionId }) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("unauthenticated");
-
+export const _prepareDisconnect = internalQuery({
+    args: { connectionId: v.id("crmConnections"), userId: v.id("users") },
+    handler: async (ctx, { connectionId, userId }) => {
         const conn = await ctx.db.get(connectionId);
         if (!conn) throw new Error("connection_not_found");
 
@@ -143,6 +149,34 @@ export const disconnect = mutation({
             throw new Error("forbidden");
         }
 
+        return {
+            provider: conn.provider as CRMProvider,
+            organizationId: conn.organizationId,
+            accessTokenEnc: conn.accessTokenEnc,
+            refreshTokenEnc: conn.refreshTokenEnc,
+        };
+    },
+});
+
+/**
+ * Internal: wipes encrypted tokens, flips status to "disconnected", records
+ * the audit log. Called by the `disconnect` action after best-effort remote
+ * revocation.
+ */
+export const _finalizeDisconnect = internalMutation({
+    args: {
+        connectionId: v.id("crmConnections"),
+        userId: v.id("users"),
+        remoteRevokeStatus: v.union(
+            v.literal("success"),
+            v.literal("failed"),
+            v.literal("skipped"),
+        ),
+    },
+    handler: async (ctx, { connectionId, userId, remoteRevokeStatus }) => {
+        const conn = await ctx.db.get(connectionId);
+        if (!conn) throw new Error("connection_not_found");
+
         const now = Date.now();
         await ctx.db.patch(connectionId, {
             status: "disconnected",
@@ -161,10 +195,68 @@ export const disconnect = mutation({
             connectionId,
             provider: conn.provider,
             action: "disconnect",
-            severity: "info",
+            severity: remoteRevokeStatus === "failed" ? "warning" : "info",
+            metadataSanitized: { remoteRevoke: remoteRevokeStatus },
             createdAt: now,
         });
 
         return { ok: true as const };
+    },
+});
+
+/**
+ * Disconnects a CRM connection.
+ *
+ * Flow:
+ *   1. Permission check via internal query (org scoping + `integrations:manage`)
+ *   2. Best-effort OAuth revoke on provider side (Salesforce is the only
+ *      adapter that actually implements this today; others are no-ops)
+ *   3. Wipe encrypted tokens + audit log via internal mutation
+ *
+ * A failed remote revoke does NOT abort the disconnect — local state is the
+ * source of truth and the user can still revoke access manually from the
+ * provider's UI (the dialog already warns about this case).
+ */
+export const disconnect = action({
+    args: { connectionId: v.id("crmConnections") },
+    handler: async (ctx, { connectionId }): Promise<{ ok: true }> => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("unauthenticated");
+
+        const prepared = await ctx.runQuery(internal.crm.connections._prepareDisconnect, {
+            connectionId,
+            userId,
+        });
+
+        const providerInfo = getProviderInfo(prepared.provider);
+        let remoteRevokeStatus: "success" | "failed" | "skipped" = "skipped";
+
+        if (providerInfo.capabilities.supportsRevoke) {
+            const adapter = getAdapter(prepared.provider);
+            if (adapter.revokeToken) {
+                try {
+                    const accessToken = prepared.accessTokenEnc
+                        ? await decrypt(prepared.accessTokenEnc)
+                        : undefined;
+                    const refreshToken = prepared.refreshTokenEnc
+                        ? await decrypt(prepared.refreshTokenEnc)
+                        : undefined;
+                    await adapter.revokeToken({ accessToken, refreshToken });
+                    remoteRevokeStatus = "success";
+                } catch {
+                    // Best effort: local wipe is the source of truth. A failed
+                    // remote revoke is logged but does not block disconnect.
+                    remoteRevokeStatus = "failed";
+                }
+            }
+        }
+
+        await ctx.runMutation(internal.crm.connections._finalizeDisconnect, {
+            connectionId,
+            userId,
+            remoteRevokeStatus,
+        });
+
+        return { ok: true };
     },
 });
