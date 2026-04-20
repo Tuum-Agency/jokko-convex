@@ -51,6 +51,32 @@ describe("Broadcasts", () => {
             });
         });
 
+        // Default active WhatsApp channel — required by broadcasts.create plan gate
+        await t.run(async (ctx: any) => {
+            const wabaId = await ctx.db.insert("wabas", {
+                organizationId: orgId,
+                metaBusinessAccountId: "meta-default",
+                accessTokenRef: "token-default",
+                label: "Default WABA",
+                createdBy: userId,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+            await ctx.db.insert("whatsappChannels", {
+                organizationId: orgId,
+                wabaId,
+                label: "Default Channel",
+                phoneNumberId: "phone-default",
+                displayPhoneNumber: "+221770000000",
+                webhookVerifyTokenRef: "verify-default",
+                isOrgDefault: true,
+                status: "active" as const,
+                createdBy: userId,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+        });
+
         // Create tags
         const tags = await t.run(async (ctx: any) => {
             const t1 = await ctx.db.insert("tags", {
