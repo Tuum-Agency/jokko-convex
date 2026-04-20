@@ -5,7 +5,7 @@ const AUTH_FILE = path.join(__dirname, '.auth', 'user.json');
 
 setup('authenticate', async ({ page }) => {
     // Login directly on the org subdomain
-    await page.goto('http://be-in-digital.localhost:3000/sign-in');
+    await page.goto('https://be-in-digital.localhost:1000/sign-in');
     await page.waitForLoadState('networkidle');
 
     // Fill login form

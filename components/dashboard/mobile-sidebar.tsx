@@ -19,6 +19,7 @@ import {
     LogOut,
     Menu,
     HelpCircle,
+    Plug,
 } from 'lucide-react'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { useQuery } from 'convex/react'
@@ -51,6 +52,7 @@ const mainNavigation = [
 ]
 
 const bottomNavigation = [
+    { name: 'Intégrations', href: '/integrations', icon: Plug },
     { name: 'Facturation', href: '/billing', icon: CreditCard },
     { name: 'Paramètres', href: '/settings', icon: Settings },
 ]
@@ -89,7 +91,7 @@ export function MobileSidebar({
     })
 
     const filteredBottomNavigation = bottomNavigation.filter(item => {
-        if (role === 'AGENT') return item.name !== 'Facturation'
+        if (role === 'AGENT') return item.name !== 'Facturation' && item.name !== 'Intégrations'
         return true
     })
 

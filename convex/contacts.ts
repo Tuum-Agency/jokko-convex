@@ -320,6 +320,34 @@ export const update = mutation({
             throw new Error("Unauthorized: contact does not belong to your organization");
         }
 
+        // Guard: contacts linked to an external CRM are read-only for core identity
+        // fields. Users must edit them in the source CRM. Local-only fields (tags,
+        // notes) remain editable from Jokko.
+        const crmLink = await ctx.db
+            .query("crmContactLinks")
+            .withIndex("by_contact", (q) => q.eq("contactId", id))
+            .filter((q) => q.eq(q.field("linkStatus"), "linked"))
+            .first();
+        if (crmLink) {
+            const lockedFieldChanged =
+                (updates.phone !== undefined && updates.phone !== current.phone) ||
+                (updates.firstName !== undefined && updates.firstName !== current.firstName) ||
+                (updates.lastName !== undefined && updates.lastName !== current.lastName) ||
+                (updates.email !== undefined && updates.email !== current.email) ||
+                (updates.company !== undefined && updates.company !== current.company) ||
+                (updates.jobTitle !== undefined && updates.jobTitle !== current.jobTitle) ||
+                (updates.address !== undefined && updates.address !== current.address) ||
+                (updates.city !== undefined && updates.city !== current.city) ||
+                (updates.country !== undefined && updates.country !== current.country);
+            if (lockedFieldChanged || notes !== undefined) {
+                throw new ConvexError({
+                    code: "CRM_LINKED_CONTACT_READONLY",
+                    provider: crmLink.provider,
+                    message: `Ce contact est synchronisé avec ${crmLink.provider}. Les informations doivent être modifiées directement dans votre CRM.`,
+                });
+            }
+        }
+
         // Handle Notes
         let finalNotes: any = current.notes;
 

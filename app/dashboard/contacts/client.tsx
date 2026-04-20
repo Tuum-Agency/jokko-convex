@@ -33,7 +33,9 @@ import {
     ArrowDownLeft,
     ArrowUpRight,
     Clock,
+    ExternalLink,
 } from 'lucide-react';
+import { useCrmLink } from '@/hooks/use-crm-link';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -84,6 +86,7 @@ function ContactDetailDrawer({
 }) {
     const contactData = useQuery(api.contacts.get, { id: contactId as Id<"contacts"> });
     const timeline = useQuery(api.contacts.getContactTimeline, { contactId: contactId as Id<"contacts"> });
+    const crmLink = useCrmLink(contactId);
 
     if (!contactData) {
         return (
@@ -149,6 +152,18 @@ function ContactDetailDrawer({
                 )}
             </div>
 
+            {/* CRM sync badge */}
+            {crmLink && (
+                <div className="px-6 pb-3 flex justify-center">
+                    <Badge
+                        variant="outline"
+                        className="text-[11px] font-medium border-amber-200 bg-amber-50 text-amber-900 gap-1"
+                    >
+                        Synchronisé avec {crmLink.providerLabel}
+                    </Badge>
+                </div>
+            )}
+
             {/* Action buttons */}
             <div className="flex items-center justify-center gap-2 pb-4 px-6">
                 <Button
@@ -160,15 +175,29 @@ function ContactDetailDrawer({
                     <MessageCircle className="h-3.5 w-3.5" />
                     Envoyer un message
                 </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
-                    onClick={() => { onEdit(contactForCallbacks); onClose(); }}
-                >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Modifier
-                </Button>
+                {crmLink && crmLink.externalUrl ? (
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                    >
+                        <a href={crmLink.externalUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Éditer dans {crmLink.providerLabel}
+                        </a>
+                    </Button>
+                ) : (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs rounded-full cursor-pointer"
+                        onClick={() => { onEdit(contactForCallbacks); onClose(); }}
+                    >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Modifier
+                    </Button>
+                )}
                 <Button
                     variant="outline"
                     size="sm"

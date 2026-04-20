@@ -27,7 +27,8 @@ export type Permission =
     | "settings:read" | "settings:update" | "settings:whatsapp"
     | "teams:create" | "teams:update" | "teams:delete" | "teams:manage_members"
     | "channels:create" | "channels:update" | "channels:delete" | "channels:assign_team"
-    | "broadcasts:create" | "broadcasts:send" | "broadcasts:override_channel";
+    | "broadcasts:create" | "broadcasts:send" | "broadcasts:override_channel"
+    | "integrations:read" | "integrations:manage";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     OWNER: [
@@ -42,6 +43,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "teams:create", "teams:update", "teams:delete", "teams:manage_members",
         "channels:create", "channels:update", "channels:delete", "channels:assign_team",
         "broadcasts:create", "broadcasts:send", "broadcasts:override_channel",
+        "integrations:read", "integrations:manage",
     ],
     ADMIN: [
         "org:read", "org:update",
@@ -55,6 +57,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "teams:create", "teams:update", "teams:manage_members",
         "channels:create", "channels:update", "channels:assign_team",
         "broadcasts:create", "broadcasts:send",
+        "integrations:read", "integrations:manage",
     ],
     AGENT: [
         "org:read",
@@ -65,6 +68,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "contacts:read", "contacts:create", "contacts:update",
         "flows:read",
         "settings:read",
+        "integrations:read",
     ],
 };
 
