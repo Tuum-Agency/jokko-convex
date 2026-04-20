@@ -15,10 +15,6 @@ import {
     getNextStep
 } from '@/lib/onboarding/steps';
 
-// ============================================
-// STEP COMPONENTS MAP
-// ============================================
-
 const STEP_COMPONENTS: Record<OnboardingStepKey, React.ComponentType<{ onComplete: () => void }>> = {
     BUSINESS_INFO: BusinessInfoStep,
     PLAN_SELECT: PlanSelectStep,
@@ -26,13 +22,16 @@ const STEP_COMPONENTS: Record<OnboardingStepKey, React.ComponentType<{ onComplet
     COMPLETED: CompletionStep,
 };
 
-// ============================================
-// ANIMATION VARIANTS
-// ============================================
+const STEP_CARD_WIDTH: Record<OnboardingStepKey, string> = {
+    BUSINESS_INFO: 'max-w-2xl',
+    PLAN_SELECT: 'max-w-5xl',
+    WHATSAPP_CONNECT: 'max-w-xl',
+    COMPLETED: 'max-w-3xl',
+};
 
 const stepVariants = {
     enter: (direction: number) => ({
-        x: direction > 0 ? 50 : -50,
+        x: direction > 0 ? 40 : -40,
         opacity: 0,
     }),
     center: {
@@ -40,14 +39,10 @@ const stepVariants = {
         opacity: 1,
     },
     exit: (direction: number) => ({
-        x: direction < 0 ? 50 : -50,
+        x: direction < 0 ? 40 : -40,
         opacity: 0,
     }),
 };
-
-// ============================================
-// COMPONENT
-// ============================================
 
 export function OnboardingWizard() {
     const [currentStepKey, setCurrentStepKey] = useState<OnboardingStepKey>('BUSINESS_INFO');
@@ -65,8 +60,6 @@ export function OnboardingWizard() {
     };
 
     const handleStepClick = (stepKey: string) => {
-        // Basic navigation logic: allow going back or to completed steps
-        // For now, simpler implementation: verify order
         const targetStep = getStepByKey(stepKey as OnboardingStepKey);
         const current = getStepByKey(currentStepKey);
 
@@ -78,24 +71,34 @@ export function OnboardingWizard() {
         }
     };
 
-    return (
-        <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-            {/* Progress Bar */}
-            <OnboardingProgress
-                steps={ONBOARDING_STEPS}
-                currentStepKey={currentStepKey}
-                onStepClick={handleStepClick}
-            />
+    const cardWidth = STEP_CARD_WIDTH[currentStepKey];
 
-            {/* Page Header */}
-            <div className="text-center mb-8">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{currentStep?.title}</h1>
-                <p className="mt-2 text-gray-500">{currentStep?.description}</p>
+    return (
+        <div className="w-full px-3 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12">
+            <div className="w-full max-w-5xl mx-auto">
+                <OnboardingProgress
+                    steps={ONBOARDING_STEPS}
+                    currentStepKey={currentStepKey}
+                    onStepClick={handleStepClick}
+                />
+
+                <div className="text-center mb-6 sm:mb-8">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        {currentStep?.title}
+                    </h1>
+                    <p className="mt-1.5 text-sm text-gray-500">
+                        {currentStep?.description}
+                    </p>
+                </div>
             </div>
 
-            {/* Step Content */}
-            <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
-                <CardContent className="p-6 sm:p-8">
+            <motion.div
+                layout
+                transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                className={`w-full ${cardWidth} mx-auto`}
+            >
+                <Card className="border border-gray-100 shadow-sm bg-white">
+                    <CardContent className="p-5 sm:p-7 lg:p-9">
                     <AnimatePresence mode="wait" custom={direction}>
                         <motion.div
                             key={currentStepKey}
@@ -104,13 +107,14 @@ export function OnboardingWizard() {
                             initial="enter"
                             animate="center"
                             exit="exit"
-                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
                         >
                             <StepComponent onComplete={handleNext} />
                         </motion.div>
                     </AnimatePresence>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </motion.div>
         </div>
     );
 }

@@ -628,13 +628,13 @@ export function ContactList({
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                         Contacts
                     </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <div className="text-sm text-gray-500 mt-0.5">
                         {isLoading ? (
                             <Skeleton className="h-4 w-32 inline-block" />
                         ) : (
                             <>{total} contact{total > 1 ? 's' : ''} au total</>
                         )}
-                    </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">

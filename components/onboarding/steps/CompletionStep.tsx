@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import {
     CheckCircle,
     MessageSquare,
@@ -55,7 +56,7 @@ const QUICK_ACTIONS = [
     },
 ];
 
-export function CompletionStep({ onComplete }: CompletionStepProps) {
+export function CompletionStep({}: CompletionStepProps) {
     const router = useRouter();
     const { currentOrg } = useCurrentOrg();
     const { currentPlan } = usePlanLimits();
@@ -63,7 +64,6 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
     const createCheckout = useAction(api.stripe_actions.createCheckoutSession);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-    // Safety net: ensure onboarding is marked complete
     useEffect(() => {
         completeOnboarding().catch(() => {});
     }, [completeOnboarding]);
@@ -91,33 +91,38 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
     };
 
     return (
-        <div className="space-y-8 py-2">
-            {/* Success header */}
+        <div className="space-y-7">
             <div className="text-center space-y-3">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+                <motion.div
+                    initial={{ scale: 0.6, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.05 }}
+                    className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 ring-8 ring-green-50"
+                >
+                    <CheckCircle className="w-8 h-8 text-green-600" strokeWidth={2.5} />
+                </motion.div>
+                <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        {currentOrg?.name ? `${currentOrg.name} est prêt !` : 'Tout est prêt !'}
+                    </h2>
+                    <p className="mt-1.5 text-sm text-gray-500 max-w-md mx-auto">
+                        Votre espace Jokko est configuré. Voici comment commencer.
+                    </p>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                    {currentOrg?.name ? `${currentOrg.name} est prêt !` : 'Tout est prêt !'}
-                </h2>
-                <p className="text-gray-500 text-sm max-w-md mx-auto">
-                    Votre espace Jokko est configuré. Voici comment commencer.
-                </p>
             </div>
 
-            {/* Plan badge */}
             {currentPlan && (
                 <div className="flex justify-center">
                     <div className={cn(
-                        'inline-flex items-center gap-2 rounded-full px-4 py-2 border text-sm font-medium',
+                        'inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 border text-xs font-medium',
                         isPaidPlan
                             ? 'bg-green-50 border-green-200 text-green-700'
                             : 'bg-gray-50 border-gray-200 text-gray-600'
                     )}>
-                        <Sparkles className="h-4 w-4" />
+                        <Sparkles className="h-3.5 w-3.5" />
                         Plan {currentPlan.name}
                         {isPaidPlan && currentPlan.monthlyPriceFCFA > 0 && (
-                            <span className="text-xs opacity-75">
+                            <span className="opacity-75">
                                 — {new Intl.NumberFormat('fr-FR').format(
                                     billingInterval === 'year'
                                         ? currentPlan.yearlyMonthlyPriceFCFA
@@ -129,16 +134,15 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
                 </div>
             )}
 
-            {/* Stripe CTA for paid plans */}
             {isPaidPlan && !currentOrg?.stripe?.status && (
-                <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 text-center space-y-3">
-                    <p className="text-sm text-green-800">
+                <div className="rounded-xl border border-green-100 bg-green-50/50 p-5 text-center space-y-3">
+                    <p className="text-sm text-green-900">
                         Activez votre abonnement pour débloquer toutes les fonctionnalités du plan <strong>{currentPlan?.name}</strong>.
                     </p>
                     <Button
                         onClick={handleActivateSubscription}
                         disabled={checkoutLoading}
-                        className="bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#0f4024] hover:to-[#047857] text-white rounded-xl shadow-lg"
+                        className="h-10 bg-gradient-to-r from-[#14532d] to-[#059669] hover:from-[#0f4024] hover:to-[#047857] text-white rounded-xl shadow-sm hover:shadow-md transition-all"
                     >
                         {checkoutLoading ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -153,37 +157,40 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
                 </div>
             )}
 
-            {/* Quick actions grid */}
-            <div className="grid grid-cols-2 gap-3">
-                {QUICK_ACTIONS.map((action) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {QUICK_ACTIONS.map((action, index) => {
                     const Icon = action.icon;
                     return (
-                        <button
+                        <motion.button
                             key={action.href}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: 0.1 + index * 0.05 }}
                             onClick={() => router.push(action.href)}
-                            className="group flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-center hover:border-green-200 hover:shadow-md transition-all duration-200"
+                            className="group flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-4 text-left hover:border-green-200 hover:bg-green-50/30 hover:shadow-sm transition-all"
                         >
                             <div className={cn(
-                                'flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-md group-hover:scale-110 transition-transform',
+                                'flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm shadow-green-900/20 group-hover:scale-105 transition-transform',
                                 action.gradient
                             )}>
-                                <Icon className="h-5 w-5 text-white" />
+                                <Icon className="h-4 w-4 text-white" />
                             </div>
-                            <span className="text-sm font-medium text-gray-900">{action.title}</span>
-                            <span className="text-[11px] text-gray-500 leading-tight">{action.description}</span>
-                        </button>
+                            <div>
+                                <div className="text-sm font-semibold text-gray-900">{action.title}</div>
+                                <div className="text-[11px] text-gray-500 leading-tight mt-0.5">{action.description}</div>
+                            </div>
+                        </motion.button>
                     );
                 })}
             </div>
 
-            {/* Go to dashboard */}
             <Button
                 onClick={() => router.push('/dashboard')}
                 size="lg"
-                className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-lg shadow-green-600/25 hover:shadow-green-600/40 transition-all duration-300 group"
+                className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all group"
             >
                 Accéder au dashboard
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
             </Button>
         </div>
     );
