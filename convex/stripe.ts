@@ -239,8 +239,11 @@ export const cancelSubscription = internalMutation({
             return;
         }
 
+        // Après la fin d'un trial ou une annulation, l'org retombe sur STARTER
+        // (et non FREE) : c'est le plan par défaut quand aucun abonnement payant
+        // n'est actif. FREE n'est pas proposé publiquement.
         await ctx.db.patch(org._id, {
-            plan: "FREE" as any,
+            plan: "STARTER" as any,
             stripe: {
                 customerId: args.stripeCustomerId,
                 subscriptionId: org.stripe?.subscriptionId,
@@ -252,7 +255,7 @@ export const cancelSubscription = internalMutation({
             updatedAt: Date.now(),
         });
 
-        await enforceChannelDowngrade(ctx, org._id, "FREE");
+        await enforceChannelDowngrade(ctx, org._id, "STARTER");
     },
 });
 

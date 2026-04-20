@@ -20,7 +20,9 @@ export function planFromPriceId(priceId: string): string {
     if (process.env.STRIPE_PRICE_STARTER_YEARLY) map[process.env.STRIPE_PRICE_STARTER_YEARLY] = "STARTER";
     if (process.env.STRIPE_PRICE_BUSINESS_YEARLY) map[process.env.STRIPE_PRICE_BUSINESS_YEARLY] = "BUSINESS";
     if (process.env.STRIPE_PRICE_PRO_YEARLY) map[process.env.STRIPE_PRICE_PRO_YEARLY] = "PRO";
-    return map[priceId] || "FREE";
+    // Fallback sur STARTER (et non FREE) : c'est le plan par défaut exposé
+    // publiquement. FREE n'existe que comme état interne legacy.
+    return map[priceId] || "STARTER";
 }
 
 export function priceIdFromPlan(plan: string, interval: "month" | "year" = "month"): string | null {
