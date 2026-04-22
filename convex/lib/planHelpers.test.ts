@@ -90,8 +90,9 @@ describe("planHelpers — hasFeatureAccess", () => {
         });
         expect(hasFeatureAccess(o, "broadcasts", now)).toBe(true);
         expect(hasFeatureAccess(o, "chatbot", now)).toBe(true);
+        expect(hasFeatureAccess(o, "flows", now)).toBe(true);
         expect(hasFeatureAccess(o, "ai", now)).toBe(false);
-        expect(hasFeatureAccess(o, "flows", now)).toBe(false);
+        expect(hasFeatureAccess(o, "integrations_crm", now)).toBe(false);
     });
 
     it("trial expiré + plan PRO : AI et flows débloqués", () => {

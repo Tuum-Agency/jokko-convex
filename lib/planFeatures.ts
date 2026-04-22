@@ -183,8 +183,9 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
 };
 
 export function planRank(plan: PlanKey | string | null | undefined): number {
-    if (!plan) return 0;
-    return PLAN_RANK[plan as PlanKey] ?? 0;
+    if (plan == null) return 0;
+    const rank = PLAN_RANK[plan as PlanKey];
+    return rank ?? -1;
 }
 
 /**
