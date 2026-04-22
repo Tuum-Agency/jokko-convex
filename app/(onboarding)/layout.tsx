@@ -16,7 +16,7 @@ export default function OnboardingLayout({
 
     useEffect(() => {
         if (user === null) {
-            router.push('/sign-in');
+            router.push('/auth/sign-in');
             return;
         }
         if (user && user.onboardingCompleted) {

@@ -2,238 +2,342 @@
 
 import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { MessageCircle, ShoppingBag, Users, Building2, Store, ArrowRight, CheckCircle, Zap, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import {
+    MessageCircle,
+    ShoppingBag,
+    Users,
+    Building2,
+    Store,
+    ArrowRight,
+    CheckCircle,
+    Zap,
+    ShieldCheck,
+    Sparkles,
+    BarChart3,
+    Plug,
+    Clock,
+    Quote,
+    type LucideIcon,
+} from 'lucide-react'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { ShimmerButton } from '@/components/landing/ui/shimmer-button'
+import { MagicCard } from '@/components/landing/ui/magic-card'
+import { CountUp } from '@/components/animations/count-up'
+import { SplitText } from '@/components/animations/split-text'
 import { CtaSection } from '@/components/landing/sections/home/cta-section'
 import { FaqSection } from '@/components/landing/sections/home/faq-section'
+import { cn } from '@/lib/utils'
 
-// Data for each solution
-const solutionsData = {
+type SolutionData = {
+    title: string
+    description: string
+    icon: LucideIcon
+    eyebrow: string
+    stats: { value: number; suffix?: string; prefix?: string; label: string }[]
+    features: { title: string; desc: string; icon: LucideIcon }[]
+    useCases: { title: string; desc: string }[]
+    testimonial: { quote: string; name: string; role: string; company: string; initials: string; metric: string }
+    timeline: { step: string; title: string; desc: string }[]
+}
+
+const solutionsData: Record<string, SolutionData> = {
     'e-commerce': {
-        title: "Boostez vos ventes E-commerce",
-        description: "Transformez chaque conversation en opportunité de vente. Récupérez les paniers abandonnés et offrez un support instantané sur WhatsApp.",
+        title: 'Boostez vos ventes e-commerce.',
+        description:
+            "Transformez chaque conversation WhatsApp en ventes. Récupérez les paniers abandonnés, confirmez les commandes, gérez les retours — tout depuis une inbox unifiée.",
         icon: ShoppingBag,
-        gradient: "from-blue-600 to-indigo-600",
-        // Pre-computed classes to avoid dynamic tailwind matching issues
-        theme: {
-            lightIconBg: "bg-blue-100",
-            iconColor: "text-blue-600",
-            hoverBg: "group-hover:bg-blue-600",
-            blob1: "bg-blue-200/20",
-            blob2: "bg-blue-300/20",
-            buttonShadow: "shadow-blue-500/20",
-            cardBlob: "bg-blue-50"
-        },
+        eyebrow: 'Solution · E-commerce',
         stats: [
-            { value: "45%", label: "Taux de récupération panier" },
-            { value: "3x", label: "Plus de conversions" },
-            { value: "24/7", label: "Support automatisé" }
+            { value: 45, suffix: '%', label: 'Panier récupéré' },
+            { value: 3, suffix: '×', label: 'Plus de conversions' },
+            { value: 24, suffix: '/7', label: 'Support auto' },
+            { value: 98, suffix: '%', label: 'Taux d\'ouverture' },
         ],
         features: [
-            { title: "Relance Paniers Abandonnés", desc: "Envoyez automatiquement un message WhatsApp pour récupérer les ventes perdues.", icon: MessageCircle },
-            { title: "Notifications de Commande", desc: "Tenez vos clients informés de l'état de leur livraison en temps réel.", icon: CheckCircle },
-            { title: "Catalogue Produit", desc: "Envoyez vos produits directement dans la discussion pour un achat rapide.", icon: ShoppingBag }
-        ]
+            { title: 'Relance panier abandonné', desc: 'Message WhatsApp automatique 1h après l\'abandon. Personnalisé, avec lien de paiement.', icon: MessageCircle },
+            { title: 'Notifications de commande', desc: 'Confirmation, expédition, livraison. Chaque étape notifiée en temps réel.', icon: CheckCircle },
+            { title: 'Catalogue natif WhatsApp', desc: 'Envoyez vos produits en un clic. Achat direct sans quitter la conversation.', icon: ShoppingBag },
+            { title: 'Retours et réclamations', desc: 'Workflow guidé, scan du QR code, étiquette de retour envoyée automatiquement.', icon: Plug },
+            { title: 'Cross-sell intelligent', desc: 'L\'IA suggère les produits complémentaires selon l\'historique d\'achat.', icon: Sparkles },
+            { title: 'Reporting revenu', desc: 'Attribution précise du CA WhatsApp, ROI par campagne, cohortes clients.', icon: BarChart3 },
+        ],
+        useCases: [
+            { title: 'Dakar Fashion — +48% de panier récupéré', desc: 'Relance automatique 1h puis 24h avec offre personnalisée. Retour sur investissement en moins d\'un mois.' },
+            { title: 'Teranga Beauty — 12M FCFA via WhatsApp', desc: 'Campagnes promo segmentées par type de peau. Taux d\'ouverture 94%, taux de clic 38%.' },
+            { title: 'Coura Market — Support 24/7 sans recruter', desc: 'Jokko IA répond à 82% des demandes. Les 18% complexes sont remontés aux humains.' },
+        ],
+        testimonial: {
+            quote: 'On a remplacé 3 outils (Gorgias, Klaviyo, SMS) par Jokko. On récupère 48% de nos paniers abandonnés et on a divisé par 3 notre temps de réponse.',
+            name: 'Fatou Diagne',
+            role: 'Head of Customer Ops',
+            company: 'Dakar Fashion',
+            initials: 'FD',
+            metric: '+48% CA',
+        },
+        timeline: [
+            { step: '01', title: 'Connectez Shopify', desc: 'Sync catalogue, commandes et clients en 2 clics.' },
+            { step: '02', title: 'Activez les flows', desc: 'Relance panier, confirmation, livraison — préconfigurés.' },
+            { step: '03', title: 'Mesurez le ROI', desc: 'Dashboard revenu WhatsApp en temps réel.' },
+        ],
     },
     'service-client': {
-        title: "Un Service Client 5 Étoiles",
-        description: "Centralisez toutes vos demandes clients. Répondez plus vite, automatisez les questions fréquentes et satisfaites vos clients.",
+        title: 'Un service client 5 étoiles.',
+        description:
+            'Centralisez toutes vos demandes, répondez 10× plus vite grâce à l\'IA, et transformez votre support en avantage compétitif.',
         icon: Users,
-        gradient: "from-green-600 to-emerald-600",
-        theme: {
-            lightIconBg: "bg-green-100",
-            iconColor: "text-green-600",
-            hoverBg: "group-hover:bg-green-600",
-            blob1: "bg-green-200/20",
-            blob2: "bg-green-300/20",
-            buttonShadow: "shadow-green-500/20",
-            cardBlob: "bg-green-50"
-        },
+        eyebrow: 'Solution · Service client',
         stats: [
-            { value: "-50%", label: "Temps de réponse" },
-            { value: "98%", label: "Satisfaction client" },
-            { value: "0", label: "Message perdu" }
+            { value: 47, suffix: 's', label: 'Temps 1ère réponse' },
+            { value: 98, suffix: '%', label: 'Satisfaction' },
+            { value: 0, suffix: '', label: 'Message perdu' },
+            { value: 10, suffix: '×', label: 'Plus rapide' },
         ],
         features: [
-            { title: "Boîte de Réception Partagée", desc: "Toute votre équipe sur un seul numéro WhatsApp pour une collaboration fluide.", icon: Users },
-            { title: "Réponses Rapides & IA", desc: "Utilisez des modèles et l'IA pour répondre instantanément aux questions récurrentes.", icon: Zap },
-            { title: "Assignation Automatique", desc: "Routez les conversations vers le bon agent automatiquement.", icon: ArrowRight }
-        ]
+            { title: 'Boîte de réception partagée', desc: 'Un numéro, toute l\'équipe, zéro conflit. Voir qui répond en temps réel.', icon: Users },
+            { title: 'Réponses IA contextuelles', desc: 'Jo lit le thread et propose un brouillon en 2 secondes, avec ton de marque.', icon: Zap },
+            { title: 'Assignation automatique', desc: 'Round-robin, par langue, par charge. L\'équipe n\'y pense même plus.', icon: ArrowRight },
+            { title: 'Escalade managériale', desc: 'Règles auto : si client VIP ou CSAT < 3, escalade immédiate.', icon: ShieldCheck },
+            { title: 'Notes internes', desc: 'Collaborez sans spammer le client. Mentions @agent, threads privés.', icon: MessageCircle },
+            { title: 'SLA et alertes', desc: 'Définissez vos SLA, Jokko alerte Slack avant dépassement.', icon: Clock },
+        ],
+        useCases: [
+            { title: 'Orange Business — -70% temps de réponse', desc: '22 agents, 5 numéros, assignation par langue (wolof/fr/en). Jokko IA couvre 60% du volume.' },
+            { title: 'Wave Senegal — CSAT 4.9/5', desc: 'Support bilingue avec escalade auto sur réclamations financières. 0 message perdu en 18 mois.' },
+            { title: 'Sen\'Water — Dématérialisation 100%', desc: 'Fini l\'email. Tickets, factures, interventions — tout sur WhatsApp.' },
+        ],
+        testimonial: {
+            quote: 'Avant Jokko, on avait 3 téléphones partagés et un tableur Excel pour routing. Aujourd\'hui notre temps de première réponse est passé de 4h à 47 secondes.',
+            name: 'Mamadou Sow',
+            role: 'Customer Success Lead',
+            company: 'Orange Business',
+            initials: 'MS',
+            metric: '-70% TFRT',
+        },
+        timeline: [
+            { step: '01', title: 'Invitez votre équipe', desc: 'Owner, admins, agents. Permissions fines par rôle.' },
+            { step: '02', title: 'Définissez vos règles', desc: 'Assignation, SLA, escalade, alertes Slack.' },
+            { step: '03', title: 'Pilotez les KPI', desc: 'TFRT, taux de résolution, CSAT en temps réel.' },
+        ],
     },
     'agences': {
-        title: "Pour les Agences Marketing",
-        description: "Gérez plusieurs clients WhatsApp depuis une seule interface. Créez des campagnes ROIstes pour vos clients.",
+        title: 'L\'outil des agences marketing.',
+        description:
+            'Gérez plusieurs clients WhatsApp depuis une seule plateforme. Multi-workspace, reporting white-label, facturation centralisée.',
         icon: Building2,
-        gradient: "from-purple-600 to-violet-600",
-        theme: {
-            lightIconBg: "bg-purple-100",
-            iconColor: "text-purple-600",
-            hoverBg: "group-hover:bg-purple-600",
-            blob1: "bg-purple-200/20",
-            blob2: "bg-purple-300/20",
-            buttonShadow: "shadow-purple-500/20",
-            cardBlob: "bg-purple-50"
-        },
+        eyebrow: 'Solution · Agences',
         stats: [
-            { value: "10+", label: "Comptes clients / agent" },
-            { value: "90%", label: "Taux d'ouverture" },
-            { value: "X2", label: "Productivité" }
+            { value: 10, suffix: '+', label: 'Clients / agent' },
+            { value: 90, suffix: '%', label: 'Taux d\'ouverture' },
+            { value: 2, suffix: '×', label: 'Productivité' },
+            { value: 50, suffix: '%', label: 'Marge préservée' },
         ],
         features: [
-            { title: "Multi-Comptes", desc: "Passez d'un compte client à l'autre sans déconnexion.", icon: Users },
-            { title: "Reporting Détaillé", desc: "Prouvez votre ROI avec des statistiques précises sur les campagnes.", icon: ShieldCheck },
-            { title: "Broadcasting Ciblé", desc: "Envoyez des offres promotionnelles hyper-ciblées à des milliers de contacts.", icon: MessageCircle }
-        ]
+            { title: 'Multi-workspace', desc: 'Un espace par client, passage en 1 clic. Pas de confusion, pas de fuite de données.', icon: Users },
+            { title: 'Reporting white-label', desc: 'Dashboards clients brandés à vos couleurs. PDF mensuel automatisé.', icon: ShieldCheck },
+            { title: 'Broadcast ciblé', desc: 'Campagnes segmentées par audience, A/B test natif, preview avant envoi.', icon: MessageCircle },
+            { title: 'Templates réutilisables', desc: 'Bibliothèque de templates validés Meta, partagés entre clients.', icon: Sparkles },
+            { title: 'Facturation centralisée', desc: 'Un seul abonnement pour tous vos clients. Refacturez avec marge.', icon: BarChart3 },
+            { title: 'API complète', desc: 'Intégrez à votre stack agency : Slack, Notion, Linear, HubSpot.', icon: Plug },
+        ],
+        useCases: [
+            { title: 'SolidWave Agency — 14 clients, 3 agents', desc: 'Workspace par client, assignation transverse, ROI prouvé campagne par campagne.' },
+            { title: 'Teranga Media — +2× la marge', desc: 'Jokko remplace Klaviyo + MailChimp + outil custom. Marge agence +50%.' },
+            { title: 'Dakar Digital — Onboarding client en 1 jour', desc: 'Templates + flows préconfigurés. Mise en prod le jour même.' },
+        ],
+        testimonial: {
+            quote: 'On gère 14 clients e-commerce avec 3 agents. Jokko nous a permis de doubler notre portefeuille sans recruter. Le reporting white-label fait économiser 6h par client chaque mois.',
+            name: 'Khadija Sy',
+            role: 'Agency Director',
+            company: 'SolidWave',
+            initials: 'KS',
+            metric: '×2 clients',
+        },
+        timeline: [
+            { step: '01', title: 'Créez vos workspaces', desc: 'Un espace par client, isolé, brandé.' },
+            { step: '02', title: 'Importez templates et flows', desc: 'Bibliothèque agency réutilisable.' },
+            { step: '03', title: 'Reportez en white-label', desc: 'PDF mensuel à vos couleurs, exports CSV.' },
+        ],
     },
     'tpe-pme': {
-        title: "L'outil idéal pour TPE & PME",
-        description: "Donnez une image professionnelle à votre entreprise. Gérez vos clients comme les grands, sans la complexité.",
+        title: 'L\'outil idéal pour TPE & PME.',
+        description:
+            'Donnez une image pro à votre entreprise en 15 minutes. Gérez vos clients comme une grande boîte, sans la complexité ni le budget.',
         icon: Store,
-        gradient: "from-orange-500 to-red-500",
-        theme: {
-            lightIconBg: "bg-orange-100",
-            iconColor: "text-orange-600",
-            hoverBg: "group-hover:bg-orange-600",
-            blob1: "bg-orange-200/20",
-            blob2: "bg-orange-300/20",
-            buttonShadow: "shadow-orange-500/20",
-            cardBlob: "bg-orange-50"
-        },
+        eyebrow: 'Solution · TPE / PME',
         stats: [
-            { value: "100%", label: "Professionnel" },
-            { value: "15min", label: "Installation" },
-            { value: "H24", label: "Disponibilité" }
+            { value: 15, suffix: ' min', label: 'Installation' },
+            { value: 100, suffix: '%', label: 'Professionnel' },
+            { value: 24, suffix: 'h', label: 'Disponible' },
+            { value: 0, suffix: '', label: 'Formation requise' },
         ],
         features: [
-            { title: "Numéro Fixe ou Mobile", desc: "Utilisez votre numéro actuel pour WhatsApp Business.", icon: CheckCircle },
-            { title: "Message d'Accueil", desc: "Accueillez chaque client automatiquement, même la nuit.", icon: MessageCircle },
-            { title: "Organisation Simple", desc: "Tags, notes et rappels pour ne jamais oublier un client.", icon: Zap }
-        ]
-    }
+            { title: 'Votre numéro pro en 15 min', desc: 'Validation Meta automatisée. Gardez votre numéro actuel si vous préférez.', icon: CheckCircle },
+            { title: 'Message d\'accueil auto', desc: 'Accueillez chaque nouveau contact, même la nuit, avec un ton pro.', icon: MessageCircle },
+            { title: 'Organisation simple', desc: 'Tags, notes, rappels. Ne jamais oublier un client ou un devis.', icon: Zap },
+            { title: 'Multi-appareils', desc: 'Web, mobile, tablette. Vos conversations synchronisées partout.', icon: Plug },
+            { title: 'Templates prêts à l\'emploi', desc: '50+ templates (devis, rappel paiement, relance, RDV) validés Meta.', icon: Sparkles },
+            { title: 'Support FR/Wolof', desc: 'Équipe basée à Dakar. Support chat, visio, formation sur-mesure.', icon: Users },
+        ],
+        useCases: [
+            { title: 'Boulangerie Thiossane — +30% de fidélité', desc: 'Campagnes promo hebdo, notifications précommande, anniversaires clients.' },
+            { title: 'Garage Baba — Rappels d\'entretien auto', desc: 'Plus d\'oubli de révision. CA récurrent +40%.' },
+            { title: 'Coiffure Mame — RDV par WhatsApp', desc: 'Calendrier intégré, rappels 24h avant. Réduction des no-shows de 80%.' },
+        ],
+        testimonial: {
+            quote: 'Je pensais que WhatsApp Business c\'était que pour les grosses boîtes. Jokko m\'a prouvé le contraire — installation en 15 minutes, je gère mes 200 clients comme un pro.',
+            name: 'Coumba Fall',
+            role: 'Gérante',
+            company: 'Boulangerie Thiossane',
+            initials: 'CF',
+            metric: '+30% fidélité',
+        },
+        timeline: [
+            { step: '01', title: 'Connectez votre numéro', desc: 'Validation Meta en 15 minutes chrono.' },
+            { step: '02', title: 'Importez vos contacts', desc: 'CSV, Google Contacts, ou manuel.' },
+            { step: '03', title: 'Envoyez votre 1ère campagne', desc: 'Templates prêts, en un clic.' },
+        ],
+    },
 }
 
 export default function SolutionPage() {
     const params = useParams()
     const slug = params.slug as string
-    const data = solutionsData[slug as keyof typeof solutionsData]
+    const data = solutionsData[slug]
 
-    // Fallback if slug not found
     if (!data) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="text-center">
-                    <h1 className="text-4xl font-bold text-slate-900 mb-4">Page non trouvée</h1>
-                    <Link href="/">
-                        <Button>Retour à l'accueil</Button>
-                    </Link>
-                </div>
-            </div>
-        )
+        notFound()
     }
 
     const Icon = data.icon
 
     return (
-        <div className="bg-slate-50 min-h-screen">
-            {/* Hero Section */}
-            <section className="relative pt-32 pb-20 overflow-hidden">
-                <div className={`absolute top-0 right-0 w-[600px] h-[600px] ${data.theme.blob1} rounded-full blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/3`}></div>
-                <div className={`absolute bottom-0 left-0 w-[400px] h-[400px] ${data.theme.blob2} rounded-full blur-[80px] pointer-events-none translate-y-1/2 -translate-x-1/2`}></div>
+        <>
+            {/* Hero */}
+            <section className="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-[0.04]"
+                    style={{
+                        backgroundImage:
+                            'radial-gradient(circle at 1px 1px, rgba(20,20,26,0.9) 1px, transparent 0)',
+                        backgroundSize: '28px 28px',
+                    }}
+                />
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 top-0 h-[600px]"
+                    style={{
+                        background:
+                            'radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 55%)',
+                        opacity: 0.5,
+                    }}
+                />
 
-                <div className="max-w-7xl mx-auto px-6 relative z-10">
-                    <div className="text-center max-w-4xl mx-auto">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="inline-flex items-center justify-center p-3 bg-white rounded-2xl shadow-xl shadow-slate-200/50 mb-8 ring-1 ring-slate-100"
-                        >
-                            <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${data.gradient} flex items-center justify-center text-white mr-3 shadow-lg`}>
-                                <Icon className="w-5 h-5" />
-                            </div>
-                            <span className="text-sm font-bold text-slate-800 tracking-wide uppercase">Solution {slug.replace('-', ' ')}</span>
-                        </motion.div>
+                <div className="relative mx-auto max-w-4xl px-6 text-center">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur"
+                    >
+                        <Icon className="h-3 w-3 text-[var(--accent)]" />
+                        {data.eyebrow}
+                    </motion.div>
 
-                        <motion.h1
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tight leading-tight mb-8"
-                        >
+                    <h1 className="mt-8 font-display text-[clamp(2.5rem,7vw,5.5rem)] font-bold leading-[1.02] tracking-[-0.03em]">
+                        <SplitText as="span" className="block">
                             {data.title}
-                        </motion.h1>
+                        </SplitText>
+                    </h1>
 
-                        <motion.p
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="text-xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto"
-                        >
-                            {data.description}
-                        </motion.p>
+                    <motion.p
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.5 }}
+                        className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl"
+                    >
+                        {data.description}
+                    </motion.p>
 
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="flex justify-center gap-4"
-                        >
-                            <Link href="/auth/sign-up">
-                                <Button size="lg" className={`h-14 px-8 text-lg bg-linear-to-r ${data.gradient} hover:opacity-90 shadow-xl ${data.theme.buttonShadow} rounded-2xl transition-all hover:scale-105`}>
-                                    Commencer gratuitement
-                                </Button>
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.7 }}
+                        className="mt-10 flex flex-wrap items-center justify-center gap-3"
+                    >
+                        <ShimmerButton asChild size="lg" variant="primary">
+                            <Link href="/auth/sign-up" className="group">
+                                Démarrer gratuitement
+                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                             </Link>
-                        </motion.div>
-                    </div>
+                        </ShimmerButton>
+                        <ShimmerButton asChild size="lg" variant="ghost">
+                            <Link href="/contact">Parler à un humain</Link>
+                        </ShimmerButton>
+                    </motion.div>
                 </div>
             </section>
 
-            {/* Stats Section */}
-            <section className="py-12 bg-white border-y border-slate-100 relative overflow-hidden">
-                <div className="max-w-7xl mx-auto px-6 relative z-10">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-                        {data.stats.map((stat, idx) => (
+            {/* Stats */}
+            <section className="relative border-y border-border/60 bg-muted/40 py-16 md:py-20">
+                <div className="mx-auto max-w-6xl px-6">
+                    <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+                        {data.stats.map((s, i) => (
                             <motion.div
-                                key={idx}
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: idx * 0.1 }}
-                                viewport={{ once: true }}
-                                className="p-6"
+                                key={i}
+                                initial={{ opacity: 0, y: 12 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, amount: 0.3 }}
+                                transition={{ duration: 0.5, delay: i * 0.08 }}
+                                className="text-center"
                             >
-                                <div className={`text-5xl font-black text-transparent bg-clip-text bg-linear-to-br ${data.gradient} mb-2`}>
-                                    {stat.value}
+                                <div className="font-display text-4xl font-bold tracking-tight tabular-nums md:text-5xl">
+                                    <CountUp to={s.value} suffix={s.suffix} prefix={s.prefix} />
                                 </div>
-                                <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
+                                <p className="mt-2 text-sm text-muted-foreground">{s.label}</p>
                             </motion.div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section className="py-24 relative">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {data.features.map((feature, idx) => {
-                            const FeatureIcon = feature.icon
+            {/* Features */}
+            <section className="relative py-24 md:py-32">
+                <div className="mx-auto max-w-7xl px-6">
+                    <div className="mx-auto max-w-2xl text-center">
+                        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                            Fonctionnalités clés
+                        </p>
+                        <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
+                            Tout ce qu&apos;il vous faut pour réussir.
+                        </h2>
+                    </div>
+
+                    <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {data.features.map((f, i) => {
+                            const FIcon = f.icon
                             return (
                                 <motion.div
-                                    key={idx}
+                                    key={i}
                                     initial={{ opacity: 0, y: 20 }}
                                     whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.2 }}
-                                    viewport={{ once: true }}
-                                    className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 relative group overflow-hidden"
+                                    viewport={{ once: true, amount: 0.2 }}
+                                    transition={{ duration: 0.5, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
                                 >
-                                    <div className={`absolute top-0 right-0 w-32 h-32 ${data.theme.cardBlob} rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-150`}></div>
-                                    <div className={`w-14 h-14 rounded-2xl ${data.theme.lightIconBg} flex items-center justify-center ${data.theme.iconColor} mb-6 relative z-10 ${data.theme.hoverBg} group-hover:text-white transition-colors`}>
-                                        <FeatureIcon className="w-7 h-7" />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10">{feature.title}</h3>
-                                    <p className="text-slate-600 leading-relaxed relative z-10">
-                                        {feature.desc}
-                                    </p>
+                                    <MagicCard className="h-full" gradientColor="var(--accent-glow)">
+                                        <div className="flex h-full flex-col gap-3 p-6">
+                                            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-muted)] text-[var(--accent)] shadow-sm">
+                                                <FIcon className="h-5 w-5" />
+                                            </div>
+                                            <h3 className="mt-1 font-display text-xl font-bold tracking-tight">
+                                                {f.title}
+                                            </h3>
+                                            <p className="text-sm leading-relaxed text-muted-foreground">
+                                                {f.desc}
+                                            </p>
+                                        </div>
+                                    </MagicCard>
                                 </motion.div>
                             )
                         })}
@@ -241,11 +345,143 @@ export default function SolutionPage() {
                 </div>
             </section>
 
-            {/* Common Sections */}
+            {/* Timeline */}
+            <section className="relative overflow-hidden bg-[var(--surface-dark)] py-24 text-white md:py-32">
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-[0.04]"
+                    style={{
+                        backgroundImage:
+                            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.9) 1px, transparent 0)',
+                        backgroundSize: '28px 28px',
+                    }}
+                />
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        background:
+                            'radial-gradient(ellipse at 70% 50%, var(--accent-glow) 0%, transparent 60%)',
+                        opacity: 0.35,
+                    }}
+                />
+                <div className="relative mx-auto max-w-7xl px-6">
+                    <div className="mx-auto max-w-2xl text-center">
+                        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                            En 3 étapes
+                        </p>
+                        <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-white md:text-5xl">
+                            Opérationnel en quelques minutes.
+                        </h2>
+                    </div>
+
+                    <div className="mt-16 grid gap-6 md:grid-cols-3 md:gap-10">
+                        {data.timeline.map((t, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, amount: 0.3 }}
+                                transition={{ duration: 0.6, delay: i * 0.1 }}
+                                className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm md:p-8"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="font-mono text-xs text-[var(--accent)]">{t.step}</span>
+                                    <span className="h-px flex-1 bg-white/10" />
+                                </div>
+                                <h3 className="mt-4 font-display text-2xl font-bold tracking-tight text-white">
+                                    {t.title}
+                                </h3>
+                                <p className="mt-2 text-sm leading-relaxed text-white/70">{t.desc}</p>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Use cases */}
+            <section className="relative py-24 md:py-32">
+                <div className="mx-auto max-w-7xl px-6">
+                    <div className="mx-auto max-w-2xl text-center">
+                        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                            Cas d&apos;usage réels
+                        </p>
+                        <h2 className="mt-4 font-display text-3xl font-bold tracking-tight md:text-5xl">
+                            Ils ont fait le pas.
+                        </h2>
+                    </div>
+
+                    <div className="mt-14 grid gap-5 md:grid-cols-3">
+                        {data.useCases.map((u, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, amount: 0.2 }}
+                                transition={{ duration: 0.5, delay: i * 0.08 }}
+                                className={cn(
+                                    'rounded-2xl border border-border/60 bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent)]/40 hover:shadow-lg md:p-7'
+                                )}
+                            >
+                                <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    <span>Cas {String(i + 1).padStart(2, '0')}</span>
+                                    <span className="h-px flex-1 bg-border" />
+                                </div>
+                                <h3 className="mt-4 font-display text-lg font-bold leading-tight">
+                                    {u.title}
+                                </h3>
+                                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                                    {u.desc}
+                                </p>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Testimonial */}
+            <section className="relative overflow-hidden border-y border-border/60 bg-muted/40 py-24 md:py-32">
+                <div className="mx-auto max-w-5xl px-6">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.3 }}
+                        transition={{ duration: 0.7 }}
+                        className="grid gap-10 md:grid-cols-[2fr_1fr] md:items-center"
+                    >
+                        <div>
+                            <Quote className="h-10 w-10 text-[var(--accent)]/40" />
+                            <blockquote className="mt-4 font-display text-2xl font-medium leading-snug tracking-tight md:text-3xl">
+                                « {data.testimonial.quote} »
+                            </blockquote>
+                            <div className="mt-8 flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-sm font-bold text-white">
+                                    {data.testimonial.initials}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">{data.testimonial.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {data.testimonial.role} · {data.testimonial.company}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-muted)] p-8 text-center">
+                            <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">
+                                Résultat
+                            </p>
+                            <p className="mt-3 font-display text-5xl font-bold tracking-tight text-foreground md:text-6xl">
+                                {data.testimonial.metric}
+                            </p>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* FAQ + CTA */}
+            <FaqSection />
             <CtaSection />
-            <div className="py-12 bg-white">
-                <FaqSection />
-            </div>
-        </div>
+        </>
     )
 }

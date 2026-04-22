@@ -1,95 +1,102 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Eyebrow } from '@/components/ui/eyebrow'
-import { FadeInView, StaggerContainer, StaggerItem } from '@/components/animations'
-import { HelpCircle } from 'lucide-react'
-import { SquigglyUnderline } from '@/components/animations'
+"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const faqs = [
-    {
-        question: 'Comment fonctionne la collaboration d\'équipe ?',
-        answer: 'Vous pouvez inviter des membres d\'équipe dans votre espace de travail Jokko, assigner des conversations à des agents spécifiques, ajouter des notes internes et suivre les performances. Chaque membre de l\'équipe obtient sa propre connexion et des permissions basées sur les rôles.'
-    },
-    {
-        question: 'Mes données sont-elles sécurisées et privées ?',
-        answer: 'Absolument. Nous utilisons une sécurité de niveau entreprise avec chiffrement de bout en bout, une architecture multi-tenant pour l\'isolation des données, et nous nous conformons au RGPD et autres réglementations de confidentialité. Vos conversations ne sont jamais partagées ou utilisées à d\'autres fins.'
-    },
-    {
-        question: 'Puis-je utiliser les réponses IA pour mon entreprise ?',
-        answer: 'Oui, nos suggestions de réponses alimentées par IA apprennent de vos conversations précédentes et peuvent vous aider à répondre plus rapidement. Vous gardez toujours le contrôle total et pouvez modifier ou rejeter toute suggestion IA avant l\'envoi.'
-    },
-    {
-        question: 'Que se passe-t-il si je dépasse ma limite de messages ?',
-        answer: 'Nous vous avertirons lorsque vous approchez de votre limite. Vous pouvez soit passer à un plan supérieur, soit acheter des crédits de messages supplémentaires. Votre service ne sera pas interrompu pendant le mois.'
-    },
-    {
-        question: 'Puis-je annuler mon abonnement à tout moment ?',
-        answer: 'Oui, vous pouvez annuler votre abonnement à tout moment depuis les paramètres de votre compte. Il n\'y a pas de frais d\'annulation et vous continuerez à avoir accès jusqu\'à la fin de votre période de facturation.'
-    },
-    {
-        question: 'Offrez-vous du support pendant l\'essai ?',
-        answer: 'Absolument ! Tous les utilisateurs d\'essai ont accès à notre équipe de support via email et chat. Nous fournissons également une assistance d\'intégration pour vous aider à tirer le meilleur parti de Jokko pendant votre période d\'essai.'
-    }
-]
+  {
+    q: "Combien de numéros WhatsApp Business puis-je connecter ?",
+    a: "Illimité sur les plans Business et Pro, 1 numéro sur le plan Starter. Tous les numéros partagent la même inbox et se gèrent de façon centralisée, sans changer d'outil.",
+  },
+  {
+    q: "Est-ce que Jokko utilise l'API officielle Meta ?",
+    a: "Oui, Jokko passe exclusivement par la WhatsApp Cloud API officielle. Pas de scraping, pas de contournement : vous restez 100% conformes et vos numéros ne risquent pas d'être bannis.",
+  },
+  {
+    q: "Comment fonctionne l'IA Jo et qu'apprend-elle de nos conversations ?",
+    a: "Jo s'appuie sur vos conversations passées, votre catalogue et vos FAQ pour proposer un brouillon de réponse. Vos données ne sortent pas de votre tenant, ne sont jamais utilisées pour entraîner des modèles tiers, et vous pouvez désactiver l'IA par utilisateur ou par conversation.",
+  },
+  {
+    q: "Combien de temps prend la mise en place ?",
+    a: "5 à 15 minutes pour un premier numéro. Vous connectez votre compte WhatsApp Business via Meta, vous invitez votre équipe, vous paramétrez vos règles d'assignation. Nos guides vidéo couvrent chaque étape.",
+  },
+  {
+    q: "Puis-je migrer depuis Respond.io, Wati ou HubSpot ?",
+    a: "Oui. Nous fournissons un import des contacts et des templates, et notre équipe vous accompagne sur l'assignation historique si besoin. La plupart des migrations se font en moins d'une journée.",
+  },
+  {
+    q: "Où sont stockées nos données ?",
+    a: "Hébergement dans l'Union européenne (Frankfurt), chiffrement TLS 1.3 en transit et AES-256 au repos. SOC 2 en cours, RGPD-compliant, DPA disponible sur demande.",
+  },
+  {
+    q: "Que se passe-t-il si je dépasse mes quotas mensuels ?",
+    a: "On vous alerte avant. Vous pouvez upgrader en 1 clic ou acheter un pack d'extension. Votre service n'est jamais coupé en cours de mois : on débloque, vous réglez au prochain cycle.",
+  },
+  {
+    q: "Puis-je annuler à tout moment ?",
+    a: "Oui, sans frais et sans engagement. Vous gardez l'accès jusqu'à la fin de la période facturée. Vos données sont exportables en CSV/JSON à tout moment.",
+  },
+];
 
 export function FaqSection() {
-    return (
-        <section className="py-24 bg-white">
-            <div className="max-w-4xl mx-auto px-4">
-                <div className="text-center mb-16">
-                    <FadeInView>
-                        <Eyebrow
-                            text="FAQ"
-                            icon={<HelpCircle className="w-3 h-3" />}
-                            className="mb-4"
-                        />
-                    </FadeInView>
-                    <FadeInView delay={0.2}>
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 max-w-2xl mx-auto">
-                            Questions Fréquemment Posées
-                        </h2>
-                    </FadeInView>
-                    <FadeInView delay={0.4}>
-                        <p className="text-xl text-gray-600">
-                            Trouvez des réponses aux questions courantes sur Jokko et l&apos;intégration WhatsApp Business.
-                        </p>
-                    </FadeInView>
-                </div>
+  return (
+    <section id="faq" className="relative bg-muted/20 py-28 md:py-36">
+      <div className="mx-auto max-w-4xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center"
+        >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">
+            FAQ
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-bold tracking-tight md:text-5xl">
+            Parlons des vraies questions.
+          </h2>
+          <p className="mt-5 text-lg text-muted-foreground">
+            Les objections qu&apos;on entend avant chaque signature. Si la
+            vôtre manque,{" "}
+            <Link href="/contact" className="text-[var(--accent)] underline underline-offset-4">
+              écrivez-nous
+            </Link>{" "}
+            — réponse sous 2 h ouvrées.
+          </p>
+        </motion.div>
 
-                <StaggerContainer staggerDelay={0.1} delayChildren={0.6}>
-                    <Accordion type="single" collapsible className="space-y-4">
-                        {faqs.map((faq, index) => (
-                            <StaggerItem key={index}>
-                                <AccordionItem
-                                    value={`item-${index}`}
-                                    className="border border-gray-200 rounded-lg px-6"
-                                >
-                                    <AccordionTrigger className="text-left font-semibold text-gray-900 hover:text-green-600 transition-colors">
-                                        {faq.question}
-                                    </AccordionTrigger>
-                                    <AccordionContent className="text-gray-600 leading-relaxed pt-2 pb-4">
-                                        {faq.answer}
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </StaggerItem>
-                        ))}
-                    </Accordion>
-                </StaggerContainer>
-
-                <FadeInView delay={1.0}>
-                    <div className="text-center mt-12">
-                        <p className="text-gray-600 mb-4">
-                            Vous avez encore des questions ? Nous sommes là pour vous aider.
-                        </p>
-                        <a
-                            href="/contact"
-                            className="text-green-600 hover:text-green-700 font-medium relative inline-block"
-                        >
-                            Contactez notre équipe de support →
-                            <SquigglyUnderline />
-                        </a>
-                    </div>
-                </FadeInView>
-            </div>
-        </section>
-    )
+        <div className="mt-14">
+          <Accordion type="single" collapsible className="space-y-3">
+            {faqs.map((f, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.45, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <AccordionItem
+                  value={`item-${i}`}
+                  className="overflow-hidden rounded-2xl border border-border/60 bg-card px-5 transition-colors hover:border-[var(--accent)]/30"
+                >
+                  <AccordionTrigger className="py-5 text-left text-[15px] font-semibold hover:no-underline">
+                    {f.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-5 text-[14px] leading-relaxed text-muted-foreground">
+                    {f.a}
+                  </AccordionContent>
+                </AccordionItem>
+              </motion.div>
+            ))}
+          </Accordion>
+        </div>
+      </div>
+    </section>
+  );
 }

@@ -154,7 +154,7 @@ export default function SettingsPage() {
     const handleDeleteAccount = async () => {
         try {
             await deleteAccount();
-            window.location.href = "/sign-in";
+            window.location.href = "/auth/sign-in";
         } catch {
             toast.error("Erreur", {
                 description: "Impossible de supprimer le compte pour le moment.",

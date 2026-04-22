@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,20 +9,27 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Jokko - Plateforme CRM WhatsApp Business et Automatisation Marketing",
-    template: "%s | Jokko"
+    default: "Jokko — L'inbox WhatsApp partagée pour les équipes",
+    template: "%s | Jokko",
   },
-  description: "Boostez vos ventes et fidélisez vos clients avec Jokko. La solution complète de communication WhatsApp Business, automatisation marketing et CRM pour les entreprises modernes en Afrique.",
-  keywords: ["WhatsApp Business API", "CRM", "Marketing Automation", "Service Client", "Afrique", "Sénégal", "Jokko"],
+  description:
+    "Centralisez vos numéros WhatsApp Business, assignez les conversations à votre équipe, laissez l'IA rédiger les réponses. Un seul endroit pour toute votre relation client sur WhatsApp.",
+  keywords: [
+    "WhatsApp Business",
+    "inbox partagée",
+    "shared inbox",
+    "service client",
+    "support équipe",
+    "multi-agents",
+    "assignation",
+    "IA WhatsApp",
+    "Jokko",
+  ],
   authors: [{ name: "Jokko Team" }],
   creator: "Jokko",
   publisher: "Jokko",
@@ -28,24 +37,26 @@ export const metadata: Metadata = {
     type: "website",
     locale: "fr_FR",
     url: "https://www.jokko.co",
-    title: "Jokko - CRM WhatsApp Business & Marketing Automation",
-    description: "Transformez votre service client et augmentez vos revenus grâce à la puissance de WhatsApp Business API et l'automatisation intelligente.",
+    title: "Jokko — L'inbox WhatsApp partagée pour les équipes",
+    description:
+      "Un seul outil pour gérer plusieurs numéros WhatsApp Business à plusieurs. Assignation, IA co-pilot, flows automatiques.",
     siteName: "Jokko",
     images: [
       {
-        url: "/og-image.png", // Ensure this image exists in public folder or use a remote URL
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Jokko Platform Preview",
+        alt: "Jokko — L'inbox WhatsApp partagée pour les équipes",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Jokko - CRM WhatsApp Business",
-    description: "La plateforme tout-en-un pour gérer votre relation client sur WhatsApp.",
+    title: "Jokko — L'inbox WhatsApp partagée pour les équipes",
+    description:
+      "Centralisez vos WhatsApp Business. Répondez à plusieurs. Laissez l'IA faire le premier brouillon.",
     images: ["/og-image.png"],
-    creator: "@jokko_co", // Update with actual handle if available
+    creator: "@jokko_co",
   },
   icons: {
     icon: "/favicon.ico",
@@ -61,7 +72,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html
+      lang="fr"
+      suppressHydrationWarning
+      className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable}`}
+      style={
+        {
+          "--font-display": "var(--font-geist-sans)",
+          "--font-body": "var(--font-inter)",
+          "--font-mono": "var(--font-geist-mono)",
+        } as React.CSSProperties
+      }
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -88,9 +110,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <ConvexClientProvider>
           {children}
           <Toaster />

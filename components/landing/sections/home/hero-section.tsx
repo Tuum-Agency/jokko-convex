@@ -1,184 +1,141 @@
 "use client";
 
-import { Button } from "@/components/ui/button"
-import { Play, Sparkles, MessageCircle, ArrowRight } from "lucide-react"
-import { AnimatedBadge, FadeInView, StaggerContainer, StaggerItem } from "@/components/animations"
-import { PhoneMockup } from "@/components/landing/ui/phone-mockup"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { CompanyLogo1, CompanyLogo2, CompanyLogo3, CompanyLogo4 } from "@/components/landing/ui/company-logos"
-import { WaitingListDialog } from "@/components/landing/waiting-list-dialog"
-
+import Link from "next/link";
+import { ArrowRight, Play, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { SplitText } from "@/components/animations/split-text";
+import { InboxMockup } from "@/components/landing/ui/inbox-mockup";
+import { ShimmerButton } from "@/components/landing/ui/shimmer-button";
 
 export function HeroSection() {
-    return (
-        <section id="home" className="relative min-h-[90vh] flex items-center overflow-hidden bg-white pt-24 sm:pt-32 lg:pt-40">
-            {/* ====================
-                BACKGROUND ELEMENTS 
-               ==================== */}
-            {/* Gradient Mesh */}
-            <div className="absolute inset-0 pointer-events-none">
-                {/* Top Right Orb */}
-                <motion.div
-                    animate={{
-                        scale: [1, 1.2, 1],
-                        rotate: [0, 90, 0],
-                    }}
-                    transition={{
-                        duration: 20,
-                        repeat: Infinity,
-                        repeatType: "reverse"
-                    }}
-                    className="absolute -top-[20%] -right-[10%] w-[800px] h-[800px] bg-green-200/40 rounded-full blur-[100px] mix-blend-multiply"
+  return (
+    <section className="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, rgba(20,20,26,0.035) 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-1/4 left-1/2 -z-10 h-[700px] w-[1000px] -translate-x-1/2 rounded-full opacity-60 blur-[120px]"
+        style={{
+          background: "radial-gradient(ellipse, var(--accent-glow) 0%, transparent 60%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-background to-transparent"
+      />
+
+      <div className="mx-auto grid w-full max-w-7xl items-center gap-12 px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+        <div className="relative z-10 text-center lg:text-left">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur"
+          >
+            <span className="flex h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+            For teams · 2026
+          </motion.div>
+
+          <h1 className="mt-6 font-display text-[clamp(2.75rem,6vw,5.5rem)] font-bold leading-[0.98] tracking-[-0.02em]">
+            <SplitText as="span" className="block">
+              L&apos;inbox WhatsApp
+            </SplitText>
+            <SplitText
+              as="span"
+              delay={0.15}
+              className="block bg-gradient-to-br from-foreground via-foreground to-[var(--accent)] bg-clip-text text-transparent"
+            >
+              partagée pour les équipes.
+            </SplitText>
+          </h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0"
+          >
+            Centralisez vos numéros WhatsApp Business dans une seule inbox.
+            Assignez les conversations à votre équipe, laissez l&apos;IA rédiger
+            le premier brouillon, mesurez les résultats.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.65, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
+          >
+            <ShimmerButton asChild size="lg">
+              <Link href="/auth/sign-up">
+                Démarrer gratuitement
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </ShimmerButton>
+            <ShimmerButton asChild variant="ghost" size="lg">
+              <Link href="/fonctionnalites">
+                <Play className="h-3.5 w-3.5 fill-current" />
+                Voir la démo (2 min)
+              </Link>
+            </ShimmerButton>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.85 }}
+            className="mt-10 flex flex-wrap items-center justify-center gap-5 lg:justify-start"
+          >
+            <div className="flex -space-x-2">
+              {[
+                "from-rose-400 to-rose-600",
+                "from-amber-400 to-amber-600",
+                "from-sky-400 to-sky-600",
+                "from-emerald-400 to-emerald-600",
+                "from-violet-400 to-violet-600",
+              ].map((g, i) => (
+                <div
+                  key={i}
+                  className={`h-8 w-8 rounded-full bg-gradient-to-br ${g} ring-2 ring-background`}
                 />
-                {/* Bottom Left Orb */}
-                <motion.div
-                    animate={{
-                        scale: [1, 1.3, 1],
-                        x: [0, 50, 0],
-                    }}
-                    transition={{
-                        duration: 25,
-                        repeat: Infinity,
-                        repeatType: "reverse"
-                    }}
-                    className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] bg-teal-200/40 rounded-full blur-[100px] mix-blend-multiply"
-                />
-                {/* Center Orb */}
-                <motion.div
-                    animate={{
-                        opacity: [0.3, 0.6, 0.3],
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        repeatType: "reverse"
-                    }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-emerald-100/30 rounded-full blur-[80px] mix-blend-multiply"
-                />
+              ))}
             </div>
-
-            {/* Grid Pattern Overlay */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-size-[32px_32px]"></div>
-
-
-            {/* ====================
-                CONTENT
-               ==================== */}
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16 lg:pt-0">
-                <div className="grid lg:grid-cols-2 gap-8 lg:gap-8 items-center">
-
-                    {/* LEFT: Text Content */}
-                    <div className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-8 max-w-2xl mx-auto lg:mx-0">
-                        {/* Badge */}
-                        <FadeInView delay={0.1} trigger="mount">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-100 text-green-700 shadow-sm">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                                </span>
-                                <span className="text-sm font-semibold tracking-wide uppercase">Nouvelle Génération</span>
-                            </div>
-                        </FadeInView>
-
-                        {/* Title */}
-                        <FadeInView delay={0.2} className="space-y-4" trigger="mount">
-                            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-                                Le Futur du <br />
-                                <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-teal-500">
-                                    Commerce WhatsApp
-                                </span>
-                            </h1>
-                            <p className="text-base sm:text-lg md:text-xl text-slate-600 leading-relaxed max-w-lg mx-auto lg:mx-0">
-                                Automatisez vos ventes, centralisez vos messages et fidélisez vos clients avec la plateforme WhatsApp la plus avancée du Sénégal.
-                            </p>
-                        </FadeInView>
-
-                        {/* Buttons */}
-                        <FadeInView delay={0.4} className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto" trigger="mount">
-                            <WaitingListDialog>
-                                <Button size="lg" className="h-14 px-8 rounded-full bg-green-600 hover:bg-green-700 text-white text-lg shadow-green-200/50 shadow-xl transition-all hover:-translate-y-1">
-                                    <span className="flex items-center gap-2">Rejoindre la liste d'attente <ArrowRight className="w-5 h-5" /></span>
-                                </Button>
-                            </WaitingListDialog>
-                            <Button size="lg" variant="outline" asChild className="h-14 px-8 rounded-full border-2 border-slate-200 text-slate-700 hover:border-green-600 hover:text-green-600 bg-white/50 backdrop-blur-sm text-lg transition-all">
-                                <Link href="#demo">
-                                    <span className="flex items-center gap-2"><Play className="w-5 h-5" /> Voir la démo</span>
-                                </Link>
-                            </Button>
-                        </FadeInView>
-
-                        {/* Trust */}
-                        <FadeInView delay={0.6} className="pt-4 flex items-center gap-4 text-sm text-slate-500" trigger="mount">
-                            <div className="flex -space-x-2">
-                                <div className="flex -space-x-3">
-                                    <CompanyLogo1 className="w-8 h-8 rounded-full border-2 border-white" />
-                                    <CompanyLogo2 className="w-8 h-8 rounded-full border-2 border-white" />
-                                    <CompanyLogo3 className="w-8 h-8 rounded-full border-2 border-white" />
-                                    <CompanyLogo4 className="w-8 h-8 rounded-full border-2 border-white" />
-                                </div>
-                            </div>
-                            <p>Rejoignez les <span className="font-bold text-slate-900">premiers inscrits</span></p>
-                        </FadeInView>
-                    </div>
-
-                    {/* RIGHT: Visual (Floating Phone) */}
-                    <div className="hidden lg:flex justify-center items-center relative perspective-1000">
-                        {/* Decorative Circle behind phone */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-green-100/50 rounded-full blur-3xl -z-10"></div>
-
-                        <motion.div
-                            animate={{
-                                y: [-10, 10, -10],
-                                rotate: [0, -1, 0, 1, 0]
-                            }}
-                            transition={{
-                                duration: 6,
-                                repeat: Infinity,
-                                ease: "easeInOut"
-                            }}
-                        >
-                            <PhoneMockup />
-                        </motion.div>
-
-                        {/* Floating Cards around Phone */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 1 }}
-                            className="absolute right-0 top-1/4 bg-white p-4 rounded-xl shadow-2xl border border-slate-100 max-w-[200px]"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                    <Sparkles className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-bold text-slate-900">IA Active</p>
-                                    <p className="text-[10px] text-slate-500">Réponse auto générée</p>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, x: -50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 1.5 }}
-                            className="absolute left-0 bottom-1/4 bg-white p-4 rounded-xl shadow-2xl border border-slate-100 max-w-[200px]"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600">
-                                    <MessageCircle className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-bold text-slate-900">+150 Leads</p>
-                                    <p className="text-[10px] text-slate-500">Aujourd'hui</p>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                    </div>
-                </div>
+            <div className="flex flex-col text-left text-xs">
+              <span className="font-semibold text-foreground">+140 équipes</span>
+              <span className="text-muted-foreground">
+                Sans CB · RGPD · Hébergement UE
+              </span>
             </div>
-        </section>
-    )
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="relative"
+        >
+          <InboxMockup />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 1 }}
+            className="absolute -bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 shadow-lg backdrop-blur"
+          >
+            <div className="flex items-center gap-1.5 text-[11px] font-medium">
+              <Sparkles className="h-3 w-3 text-[var(--accent)]" />
+              <span>Propulsé par Jo · votre IA copilot</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
 }

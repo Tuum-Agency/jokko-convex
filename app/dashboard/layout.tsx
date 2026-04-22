@@ -23,8 +23,8 @@ export default function DashboardLayout({
     useEffect(() => {
         console.log(`[DashboardLayout] Auth check: user=${user !== undefined ? (user ? 'present' : 'null') : 'loading'}`);
         if (user === null) {
-            console.log(`[DashboardLayout] Redirecting to /sign-in (user is null)`);
-            router.push('/sign-in');
+            console.log(`[DashboardLayout] Redirecting to /auth/sign-in (user is null)`);
+            router.push('/auth/sign-in');
             return;
         }
         if (user && user.onboardingCompleted !== true) {

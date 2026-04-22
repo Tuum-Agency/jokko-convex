@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_ROUTES = [
     '/',
-    '/sign-in',
-    '/sign-up',
+    '/auth/sign-in',
+    '/auth/sign-up',
     '/pricing',
     '/about',
     '/contact',
@@ -38,7 +38,7 @@ export default function proxy(request: NextRequest) {
 
     // --- Auth gate for protected routes ---
     if (!isPublicRoute(pathname) && !hasAuthToken(request)) {
-        const signInUrl = new URL('/sign-in', request.url)
+        const signInUrl = new URL('/auth/sign-in', request.url)
         signInUrl.searchParams.set('redirect', pathname)
         return NextResponse.redirect(signInUrl)
     }
