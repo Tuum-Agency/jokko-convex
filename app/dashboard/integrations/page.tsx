@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { DisconnectDialog } from "@/components/integrations/disconnect-dialog";
 import { CrmLogo } from "@/components/integrations/crm-logo";
+import { FeatureGate } from "@/components/plan/FeatureGate";
+import { usePlanFeature } from "@/hooks/use-plan-feature";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -212,6 +214,7 @@ function StatsCard({
 }
 
 export default function IntegrationsPage() {
+    const { allowed: planAllowed, isLoading: planLoading } = usePlanFeature('integrations_crm');
     const providers = useQuery(api.crm.connections.listAvailableProviders);
     const connections = useQuery(api.crm.connections.listForCurrentOrganization);
     const optInStats = useQuery(api.crm.optin.getImportedOptInStats);
@@ -379,7 +382,7 @@ export default function IntegrationsPage() {
         }
     }
 
-    if (!providers) {
+    if (planLoading || !providers) {
         return (
             <div className="space-y-6">
                 <div>
@@ -401,6 +404,22 @@ export default function IntegrationsPage() {
                     <Skeleton className="h-48 rounded-xl" />
                     <Skeleton className="h-48 rounded-xl" />
                 </div>
+            </div>
+        );
+    }
+
+    if (!planAllowed) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        Intégrations CRM
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        Connectez votre CRM pour synchroniser contacts et événements.
+                    </p>
+                </div>
+                <FeatureGate feature="integrations_crm">{null}</FeatureGate>
             </div>
         );
     }

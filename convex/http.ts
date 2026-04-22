@@ -128,6 +128,8 @@ http.route({
                 messageCount: value?.messages?.length ?? 0,
                 hasStatuses: !!value?.statuses,
                 statusCount: value?.statuses?.length ?? 0,
+                hasCalls: !!value?.calls,
+                callCount: value?.calls?.length ?? 0,
             }));
 
             if (!value) {
@@ -149,6 +151,41 @@ http.route({
                         text: message.text?.body?.slice(0, 100),
                         hasContext: !!message.context,
                     }));
+
+                    // Intercept interactive call_permission_reply messages (CPR acceptance)
+                    // These arrive as standard messages with type="interactive".
+                    const interactiveType = message?.interactive?.type;
+                    if (
+                        message.type === "interactive" &&
+                        (interactiveType === "call_permission_reply" ||
+                            interactiveType === "call_permission_request_reply")
+                    ) {
+                        const reply = message.interactive?.call_permission_reply
+                            ?? message.interactive?.call_permission_request_reply;
+                        const response = reply?.response;
+
+                        console.log("[Webhook] ☎️ Call permission reply", JSON.stringify({
+                            from: message.from,
+                            response,
+                            phoneNumberId: value.metadata?.phone_number_id,
+                        }));
+
+                        if (response === "accept" || response === "accepted") {
+                            try {
+                                await ctx.runMutation(internal.calls.handleCallWebhook, {
+                                    callId: message.id ?? `cpr_reply_${Date.now()}`,
+                                    from: message.from,
+                                    to: value.metadata?.display_phone_number ?? "",
+                                    event: "permission_request_accepted",
+                                    phoneNumberId: value.metadata?.phone_number_id,
+                                });
+                            } catch (cprError) {
+                                console.error("[Webhook] ❌ CPR reply error", String(cprError));
+                            }
+                        }
+                        // Do not also treat this as a regular message.
+                        continue;
+                    }
 
                     try {
                         await ctx.runMutation(internal.webhook.handleIncomingMessage, {
@@ -189,6 +226,39 @@ http.route({
                         console.error("[Webhook] ❌ Status error", JSON.stringify({
                             waMessageId: status.id,
                             error: String(statusError),
+                        }));
+                    }
+                }
+            }
+
+            // Case C: WhatsApp Calling events
+            if (value.calls) {
+                for (const call of value.calls) {
+                    console.log("[Webhook] ☎️ Call", JSON.stringify({
+                        callId: call.id,
+                        from: call.from,
+                        to: call.to,
+                        event: call.event,
+                        direction: call.direction,
+                        sdpType: call.session?.sdp_type,
+                        phoneNumberId: value.metadata?.phone_number_id,
+                    }));
+
+                    try {
+                        await ctx.runMutation(internal.calls.handleCallWebhook, {
+                            callId: call.id,
+                            from: call.from,
+                            to: call.to ?? value.metadata?.display_phone_number ?? "",
+                            event: call.event,
+                            direction: call.direction,
+                            sdp: call.session?.sdp,
+                            sdpType: call.session?.sdp_type,
+                            phoneNumberId: value.metadata?.phone_number_id,
+                        });
+                    } catch (callError) {
+                        console.error("[Webhook] ❌ Call webhook error", JSON.stringify({
+                            callId: call.id,
+                            error: String(callError),
                         }));
                     }
                 }

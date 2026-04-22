@@ -5,6 +5,7 @@ import { Sidebar, DashboardHeader } from '@/components/dashboard'
 import { BrowserNotifications } from '@/components/browser-notifications'
 import { NotificationBanner } from '@/components/dashboard/notification-banner'
 import { TrialBanner } from '@/components/billing/trial-banner'
+import { CallNotificationProvider } from '@/components/calls/call-notification-provider'
 import { usePresence } from '@/hooks/use-presence'
 import { useCurrentOrg } from '@/hooks/use-current-org'
 import { useTrialStatus } from '@/hooks/usePlans'
@@ -55,6 +56,7 @@ export function DashboardLayoutClient({
             <div className="flex flex-1 flex-col overflow-hidden">
                 <NotificationBanner />
                 <BrowserNotifications />
+                <CallNotificationProvider />
                 {/* Header with mobile sidebar */}
                 <DashboardHeader
                     basePath={basePath}

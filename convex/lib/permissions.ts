@@ -28,7 +28,8 @@ export type Permission =
     | "teams:create" | "teams:update" | "teams:delete" | "teams:manage_members"
     | "channels:create" | "channels:update" | "channels:delete" | "channels:assign_team"
     | "broadcasts:create" | "broadcasts:send" | "broadcasts:override_channel"
-    | "integrations:read" | "integrations:manage";
+    | "integrations:read" | "integrations:manage"
+    | "calls:answer" | "calls:initiate" | "calls:view_history";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     OWNER: [
@@ -44,6 +45,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "channels:create", "channels:update", "channels:delete", "channels:assign_team",
         "broadcasts:create", "broadcasts:send", "broadcasts:override_channel",
         "integrations:read", "integrations:manage",
+        "calls:answer", "calls:initiate", "calls:view_history",
     ],
     ADMIN: [
         "org:read", "org:update",
@@ -58,6 +60,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "channels:create", "channels:update", "channels:assign_team",
         "broadcasts:create", "broadcasts:send",
         "integrations:read", "integrations:manage",
+        "calls:answer", "calls:initiate", "calls:view_history",
     ],
     AGENT: [
         "org:read",
@@ -69,6 +72,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         "flows:read",
         "settings:read",
         "integrations:read",
+        "calls:answer", "calls:initiate", "calls:view_history",
     ],
 };
 

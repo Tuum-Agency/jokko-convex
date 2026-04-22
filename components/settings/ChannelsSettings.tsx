@@ -84,6 +84,27 @@ export function ChannelsSettings() {
     const [tokenErrors, setTokenErrors] = useState<Record<string, string>>({})
     const [checkingTokens, setCheckingTokens] = useState(false)
 
+    // Real signal: read the calls history. Meta's read-scope health probe
+    // (getChannelStatus) can return "OK" when calling-specific scopes are
+    // already broken — so we also look at recent FAILED outbound calls with
+    // code 190 / OAuthException to surface the expired-token state that the
+    // probe misses.
+    const callsTokenIssues = useQuery(
+        api.calls.getChannelsWithTokenError,
+        currentOrg ? { organizationId: currentOrg._id } : "skip",
+    )
+
+    useEffect(() => {
+        if (!callsTokenIssues || callsTokenIssues.length === 0) return
+        setTokenErrors(prev => {
+            const next = { ...prev }
+            for (const issue of callsTokenIssues) {
+                next[issue.channelId as unknown as string] = issue.reason
+            }
+            return next
+        })
+    }, [callsTokenIssues])
+
     // Auto-check token health for all active channels on mount
     useEffect(() => {
         if (!channels.length || checkingTokens) return
@@ -112,7 +133,9 @@ export function ChannelsSettings() {
         return () => { cancelled = true }
     }, [channels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const activeChannels = channels.filter((c: any) => c.status !== 'disabled')
+    const activeChannels = channels.filter(
+        (c: any) => c.status !== 'disabled' && c.status !== 'banned',
+    )
     const channelsWithTokenError = channels.filter((c: any) => tokenErrors[c._id])
     const downgradedChannels = channels.filter(
         (c: any) => c.status === 'disabled' && c.disabledReason === 'plan_downgrade',

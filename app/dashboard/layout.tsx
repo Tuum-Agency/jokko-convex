@@ -56,9 +56,10 @@ export default function DashboardLayout({
         }
     }, [sessionData, user, ensureSession, sessionRetries, router]);
 
-    // 3. Subdomain Redirect
+    // 3. Subdomain Redirect — only after onboarding is complete
     useEffect(() => {
         if (!sessionData?.organization?.slug) return;
+        if (user?.onboardingCompleted !== true) return;
 
         const slug = sessionData.organization.slug;
         const hostname = window.location.hostname;
@@ -83,7 +84,7 @@ export default function DashboardLayout({
                 window.location.href = newUrl;
             }
         }
-    }, [sessionData]);
+    }, [sessionData, user]);
 
     // -----------------------------------------------------
     // RENDERING STATES

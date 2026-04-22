@@ -114,3 +114,64 @@ export const updateMessageStatus = internalMutation({
         });
     },
 });
+
+// ============================================
+// CALLS: internal helpers used by call_actions.ts
+// ============================================
+
+export const getCall = internalQuery({
+    args: { id: v.id("calls") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.id);
+    },
+});
+
+export const getWhatsAppChannel = internalQuery({
+    args: { id: v.id("whatsappChannels") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.id);
+    },
+});
+
+export const getWaba = internalQuery({
+    args: { id: v.id("wabas") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.id);
+    },
+});
+
+export const updateCallStatus = internalMutation({
+    args: {
+        callId: v.id("calls"),
+        status: v.union(
+            v.literal("RINGING"),
+            v.literal("PRE_ACCEPTED"),
+            v.literal("CONNECTED"),
+            v.literal("TERMINATED"),
+            v.literal("REJECTED"),
+            v.literal("MISSED"),
+            v.literal("FAILED"),
+            v.literal("REQUESTING_PERMISSION"),
+            v.literal("PERMISSION_GRANTED"),
+        ),
+        terminationReason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const patch: Record<string, unknown> = {
+            status: args.status,
+            updatedAt: Date.now(),
+        };
+        if (args.terminationReason !== undefined) {
+            patch.terminationReason = args.terminationReason;
+        }
+        if (
+            args.status === "FAILED" ||
+            args.status === "TERMINATED" ||
+            args.status === "REJECTED" ||
+            args.status === "MISSED"
+        ) {
+            patch.endedAt = Date.now();
+        }
+        await ctx.db.patch(args.callId, patch);
+    },
+});

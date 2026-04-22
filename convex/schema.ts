@@ -1881,5 +1881,61 @@ export default defineSchema({
     })
         .index("by_connection_period", ["connectionId", "periodStart"])
         .index("by_org_period", ["organizationId", "periodStart"]),
+
+    // ============================================
+    // WhatsApp Calls
+    // ============================================
+    calls: defineTable({
+        organizationId: v.id("organizations"),
+        conversationId: v.optional(v.id("conversations")),
+        contactId: v.optional(v.id("contacts")),
+        whatsappChannelId: v.optional(v.id("whatsappChannels")),
+
+        // Meta's external call identifier (WhatsApp Cloud API)
+        externalCallId: v.string(),
+
+        direction: v.union(
+            v.literal("INBOUND"),
+            v.literal("OUTBOUND"),
+        ),
+
+        fromPhone: v.string(),
+        toPhone: v.string(),
+
+        // Agent handling the call (null until accepted)
+        agentId: v.optional(v.id("users")),
+
+        // WebRTC signaling
+        sdpOffer: v.optional(v.string()),
+        sdpAnswer: v.optional(v.string()),
+
+        status: v.union(
+            v.literal("RINGING"),
+            v.literal("PRE_ACCEPTED"),
+            v.literal("CONNECTED"),
+            v.literal("TERMINATED"),
+            v.literal("REJECTED"),
+            v.literal("MISSED"),
+            v.literal("FAILED"),
+            v.literal("REQUESTING_PERMISSION"),
+            v.literal("PERMISSION_GRANTED"),
+        ),
+
+        terminationReason: v.optional(v.string()),
+
+        startedAt: v.number(),
+        answeredAt: v.optional(v.number()),
+        endedAt: v.optional(v.number()),
+        durationSeconds: v.optional(v.number()),
+
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_external_call_id", ["externalCallId"])
+        .index("by_org_status", ["organizationId", "status"])
+        .index("by_conversation", ["conversationId"])
+        .index("by_agent", ["agentId"])
+        .index("by_channel_status", ["whatsappChannelId", "status"]),
 });
 

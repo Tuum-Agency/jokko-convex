@@ -17,6 +17,7 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { rateLimiter } from "./lib/rateLimits";
+import { enforceChannelDowngrade } from "./lib/planEnforcement";
 
 export const listMine = query({
     args: {},
@@ -223,6 +224,11 @@ export const updateOrgPlan = mutation({
             plan: args.plan,
             updatedAt: Date.now(),
         });
+
+        // Si le nouveau plan a des quotas inférieurs, désactiver les canaux
+        // excédentaires, mettre en pause les broadcasts concernés et notifier.
+        // Sans ça, un downgrade via UI bypasserait toutes les limites.
+        await enforceChannelDowngrade(ctx, session.currentOrganizationId, args.plan);
     },
 });
 

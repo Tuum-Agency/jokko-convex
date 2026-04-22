@@ -5,7 +5,7 @@
  * réexporte les mêmes constantes via import relatif pour garantir la cohérence).
  *
  * Convention :
- *   - clé stable en camelCase (ne JAMAIS la changer une fois déployée)
+ *   - clé stable (ne JAMAIS la changer une fois déployée)
  *   - `minPlan` = plan minimum qui déverrouille la feature
  *   - `label` = libellé FR affiché dans les badges
  *
@@ -25,6 +25,12 @@ export const PLAN_RANK: Record<PlanKey, number> = {
     ENTERPRISE: 4,
 };
 
+/**
+ * Ordre hiérarchique : un plan plus à droite inclut toutes les features
+ * des plans à sa gauche.
+ */
+export const PLAN_ORDER: PlanKey[] = ["FREE", "STARTER", "BUSINESS", "PRO", "ENTERPRISE"];
+
 export const PLAN_LABEL: Record<PlanKey, string> = {
     FREE: "Free",
     STARTER: "Starter",
@@ -43,11 +49,25 @@ export type FeatureKey =
     | "advancedStats"
     | "webhooks"
     | "segmentation"
+    | "integrations_crm"
     | "ai"
     | "flows"
     | "api"
     | "advancedMarketing"
     | "accountManager";
+
+/**
+ * Alias conservé pour compatibilité avec le code existant (snake_case).
+ * @deprecated Utilise FeatureKey.
+ */
+export type PlanFeature =
+    | "flows"
+    | "broadcasts"
+    | "segments"
+    | "webhooks"
+    | "integrations_crm"
+    | "ai"
+    | "analytics_advanced";
 
 export const FEATURES: Record<
     FeatureKey,
@@ -73,7 +93,7 @@ export const FEATURES: Record<
 
     // ---------- Business ----------
     broadcasts: {
-        label: "Marketing de masse",
+        label: "Campagnes marketing",
         minPlan: "BUSINESS",
         description: "Campagnes WhatsApp à grande échelle",
     },
@@ -82,7 +102,7 @@ export const FEATURES: Record<
         minPlan: "BUSINESS",
     },
     advancedStats: {
-        label: "Statistiques & Segments",
+        label: "Analytics avancées",
         minPlan: "BUSINESS",
     },
     webhooks: {
@@ -90,19 +110,23 @@ export const FEATURES: Record<
         minPlan: "BUSINESS",
     },
     segmentation: {
-        label: "Segmentation avancée",
+        label: "Segments",
+        minPlan: "BUSINESS",
+    },
+    flows: {
+        label: "Automatisations",
         minPlan: "BUSINESS",
     },
 
     // ---------- Pro ----------
+    integrations_crm: {
+        label: "Intégrations CRM",
+        minPlan: "PRO",
+    },
     ai: {
         label: "Jokko AI",
         minPlan: "PRO",
         description: "Assistant intelligent et génération IA",
-    },
-    flows: {
-        label: "Flux de conversation (Flows)",
-        minPlan: "PRO",
     },
     api: {
         label: "API & Intégrations",
@@ -120,13 +144,72 @@ export const FEATURES: Record<
     },
 };
 
+/**
+ * Map legacy (snake_case) -> FeatureKey canonique.
+ * Permet aux consommateurs existants de main de continuer à fonctionner.
+ */
+const LEGACY_FEATURE_ALIASES: Record<PlanFeature, FeatureKey> = {
+    flows: "flows",
+    broadcasts: "broadcasts",
+    segments: "segmentation",
+    webhooks: "webhooks",
+    integrations_crm: "integrations_crm",
+    ai: "ai",
+    analytics_advanced: "advancedStats",
+};
+
+/**
+ * Table publique FEATURE_MIN_PLAN : conservée pour le code hérité qui utilise
+ * le type PlanFeature (snake_case).
+ */
+export const FEATURE_MIN_PLAN: Record<PlanFeature, PlanKey> = {
+    flows: FEATURES.flows.minPlan,
+    broadcasts: FEATURES.broadcasts.minPlan,
+    segments: FEATURES.segmentation.minPlan,
+    webhooks: FEATURES.webhooks.minPlan,
+    integrations_crm: FEATURES.integrations_crm.minPlan,
+    ai: FEATURES.ai.minPlan,
+    analytics_advanced: FEATURES.advancedStats.minPlan,
+};
+
+export const FEATURE_LABELS: Record<PlanFeature, string> = {
+    flows: FEATURES.flows.label,
+    broadcasts: FEATURES.broadcasts.label,
+    segments: FEATURES.segmentation.label,
+    webhooks: FEATURES.webhooks.label,
+    integrations_crm: FEATURES.integrations_crm.label,
+    ai: FEATURES.ai.label,
+    analytics_advanced: FEATURES.advancedStats.label,
+};
+
 export function planRank(plan: PlanKey | string | null | undefined): number {
     if (!plan) return 0;
     return PLAN_RANK[plan as PlanKey] ?? 0;
 }
 
-export function planIncludesFeature(plan: PlanKey | string, feature: FeatureKey): boolean {
-    const f = FEATURES[feature];
-    if (!f) return false;
-    return planRank(plan) >= planRank(f.minPlan);
+/**
+ * Résout n'importe quelle clé (FeatureKey ou PlanFeature legacy) vers la clé canonique.
+ */
+function resolveFeatureKey(feature: FeatureKey | PlanFeature | string): FeatureKey | null {
+    if (feature in FEATURES) return feature as FeatureKey;
+    if (feature in LEGACY_FEATURE_ALIASES) return LEGACY_FEATURE_ALIASES[feature as PlanFeature];
+    return null;
+}
+
+export function planIncludesFeature(
+    plan: PlanKey | string,
+    feature: FeatureKey | PlanFeature,
+): boolean {
+    const key = resolveFeatureKey(feature);
+    if (!key) return false;
+    return planRank(plan) >= planRank(FEATURES[key].minPlan);
+}
+
+/**
+ * Pour l'UI : retourne le plan minimum requis pour une feature.
+ */
+export function minPlanForFeature(feature: FeatureKey | PlanFeature): PlanKey {
+    const key = resolveFeatureKey(feature);
+    if (!key) return "FREE";
+    return FEATURES[key].minPlan;
 }

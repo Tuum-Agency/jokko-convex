@@ -64,15 +64,6 @@ export default function FacebookConnectPage() {
 
         setStatus('logging-in');
 
-        // Re-init FB right before login — required by FB SDK
-        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
-        window.FB.init({
-            appId,
-            cookie: true,
-            xfbml: true,
-            version: 'v22.0',
-        });
-
         window.FB.login(
             (response: any) => {
                 if (response.authResponse?.accessToken) {

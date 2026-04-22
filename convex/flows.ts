@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAuth, requirePermission } from "./lib/auth";
+import { requirePlanFeature } from "./lib/planFeatures";
 
 // Helper to get current Org ID (uses centralized auth from lib/auth.ts)
 async function getCurrentOrgId(ctx: Parameters<typeof requireAuth>[0]) {
@@ -63,6 +64,7 @@ export const create = mutation({
     handler: async (ctx, args) => {
         const { userId, organizationId } = await getCurrentOrgId(ctx);
         await requirePermission(ctx, organizationId, "flows:create");
+        await requirePlanFeature(ctx, organizationId, "flows");
 
         const flowId = await ctx.db.insert("flows", {
             organizationId,
@@ -91,6 +93,9 @@ export const createFromAI = mutation({
     handler: async (ctx, args) => {
         const { userId, organizationId } = await getCurrentOrgId(ctx);
         await requirePermission(ctx, organizationId, "flows:create");
+        // createFromAI = flows + IA : les deux features doivent être dispo
+        await requirePlanFeature(ctx, organizationId, "flows");
+        await requirePlanFeature(ctx, organizationId, "ai");
 
         const flowId = await ctx.db.insert("flows", {
             organizationId,
