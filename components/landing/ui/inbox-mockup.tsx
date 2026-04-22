@@ -4,14 +4,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
   Search,
-  Sparkles,
   CheckCheck,
+  Check,
+  Clock,
   Phone,
-  Video,
   MoreVertical,
   Paperclip,
   Smile,
   Send,
+  Mic,
+  Info,
+  Mail,
+  Building2,
+  Tag as TagIcon,
+  Inbox,
+  UserX,
+  Archive,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,13 +30,15 @@ interface Thread {
   id: string;
   name: string;
   initials: string;
-  number: string;
   preview: string;
   time: string;
   unread?: number;
   assignee?: string;
-  color: string;
+  window?: "ok" | "warn" | "danger";
+  windowLabel?: string;
   active?: boolean;
+  section: "mine" | "unassigned";
+  pinned?: boolean;
 }
 
 const threads: Thread[] = [
@@ -35,63 +46,71 @@ const threads: Thread[] = [
     id: "1",
     name: "Aïssatou Diop",
     initials: "AD",
-    number: "+221 77",
     preview: "Bonjour, ma commande #4821 est-elle…",
     time: "10:24",
     unread: 2,
     assignee: "Moi",
-    color: "from-rose-400 to-rose-600",
+    window: "ok",
+    windowLabel: "23h45",
     active: true,
+    section: "mine",
+    pinned: true,
   },
   {
     id: "2",
     name: "Moussa Fall",
     initials: "MF",
-    number: "+221 78",
-    preview: "Merci beaucoup pour votre retour rapide 🙏",
+    preview: "Merci beaucoup pour votre retour 🙏",
     time: "10:21",
-    assignee: "Fatou",
-    color: "from-amber-400 to-amber-600",
+    assignee: "Moi",
+    window: "ok",
+    windowLabel: "18h",
+    section: "mine",
   },
   {
     id: "3",
-    name: "Coumba Sow",
-    initials: "CS",
-    number: "+221 76",
-    preview: "Je voudrais changer la taille du produit",
-    time: "10:18",
+    name: "Awa Sarr",
+    initials: "AS",
+    preview: "Bonjour, livrez-vous à Thiès ?",
+    time: "09:52",
     unread: 1,
-    assignee: "Jo · IA",
-    color: "from-violet-400 to-violet-600",
+    window: "warn",
+    windowLabel: "4h",
+    section: "unassigned",
   },
   {
     id: "4",
-    name: "Ibrahima Ndiaye",
-    initials: "IN",
-    number: "+221 77",
-    preview: "Parfait, j'attends le lien de paiement.",
-    time: "10:05",
-    assignee: "Khady",
-    color: "from-emerald-400 to-emerald-600",
+    name: "Coumba Sow",
+    initials: "CS",
+    preview: "Je voudrais changer la taille du produit",
+    time: "09:41",
+    window: "ok",
+    windowLabel: "21h",
+    section: "unassigned",
   },
   {
     id: "5",
-    name: "Awa Sarr",
-    initials: "AS",
-    number: "+221 78",
-    preview: "Bonjour, est-ce que vous livrez à Thiès ?",
-    time: "09:52",
+    name: "Ibrahima Ndiaye",
+    initials: "IN",
+    preview: "Parfait, j'attends le lien de paiement.",
+    time: "Hier",
     assignee: "Moi",
-    color: "from-sky-400 to-sky-600",
+    window: "danger",
+    windowLabel: "Fermée",
+    section: "mine",
   },
 ];
 
 const messages = [
-  { role: "in" as const, text: "Bonjour, ma commande #4821 est-elle bien expédiée ?", time: "10:22" },
+  {
+    role: "in" as const,
+    text: "Bonjour, ma commande #4821 est-elle bien expédiée ?",
+    time: "10:22",
+  },
   { role: "in" as const, text: "J'attends depuis 3 jours 😕", time: "10:24" },
 ];
 
-const draftText =
+const replyText =
   "Bonjour Aïssatou 👋 Votre commande #4821 est partie hier soir. Suivi : AB123456 — livraison prévue demain matin. Désolés pour l'attente !";
 
 export function InboxMockup() {
@@ -102,11 +121,11 @@ export function InboxMockup() {
     const cycle = () => {
       setStep(0);
       setTypedChars(0);
-      const t1 = setTimeout(() => setStep(1), 1400);
-      const t2 = setTimeout(() => setStep(2), 2600);
-      const t3 = setTimeout(() => setStep(3), 4800);
-      const t4 = setTimeout(() => setStep(4), 7200);
-      const t5 = setTimeout(cycle, 9800);
+      const t1 = setTimeout(() => setStep(1), 1800);
+      const t2 = setTimeout(() => setStep(2), 3200);
+      const t3 = setTimeout(() => setStep(3), 6400);
+      const t4 = setTimeout(() => setStep(4), 7400);
+      const t5 = setTimeout(cycle, 10200);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
@@ -121,18 +140,15 @@ export function InboxMockup() {
 
   useEffect(() => {
     if (step !== 2) return;
-    setTypedChars(0);
-    const total = draftText.length;
-    const perChar = 20;
+    const total = replyText.length;
+    let current = 0;
     const interval = setInterval(() => {
-      setTypedChars((c) => {
-        if (c >= total) {
-          clearInterval(interval);
-          return c;
-        }
-        return c + 2;
-      });
-    }, perChar);
+      current += 3;
+      setTypedChars(Math.min(current, total));
+      if (current >= total) {
+        clearInterval(interval);
+      }
+    }, 22);
     return () => clearInterval(interval);
   }, [step]);
 
@@ -143,145 +159,262 @@ export function InboxMockup() {
         className="pointer-events-none absolute -inset-8 -z-10 rounded-[2.5rem] opacity-60 blur-3xl"
         style={{
           background:
-            "radial-gradient(ellipse at 30% 20%, var(--accent-glow) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(37, 211, 102, 0.18) 0%, transparent 55%)",
+            "radial-gradient(ellipse at 30% 20%, var(--accent-glow) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(5, 150, 105, 0.18) 0%, transparent 55%)",
         }}
       />
 
-      <div className="relative grid grid-cols-[220px_1fr_200px] overflow-hidden rounded-3xl border border-border/80 bg-background/95 shadow-[0_40px_100px_-20px_rgba(20,20,26,0.35)] backdrop-blur-xl md:h-[520px]">
+      <div className="relative grid grid-cols-[240px_1fr_210px] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_40px_100px_-20px_rgba(20,20,26,0.35)] md:h-[540px]">
         <ThreadList activeId={threads.find((t) => t.active)?.id || "1"} />
         <ConversationPanel step={step} typedChars={typedChars} />
         <CustomerPanel />
       </div>
 
-      <FloatingAssignBubble show={step === 0} />
-      <FloatingAiBubble show={step >= 2 && step <= 3} />
+      <FloatingAssignToast show={step === 0} />
       <FloatingSentToast show={step === 4} />
     </div>
   );
 }
 
+// ============================================
+// THREAD LIST (left sidebar — matches ContactList.tsx)
+// ============================================
+
 function ThreadList({ activeId }: { activeId: string }) {
+  const totalUnread = threads.reduce((acc, t) => acc + (t.unread || 0), 0);
+  const mine = threads.filter((t) => t.section === "mine");
+  const unassigned = threads.filter((t) => t.section === "unassigned");
+
   return (
-    <aside className="hidden flex-col border-r border-border/60 bg-muted/30 md:flex">
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <div>
-          <p className="font-display text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Inbox partagée
-          </p>
-          <p className="mt-1 text-[15px] font-semibold">Tous · 5</p>
-        </div>
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent-muted)] text-[10px] font-bold text-[var(--accent)]">
-          +3
+    <aside className="hidden flex-col border-r border-gray-200 bg-white md:flex">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-3 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[15px] font-bold tracking-tight text-gray-900">
+            Conversations
+          </h2>
+          {totalUnread > 0 && (
+            <div className="flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-1.5 py-0.5">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+              <span className="text-[9px] font-semibold text-green-700">
+                {totalUnread} non lus
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mx-4 flex items-center gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
-        <Search className="h-3.5 w-3.5" />
+      {/* Scope toggle */}
+      <div className="px-3 pt-2">
+        <div className="flex rounded-lg bg-gray-100 p-0.5">
+          <button className="flex-1 rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-gray-900 shadow-sm">
+            Toutes
+          </button>
+          <button className="flex-1 rounded-md px-2 py-1 text-[10px] font-medium text-gray-500">
+            Mes
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="mx-3 mt-2 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[10px] text-gray-400">
+        <Search className="h-3 w-3" />
         <span>Rechercher…</span>
       </div>
 
-      <div className="mt-3 flex gap-1.5 overflow-x-auto px-4 pb-2 text-[11px]">
-        <FilterPill active>Tous</FilterPill>
-        <FilterPill>Moi</FilterPill>
-        <FilterPill>Non assignés</FilterPill>
+      {/* Filter pills */}
+      <div className="flex gap-1 overflow-x-auto px-3 py-2">
+        <FilterPill icon={Inbox} active>
+          Tout
+        </FilterPill>
+        <FilterPill icon={Mail}>Non lus</FilterPill>
+        <FilterPill icon={UserX}>Non assignées</FilterPill>
+        <FilterPill icon={Archive}>Archivées</FilterPill>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {threads.map((t) => (
-          <ThreadItem key={t.id} thread={t} active={t.id === activeId} />
+      {/* Thread sections */}
+      <div className="flex-1 overflow-y-auto pb-2">
+        <SectionDivider title="Mes conversations" count={mine.length} />
+        {mine.map((t) => (
+          <ContactListItem key={t.id} thread={t} active={t.id === activeId} />
+        ))}
+
+        <SectionDivider title="Non assignées" count={unassigned.length} />
+        {unassigned.map((t) => (
+          <ContactListItem key={t.id} thread={t} active={t.id === activeId} />
         ))}
       </div>
     </aside>
   );
 }
 
-function FilterPill({ children, active }: { children: React.ReactNode; active?: boolean }) {
+function FilterPill({
+  children,
+  active,
+  icon: Icon,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  icon: React.ElementType;
+}) {
   return (
     <button
       className={cn(
-        "shrink-0 rounded-full border px-2.5 py-1 font-medium transition-colors",
+        "flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium transition-colors",
         active
-          ? "border-foreground/20 bg-foreground text-background"
-          : "border-border/60 bg-background text-muted-foreground"
+          ? "bg-gradient-to-r from-[#14532d] to-[#059669] text-white shadow-sm"
+          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
       )}
     >
+      <Icon className="h-2.5 w-2.5" />
       {children}
     </button>
   );
 }
 
-function ThreadItem({ thread, active }: { thread: Thread; active: boolean }) {
+function SectionDivider({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="flex items-center justify-between px-3 pb-1.5 pt-3">
+      <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+        {title}
+      </span>
+      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-500">
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function ContactListItem({ thread, active }: { thread: Thread; active: boolean }) {
+  const hasUnread = (thread.unread || 0) > 0;
   return (
     <div
       className={cn(
-        "flex cursor-pointer items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors",
+        "flex cursor-pointer items-start gap-2.5 border-l-2 px-3 py-2.5 transition-colors",
         active
-          ? "border-[var(--accent)] bg-background"
-          : "border-transparent hover:bg-background/60"
+          ? "border-l-green-600 bg-green-50/70"
+          : "border-transparent hover:bg-gray-50/70"
       )}
     >
-      <div
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-semibold text-white",
-          thread.color
-        )}
-      >
-        {thread.initials}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <p className="truncate text-[13px] font-semibold">{thread.name}</p>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{thread.time}</span>
+      {/* Avatar */}
+      <div className="relative shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[11px] font-semibold text-white shadow-sm">
+          {thread.initials}
         </div>
-        <p className="truncate text-[11px] text-muted-foreground">{thread.preview}</p>
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-            {thread.number}
+        {hasUnread && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-1">
+          <p
+            className={cn(
+              "truncate text-[12px]",
+              hasUnread ? "font-semibold text-gray-900" : "font-medium text-gray-800"
+            )}
+          >
+            {thread.name}
+          </p>
+          <span
+            className={cn(
+              "shrink-0 text-[9px]",
+              hasUnread ? "font-semibold text-green-700" : "text-gray-400"
+            )}
+          >
+            {thread.time}
           </span>
-          {thread.assignee && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium",
-                thread.assignee === "Jo · IA"
-                  ? "bg-[var(--accent-muted)] text-[var(--accent)]"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              {thread.assignee}
-            </span>
+        </div>
+        <p
+          className={cn(
+            "mt-0.5 truncate text-[10px]",
+            hasUnread ? "text-gray-700" : "text-gray-500"
           )}
-          {thread.unread ? (
-            <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-[9px] font-bold text-white">
+        >
+          {thread.preview}
+        </p>
+        <div className="mt-1 flex items-center gap-1">
+          {thread.window && thread.windowLabel && (
+            <WindowPill variant={thread.window} label={thread.windowLabel} />
+          )}
+          {hasUnread && (
+            <span className="ml-auto flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-green-500 px-1 text-[9px] font-semibold text-white">
               {thread.unread}
             </span>
-          ) : null}
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ConversationPanel({ step, typedChars }: { step: Step; typedChars: number }) {
-  const shownDraft = draftText.slice(0, typedChars);
+function WindowPill({
+  variant,
+  label,
+}: {
+  variant: "ok" | "warn" | "danger";
+  label: string;
+}) {
+  const styles = {
+    ok: "bg-green-50 text-green-700 border-green-200",
+    warn: "bg-orange-50 text-orange-700 border-orange-200",
+    danger: "bg-red-50 text-red-700 border-red-200",
+  }[variant];
   return (
-    <main className="flex flex-col bg-background">
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-[11px] font-semibold text-white">
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[8px] font-medium",
+        styles
+      )}
+    >
+      <Clock className="h-2 w-2" />
+      {label}
+    </span>
+  );
+}
+
+// ============================================
+// CONVERSATION PANEL (center — matches ConversationView.tsx)
+// ============================================
+
+function ConversationPanel({
+  step,
+  typedChars,
+}: {
+  step: Step;
+  typedChars: number;
+}) {
+  const shownReply = replyText.slice(0, typedChars);
+  return (
+    <main className="flex flex-col bg-gray-50/30">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[11px] font-semibold text-white shadow-sm">
             AD
-            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold">Aïssatou Diop</p>
-            <p className="text-[10px] text-muted-foreground">+221 77 834 12 48 · en ligne</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[13px] font-semibold text-gray-900">
+                Aïssatou Diop
+              </p>
+              <AssignmentBadge />
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <p className="text-[10px] text-gray-500">+221 77 834 12 48</p>
+              <span className="inline-flex items-center gap-0.5 rounded-full border border-green-200 bg-green-50 px-1.5 py-0 text-[9px] font-medium text-green-700">
+                <Clock className="h-2 w-2" />
+                23h45 restantes
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 text-muted-foreground">
+        <div className="flex items-center gap-0.5 text-gray-500">
           <IconBtn>
             <Phone className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn>
-            <Video className="h-3.5 w-3.5" />
+            <Info className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn>
             <MoreVertical className="h-3.5 w-3.5" />
@@ -289,94 +422,102 @@ function ConversationPanel({ step, typedChars }: { step: Step; typedChars: numbe
         </div>
       </div>
 
+      {/* Messages area (WhatsApp beige background) */}
       <div
-        className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
+        className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4 py-3"
         style={{
+          backgroundColor: "#efeae2",
           backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(20,20,26,0.04) 1px, transparent 0)",
-          backgroundSize: "22px 22px",
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='%23d4cfc6' fill-opacity='0.35' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E\")",
         }}
       >
+        {/* Date separator */}
+        <div className="mb-1 flex justify-center">
+          <span className="rounded-md bg-white/80 px-2 py-0.5 text-[9px] font-medium text-gray-600 shadow-sm">
+            Aujourd&apos;hui
+          </span>
+        </div>
+
         {messages.map((m, i) => (
-          <MessageBubble key={i} role={m.role} text={m.text} time={m.time} />
+          <WhatsAppBubble key={i} role={m.role} text={m.text} time={m.time} />
         ))}
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {step === 1 && (
             <motion.div
               key="typing"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="flex items-center gap-1.5 self-start rounded-full border border-border/60 bg-muted/50 px-3 py-2"
+              className="flex items-center gap-1 self-start rounded-2xl rounded-bl-sm bg-white px-3 py-2 shadow-sm"
             >
               {[0, 1, 2].map((i) => (
-                <span
+                <motion.span
                   key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60"
-                  style={{ animation: `bounce 1s ${i * 0.15}s infinite` }}
+                  className="h-1.5 w-1.5 rounded-full bg-gray-400"
+                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
+                  transition={{
+                    duration: 0.9,
+                    repeat: Infinity,
+                    delay: i * 0.15,
+                  }}
                 />
               ))}
-              <span className="text-[10px] text-muted-foreground">Jo rédige un brouillon IA…</span>
             </motion.div>
           )}
+        </AnimatePresence>
 
+        {/* Agent reply (step 2: typing in input, step 3: sending, step 4: sent bubble) */}
+        <AnimatePresence>
           {step === 4 && (
             <motion.div
               key="sent"
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-[78%] self-end rounded-2xl rounded-br-sm bg-[var(--whatsapp)] px-3 py-2 text-[12px] text-white shadow-sm"
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="relative max-w-[78%] self-end rounded-2xl rounded-br-sm bg-green-100 px-3 py-2 shadow-sm"
             >
-              <p>{draftText}</p>
-              <div className="mt-1 flex items-center justify-end gap-1 text-[9px] text-white/80">
+              <p className="whitespace-pre-wrap text-[11.5px] leading-relaxed text-gray-900">
+                {replyText}
+              </p>
+              <div className="mt-1 flex items-center justify-end gap-1 text-[9px] text-gray-500">
                 <span>10:25</span>
-                <CheckCheck className="h-3 w-3" />
+                <CheckCheck className="h-3 w-3 text-blue-500" />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="border-t border-border/60 bg-muted/20 p-3">
-        <AnimatePresence mode="wait">
-          {step >= 2 && step <= 3 && (
-            <motion.div
-              key="ai-draft"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              className="mb-2 flex items-start gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-3 py-2"
-            >
-              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-              <div className="flex-1">
-                <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">
-                  Brouillon IA · 92% de confiance
-                </p>
-                <p className="text-[11px] leading-relaxed text-foreground">
-                  {shownDraft}
-                  {step === 2 && typedChars < draftText.length && (
-                    <span className="ml-0.5 inline-block h-2.5 w-0.5 animate-pulse bg-[var(--accent)] align-middle" />
-                  )}
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-2">
-          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="flex-1 text-[11px] text-muted-foreground">
-            {step === 3 ? "Envoi en cours…" : "Écrire un message…"}
-          </span>
-          <Smile className="h-3.5 w-3.5 text-muted-foreground" />
+      {/* Input */}
+      <div className="border-t border-gray-200 bg-white px-3 py-2">
+        <div className="flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1.5">
+          <Smile className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+          <Paperclip className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+          <div className="flex-1 text-[11px] text-gray-500">
+            {step === 2 && typedChars > 0 ? (
+              <span className="text-gray-900">
+                {shownReply}
+                <span className="ml-0.5 inline-block h-2.5 w-0.5 animate-pulse bg-green-600 align-middle" />
+              </span>
+            ) : step === 3 ? (
+              <span className="italic text-gray-400">Envoi en cours…</span>
+            ) : (
+              <span className="text-gray-400">Écrire un message…</span>
+            )}
+          </div>
           <motion.button
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-white shadow-sm"
             animate={step === 3 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
             transition={{ duration: 0.4 }}
           >
-            <Send className="h-3 w-3" />
+            {step === 2 && typedChars > 0 ? (
+              <Send className="h-3 w-3" />
+            ) : step === 3 ? (
+              <Send className="h-3 w-3" />
+            ) : (
+              <Mic className="h-3 w-3" />
+            )}
           </motion.button>
         </div>
       </div>
@@ -384,7 +525,18 @@ function ConversationPanel({ step, typedChars }: { step: Step; typedChars: numbe
   );
 }
 
-function MessageBubble({
+function AssignmentBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-1.5 py-0 text-[9px] font-semibold text-green-700">
+      <div className="flex h-3 w-3 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[7px] font-bold text-white">
+        S
+      </div>
+      Santiago
+    </span>
+  );
+}
+
+function WhatsAppBubble({
   role,
   text,
   time,
@@ -393,24 +545,27 @@ function MessageBubble({
   text: string;
   time: string;
 }) {
+  const isOut = role === "out";
   return (
     <div
       className={cn(
-        "max-w-[78%] rounded-2xl px-3 py-2 text-[12px] leading-relaxed shadow-sm",
-        role === "in"
-          ? "self-start rounded-bl-sm bg-background text-foreground"
-          : "self-end rounded-br-sm bg-[var(--whatsapp)] text-white"
+        "max-w-[78%] rounded-2xl px-3 py-1.5 shadow-sm",
+        isOut
+          ? "self-end rounded-br-sm bg-green-100"
+          : "self-start rounded-bl-sm bg-white"
       )}
     >
-      <p>{text}</p>
+      <p className="whitespace-pre-wrap text-[11.5px] leading-relaxed text-gray-900">
+        {text}
+      </p>
       <div
         className={cn(
-          "mt-1 flex items-center gap-1 text-[9px]",
-          role === "in" ? "text-muted-foreground" : "justify-end text-white/80"
+          "mt-0.5 flex items-center gap-1 text-[9px] text-gray-500",
+          isOut ? "justify-end" : "justify-start"
         )}
       >
         <span>{time}</span>
-        {role === "out" && <CheckCheck className="h-3 w-3" />}
+        {isOut && <CheckCheck className="h-3 w-3 text-blue-500" />}
       </div>
     </div>
   );
@@ -418,100 +573,154 @@ function MessageBubble({
 
 function IconBtn({ children }: { children: React.ReactNode }) {
   return (
-    <button className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-muted">
+    <button className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-gray-100">
       {children}
     </button>
   );
 }
 
+// ============================================
+// CUSTOMER PANEL (right — matches ContactInfo.tsx)
+// ============================================
+
 function CustomerPanel() {
   return (
-    <aside className="hidden flex-col border-l border-border/60 bg-muted/30 p-4 lg:flex">
-      <div className="flex flex-col items-center gap-2 pb-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-base font-semibold text-white">
-          AD
+    <aside className="hidden flex-col overflow-hidden border-l border-gray-200 bg-white lg:flex">
+      {/* Header */}
+      <div className="border-b border-gray-100 px-3 py-3">
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-sm font-semibold text-white shadow-sm">
+            AD
+          </div>
+          <p className="text-[12px] font-semibold text-gray-900">Aïssatou Diop</p>
+          <p className="text-[9px] text-gray-500">+221 77 834 12 48</p>
         </div>
-        <p className="text-[13px] font-semibold">Aïssatou Diop</p>
-        <p className="text-[10px] text-muted-foreground">Cliente VIP · 12 commandes</p>
       </div>
 
-      <div className="space-y-3 border-t border-border/60 pt-3">
-        <InfoRow label="Numéro" value="+221 77 834…" />
-        <InfoRow label="Ville" value="Dakar" />
-        <InfoRow label="Valeur à vie" value="284 000 F" />
-        <InfoRow label="Dernière commande" value="il y a 2 j" />
-      </div>
-
-      <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Tags
+      {/* Details */}
+      <div className="border-b border-gray-100 px-3 py-2">
+        <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+          Détails
         </p>
-        <div className="flex flex-wrap gap-1">
-          <Tag color="bg-rose-500/10 text-rose-600">VIP</Tag>
-          <Tag color="bg-emerald-500/10 text-emerald-600">Fidèle</Tag>
-          <Tag color="bg-amber-500/10 text-amber-600">B2C</Tag>
+        <InfoRow icon={Mail} label="Email" value="aissatou@gmail.com" />
+        <InfoRow icon={Building2} label="Société" value="Aïssa Mode" />
+      </div>
+
+      {/* Tags */}
+      <div className="border-b border-gray-100 px-3 py-2">
+        <div className="mb-1.5 flex items-center gap-1">
+          <TagIcon className="h-2.5 w-2.5 text-gray-400" />
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+            Tags
+          </p>
         </div>
+        <div className="flex flex-wrap gap-1">
+          <TagPill color="bg-rose-100 text-rose-700">VIP</TagPill>
+          <TagPill color="bg-green-100 text-green-700">Fidèle</TagPill>
+          <TagPill color="bg-amber-100 text-amber-700">B2C</TagPill>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex-1 px-3 py-2">
+        <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+          Activité
+        </p>
+        <div className="space-y-1.5">
+          <StatRow label="Commandes" value="12" />
+          <StatRow label="Valeur à vie" value="284 000 F" />
+          <StatRow label="Dernière cmd." value="il y a 2 j" />
+        </div>
+      </div>
+
+      {/* Footer action */}
+      <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2">
+        <button className="flex w-full items-center justify-between rounded-md px-2 py-1 text-[10px] font-medium text-gray-700 transition-colors hover:bg-white">
+          <span>Voir historique</span>
+          <ChevronDown className="h-3 w-3 -rotate-90" />
+        </button>
       </div>
     </aside>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[10px] text-muted-foreground">{label}</span>
-      <span className="truncate text-[11px] font-medium">{value}</span>
+    <div className="flex items-start gap-2 py-1">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100">
+        <Icon className="h-3 w-3 text-gray-500" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[8px] text-gray-400">{label}</p>
+        <p className="truncate text-[10px] font-medium text-gray-900">{value}</p>
+      </div>
     </div>
   );
 }
 
-function Tag({ children, color }: { children: React.ReactNode; color: string }) {
+function StatRow({ label, value }: { label: string; value: string }) {
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold", color)}>{children}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] text-gray-500">{label}</span>
+      <span className="text-[10px] font-semibold text-gray-900">{value}</span>
+    </div>
   );
 }
 
-function FloatingAssignBubble({ show }: { show: boolean }) {
+function TagPill({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-1.5 py-0.5 text-[8px] font-semibold",
+        color
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ============================================
+// FLOATING TOASTS (real notifications)
+// ============================================
+
+function FloatingAssignToast({ show }: { show: boolean }) {
   return (
     <AnimatePresence>
       {show && (
         <motion.div
           key="assign"
-          initial={{ opacity: 0, y: 12, scale: 0.9 }}
+          initial={{ opacity: 0, y: 12, scale: 0.94 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.95 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute -left-6 top-20 hidden flex-col gap-1 rounded-xl border border-border/60 bg-background px-3 py-2 shadow-xl md:flex"
+          className="absolute -left-4 top-24 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-xl md:flex"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Assigné à
-          </p>
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-[8px] font-bold text-white">
-              S
-            </div>
-            <span className="text-[11px] font-medium">Santiago</span>
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[9px] font-bold text-white">
+            S
           </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function FloatingAiBubble({ show }: { show: boolean }) {
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          key="ai"
-          initial={{ opacity: 0, y: 12, x: 8 }}
-          animate={{ opacity: 1, y: 0, x: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute -right-4 top-32 hidden items-center gap-2 rounded-full border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-3 py-1.5 shadow-xl backdrop-blur md:flex"
-        >
-          <Sparkles className="h-3 w-3 text-[var(--accent)]" />
-          <span className="text-[10px] font-semibold text-[var(--accent)]">Jo · IA copilot</span>
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+              Assignée à
+            </p>
+            <p className="text-[11px] font-semibold text-gray-900">
+              Santiago · Support
+            </p>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -524,14 +733,18 @@ function FloatingSentToast({ show }: { show: boolean }) {
       {show && (
         <motion.div
           key="sent-toast"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.4 }}
-          className="absolute bottom-6 right-6 hidden items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 backdrop-blur md:flex"
+          className="absolute -right-4 bottom-16 hidden items-center gap-2 rounded-full border border-green-200 bg-white px-3 py-1.5 shadow-xl md:flex"
         >
-          <CheckCheck className="h-3 w-3 text-emerald-500" />
-          <span className="text-[10px] font-semibold text-emerald-600">Envoyé en 8s</span>
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+            <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+          </div>
+          <span className="text-[10px] font-semibold text-gray-900">
+            Répondu en 8s
+          </span>
         </motion.div>
       )}
     </AnimatePresence>
