@@ -13,7 +13,7 @@ setup('authenticate', async ({ page }) => {
     await page.locator('#password').fill('Password123!');
 
     // Submit
-    await page.getByRole('button', { name: /se connecter/i }).click();
+    await page.getByRole('button', { name: /se connecter|acc[eé]der/i }).click();
 
     // Wait for auth to complete and page to settle
     await page.waitForTimeout(8000);

@@ -43,9 +43,10 @@ import { toast } from "sonner";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { cn } from "@/lib/utils";
 import { formatLimit, isUnlimited, type PlanKey } from "@/lib/plan-utils";
-import { usePlans, usePlanLimits } from "@/hooks/usePlans";
+import { usePlans, usePlanLimits, useTrialStatus } from "@/hooks/usePlans";
 import { Progress } from "@/components/ui/progress";
 import { RechargeDialog } from "./_components/recharge-dialog";
+import { TrialBanner } from "@/components/billing/trial-banner";
 
 // ============================================
 // PLAN CONFIG
@@ -150,6 +151,7 @@ export default function BillingPage() {
 
     const { plans: planDefs } = usePlans();
     const { currentPlan: currentPlanData } = usePlanLimits();
+    const trial = useTrialStatus();
     const billingPlans = buildBillingPlans(planDefs);
 
     const createCheckout = useAction(api.stripe_actions.createCheckoutSession);
@@ -215,6 +217,11 @@ export default function BillingPage() {
 
     return (
         <div className="space-y-6">
+            {/* ==================== TRIAL BANNER ==================== */}
+            {(trial.isTrialing || !trial.hasSelectedPlan) && (
+                <TrialBanner variant="page" />
+            )}
+
             {/* ==================== HEADER ==================== */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>

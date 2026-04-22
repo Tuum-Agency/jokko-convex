@@ -33,18 +33,29 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { TrialBanner } from '@/components/billing/trial-banner'
+import { useFeatureAccess, useTrialStatus } from '@/hooks/usePlans'
 
-// Navigation items
-const mainNavigation = [
+import type { FeatureKey } from '@/lib/planFeatures'
+
+// Navigation items — `feature` optionnel : clé de FEATURES pour afficher un badge de plan
+type NavItem = {
+    name: string
+    href: string
+    icon: typeof LayoutDashboard
+    feature?: FeatureKey
+}
+
+const mainNavigation: NavItem[] = [
     { name: 'Dashboard', href: '', icon: LayoutDashboard },
     { name: 'Conversations', href: '/conversations', icon: MessageSquare },
     { name: 'Contacts', href: '/contacts', icon: Users },
     { name: 'Team', href: '/team', icon: UsersRound },
     { name: 'Attribution', href: '/assignments', icon: UserCheck },
     { name: 'Modèles', href: '/modeles', icon: FileText },
-    { name: 'Campagnes', href: '/campagnes', icon: Send },
-    { name: 'Automatisation', href: '/automatisations', icon: Workflow },
-    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+    { name: 'Campagnes', href: '/campagnes', icon: Send, feature: 'broadcasts' },
+    { name: 'Automatisation', href: '/automatisations', icon: Workflow, feature: 'chatbot' },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp, feature: 'advancedStats' },
 ]
 
 const bottomNavigation = [
@@ -67,6 +78,41 @@ interface SidebarProps {
     onToggleCollapse?: () => void
 }
 
+/**
+ * Pill compacte à côté d'un item de nav gaté par un plan.
+ * - Trial actif : pastille ambre "14j"/nom du plan
+ * - Verrouillé : pastille grise avec cadenas
+ * - Inclus dans le plan : rien (pas de bruit visuel)
+ */
+function SidebarFeaturePill({ feature }: { feature: FeatureKey }) {
+    const access = useFeatureAccess(feature)
+    if (access.isLoading || access.includedInPlan) return null
+
+    if (access.isTrialUnlock) {
+        return (
+            <span
+                data-testid={`sidebar-pill-${feature}`}
+                data-pill-state="trial"
+                className="ml-auto rounded-full bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200 border border-amber-400/40"
+                title={`Pendant l'essai. Plan ${access.requiredPlanLabel} requis après.`}
+            >
+                {access.requiredPlanLabel}
+            </span>
+        )
+    }
+
+    return (
+        <span
+            data-testid={`sidebar-pill-${feature}`}
+            data-pill-state="locked"
+            className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/50 border border-white/15"
+            title={`Plan ${access.requiredPlanLabel} requis`}
+        >
+            {access.requiredPlanLabel}
+        </span>
+    )
+}
+
 export function Sidebar({
     basePath = '/dashboard',
     isCollapsed = false,
@@ -76,6 +122,7 @@ export function Sidebar({
     const stats = useQuery(api.conversations.getSidebarStats)
     const role = useQuery(api.users.currentUserRole)
     const { currentOrg } = useCurrentOrg()
+    const { isTrialing, trialDaysLeft, hasSelectedPlan } = useTrialStatus()
 
     const restrictedForAgents = ['Attribution', 'Modèles', 'Campagnes', 'Analytics', 'Automatisation', 'Team']
 
@@ -217,6 +264,11 @@ export function Sidebar({
                                         </motion.span>
                                     )}
 
+                                    {/* Plan tier pill (si feature gatée et pas déjà incluse dans le plan) */}
+                                    {!item.badge && item.feature && !isCollapsed && (
+                                        <SidebarFeaturePill feature={item.feature} />
+                                    )}
+
                                     {/* Badge dot when collapsed */}
                                     {item.badge && isCollapsed && (
                                         <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -243,6 +295,13 @@ export function Sidebar({
                     </nav>
                 </ScrollArea>
 
+                {/* Trial banner (sidebar variant) */}
+                {!isCollapsed && (isTrialing || !hasSelectedPlan) && (
+                    <div className="px-3 pb-2">
+                        <TrialBanner variant="sidebar" />
+                    </div>
+                )}
+
                 {/* Plan Badge */}
                 {currentOrg && !isCollapsed && (() => {
                     const plan = currentOrg.plan || 'FREE'
@@ -253,7 +312,14 @@ export function Sidebar({
                             <div className="flex items-center gap-2 rounded-lg bg-white/8 border border-white/10 px-3 py-2.5">
                                 <div className="flex-1 min-w-0">
                                     <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Plan</span>
-                                    <p className="text-sm font-bold text-white truncate">{PLAN_LABELS[plan] || plan}</p>
+                                    <p className="text-sm font-bold text-white truncate">
+                                        {hasSelectedPlan ? (PLAN_LABELS[plan] || plan) : "Aucun plan"}
+                                    </p>
+                                    {isTrialing && (
+                                        <p data-testid="sidebar-trial-countdown" className="mt-0.5 text-[10px] text-amber-300 font-medium">
+                                            Essai · {trialDaysLeft} j restant{trialDaysLeft > 1 ? 's' : ''}
+                                        </p>
+                                    )}
                                 </div>
                                 {showUpgrade && (
                                     <Link href={`${basePath}/billing`}>
@@ -261,7 +327,7 @@ export function Sidebar({
                                             size="sm"
                                             className="h-7 px-2.5 text-[11px] font-semibold bg-emerald-500 hover:bg-emerald-400 text-white rounded-md cursor-pointer"
                                         >
-                                            Upgrade
+                                            {hasSelectedPlan ? "Upgrade" : "Choisir"}
                                         </Button>
                                     </Link>
                                 )}

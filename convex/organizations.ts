@@ -127,6 +127,9 @@ export const create = mutation({
             }
         }
 
+        const now = Date.now();
+        const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000; // 14 jours
+
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,
             slug: args.slug,
@@ -138,6 +141,9 @@ export const create = mutation({
             onboardingStep: "PLAN_SELECT", // Next step
             ownerId: userId,
             plan: "FREE",
+            hasSelectedPlan: false,
+            trialStartedAt: now,
+            trialEndsAt: now + TRIAL_DURATION_MS,
             settings: {
                 assignment: {
                     autoAssignEnabled: true,
@@ -145,8 +151,8 @@ export const create = mutation({
                     excludeOfflineAgents: true
                 }
             },
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            createdAt: now,
+            updatedAt: now,
         });
 
         await ctx.db.insert("memberships", {

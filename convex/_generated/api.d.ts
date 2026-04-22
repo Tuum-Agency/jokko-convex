@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as ai from "../ai.js";
 import type * as analytics from "../analytics.js";
 import type * as assignments from "../assignments.js";
@@ -71,6 +72,7 @@ import type * as lib_email from "../lib/email.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_encryptionMigration from "../lib/encryptionMigration.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_planFeatures from "../lib/planFeatures.js";
 import type * as lib_planHelpers from "../lib/planHelpers.js";
 import type * as lib_planLimits from "../lib/planLimits.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
@@ -118,6 +120,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   ai: typeof ai;
   analytics: typeof analytics;
   assignments: typeof assignments;
@@ -181,6 +184,7 @@ declare const fullApi: ApiFromModules<{
   "lib/encryption": typeof lib_encryption;
   "lib/encryptionMigration": typeof lib_encryptionMigration;
   "lib/permissions": typeof lib_permissions;
+  "lib/planFeatures": typeof lib_planFeatures;
   "lib/planHelpers": typeof lib_planHelpers;
   "lib/planLimits": typeof lib_planLimits;
   "lib/rateLimits": typeof lib_rateLimits;

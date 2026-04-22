@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { FeatureGate } from "@/components/billing/feature-gate";
+import { PlanTierBadge } from "@/components/billing/plan-tier-badge";
 
 const formatCurrency = (n: number) => new Intl.NumberFormat('fr-SN', { style: 'currency', currency: 'XOF' }).format(n);
 
@@ -55,35 +57,40 @@ export default function BroadcastsPage() {
     }
 
     return (
-        <div className="space-y-6 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                        Campagnes
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                        Gérez vos diffusions de messages en masse
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
-                        <span className="text-xs font-semibold text-gray-700">
-                            Cr&eacute;dit Marketing
-                        </span>
-                        <span className="text-xs text-gray-500 font-medium tabular-nums">
-                            {creditBalance != null ? formatCurrency(creditBalance) : '...'}
-                        </span>
+        <FeatureGate feature="broadcasts">
+            <div className="space-y-6 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                                Campagnes
+                            </h1>
+                            <PlanTierBadge feature="broadcasts" />
+                        </div>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            Gérez vos diffusions de messages en masse
+                        </p>
                     </div>
-                    <Link href="/dashboard/billing">
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-full cursor-pointer">
-                            <CreditCard className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Recharger</span>
-                        </Button>
-                    </Link>
+
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
+                            <span className="text-xs font-semibold text-gray-700">
+                                Cr&eacute;dit Marketing
+                            </span>
+                            <span className="text-xs text-gray-500 font-medium tabular-nums">
+                                {creditBalance != null ? formatCurrency(creditBalance) : '...'}
+                            </span>
+                        </div>
+                        <Link href="/dashboard/billing">
+                            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-full cursor-pointer">
+                                <CreditCard className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Recharger</span>
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
+                <BroadcastList />
             </div>
-            <BroadcastList />
-        </div>
+        </FeatureGate>
     );
 }
