@@ -13,13 +13,11 @@ import {
   Smile,
   Send,
   Mic,
-  Info,
   Mail,
   Building2,
   Tag as TagIcon,
   Inbox,
   UserX,
-  Archive,
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -222,13 +220,12 @@ function ThreadList({ activeId }: { activeId: string }) {
       </div>
 
       {/* Filter pills */}
-      <div className="flex gap-1 overflow-x-auto px-3 py-2">
+      <div className="flex flex-wrap gap-1 px-3 py-2">
         <FilterPill icon={Inbox} active>
           Tout
         </FilterPill>
         <FilterPill icon={Mail}>Non lus</FilterPill>
-        <FilterPill icon={UserX}>Non assignées</FilterPill>
-        <FilterPill icon={Archive}>Archivées</FilterPill>
+        <FilterPill icon={UserX}>Non assign.</FilterPill>
       </div>
 
       {/* Thread sections */}
@@ -259,7 +256,7 @@ function FilterPill({
   return (
     <button
       className={cn(
-        "flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium transition-colors",
+        "flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-medium transition-colors",
         active
           ? "bg-gradient-to-r from-[#14532d] to-[#059669] text-white shadow-sm"
           : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
@@ -388,33 +385,27 @@ function ConversationPanel({
   return (
     <main className="flex flex-col bg-gray-50/30">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[11px] font-semibold text-white shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#14532d] to-[#059669] text-[11px] font-semibold text-white shadow-sm">
             AD
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-[13px] font-semibold text-gray-900">
-                Aïssatou Diop
-              </p>
-              <AssignmentBadge />
-            </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-gray-900">
+              Aïssatou Diop
+            </p>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <p className="text-[10px] text-gray-500">+221 77 834 12 48</p>
-              <span className="inline-flex items-center gap-0.5 rounded-full border border-green-200 bg-green-50 px-1.5 py-0 text-[9px] font-medium text-green-700">
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-green-200 bg-green-50 px-1.5 py-0 text-[9px] font-medium text-green-700">
                 <Clock className="h-2 w-2" />
-                23h45 restantes
+                23h45
               </span>
+              <AssignmentBadge />
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-0.5 text-gray-500">
+        <div className="flex shrink-0 items-center gap-0.5 text-gray-500">
           <IconBtn>
             <Phone className="h-3.5 w-3.5" />
-          </IconBtn>
-          <IconBtn>
-            <Info className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn>
             <MoreVertical className="h-3.5 w-3.5" />

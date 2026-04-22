@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { SplitText } from "@/components/animations/split-text";
 import { InboxMockup } from "@/components/landing/ui/inbox-mockup";
@@ -123,17 +123,6 @@ export function HeroSection() {
           className="relative"
         >
           <InboxMockup />
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 1 }}
-            className="absolute -bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 shadow-lg backdrop-blur"
-          >
-            <div className="flex items-center gap-1.5 text-[11px] font-medium">
-              <Sparkles className="h-3 w-3 text-[var(--accent)]" />
-              <span>Propulsé par Jo · votre IA copilot</span>
-            </div>
-          </motion.div>
         </motion.div>
       </div>
     </section>
