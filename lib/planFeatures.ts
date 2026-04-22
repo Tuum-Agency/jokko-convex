@@ -1,16 +1,29 @@
 /**
- * Plan features matrix — partagé client/serveur.
+ * Feature manifest — mapping des fonctionnalités Jokko vers le plan minimum requis.
  *
- * Définit quelles FEATURES sont verrouillées à quel plan minimum.
- * Distinct des QUOTAS (planLimits) qui sont des compteurs numériques.
+ * Source unique de vérité côté front ET back (le fichier convex/lib/planFeatures.ts
+ * réexporte les mêmes constantes via import relatif pour garantir la cohérence).
  *
- * Utilisé côté :
- * - Serveur : convex/lib/planFeatures.ts (requirePlanFeature)
- * - Client : hooks/use-plan-feature.ts + components/plan/FeatureGate
- * - Sidebar : filtre des items de navigation par plan
+ * Convention :
+ *   - clé stable (ne JAMAIS la changer une fois déployée)
+ *   - `minPlan` = plan minimum qui déverrouille la feature
+ *   - `label` = libellé FR affiché dans les badges
+ *
+ * Règle de gating :
+ *   - Pendant le trial : toutes les features sont accessibles (badge "Inclus dans X")
+ *   - Après expiration, sans plan choisi (FREE sentinel) : tout est verrouillé
+ *   - Après expiration, avec plan : rangOf(plan) >= rangOf(feature.minPlan)
  */
 
 export type PlanKey = "FREE" | "STARTER" | "BUSINESS" | "PRO" | "ENTERPRISE";
+
+export const PLAN_RANK: Record<PlanKey, number> = {
+    FREE: 0,
+    STARTER: 1,
+    BUSINESS: 2,
+    PRO: 3,
+    ENTERPRISE: 4,
+};
 
 /**
  * Ordre hiérarchique : un plan plus à droite inclut toutes les features
@@ -18,62 +31,186 @@ export type PlanKey = "FREE" | "STARTER" | "BUSINESS" | "PRO" | "ENTERPRISE";
  */
 export const PLAN_ORDER: PlanKey[] = ["FREE", "STARTER", "BUSINESS", "PRO", "ENTERPRISE"];
 
+export const PLAN_LABEL: Record<PlanKey, string> = {
+    FREE: "Free",
+    STARTER: "Starter",
+    BUSINESS: "Business",
+    PRO: "Pro",
+    ENTERPRISE: "Enterprise",
+};
+
+export type FeatureKey =
+    | "inbox"
+    | "tagsNotes"
+    | "quickReplies"
+    | "mediaUpload"
+    | "broadcasts"
+    | "chatbot"
+    | "advancedStats"
+    | "webhooks"
+    | "segmentation"
+    | "integrations_crm"
+    | "ai"
+    | "flows"
+    | "api"
+    | "advancedMarketing"
+    | "accountManager";
+
 /**
- * Features gatées. Chaque feature a un plan minimum pour être accessible.
+ * Alias conservé pour compatibilité avec le code existant (snake_case).
+ * @deprecated Utilise FeatureKey.
  */
 export type PlanFeature =
-    | "flows" // Automatisations / chatbot via React Flow
-    | "broadcasts" // Campagnes marketing
-    | "segments" // Segments de contacts
-    | "webhooks" // Webhooks entrants/sortants
-    | "integrations_crm" // Connecteurs CRM (Pipedrive, HubSpot, Salesforce, etc.)
-    | "ai" // Jokko AI (createFromAI, suggestions IA)
-    | "analytics_advanced"; // Tableaux de bord avancés / exports
+    | "flows"
+    | "broadcasts"
+    | "segments"
+    | "webhooks"
+    | "integrations_crm"
+    | "ai"
+    | "analytics_advanced";
 
+export const FEATURES: Record<
+    FeatureKey,
+    { label: string; minPlan: PlanKey; description?: string }
+> = {
+    // ---------- Inclus dès Starter ----------
+    inbox: {
+        label: "Boîte de réception unifiée",
+        minPlan: "STARTER",
+    },
+    tagsNotes: {
+        label: "Tags & Notes",
+        minPlan: "STARTER",
+    },
+    quickReplies: {
+        label: "Réponses rapides",
+        minPlan: "STARTER",
+    },
+    mediaUpload: {
+        label: "Envoi de médias",
+        minPlan: "STARTER",
+    },
+
+    // ---------- Business ----------
+    broadcasts: {
+        label: "Campagnes marketing",
+        minPlan: "BUSINESS",
+        description: "Campagnes WhatsApp à grande échelle",
+    },
+    chatbot: {
+        label: "Chatbot & Automatisation",
+        minPlan: "BUSINESS",
+    },
+    advancedStats: {
+        label: "Analytics avancées",
+        minPlan: "BUSINESS",
+    },
+    webhooks: {
+        label: "Webhooks",
+        minPlan: "BUSINESS",
+    },
+    segmentation: {
+        label: "Segments",
+        minPlan: "BUSINESS",
+    },
+    flows: {
+        label: "Automatisations",
+        minPlan: "BUSINESS",
+    },
+
+    // ---------- Pro ----------
+    integrations_crm: {
+        label: "Intégrations CRM",
+        minPlan: "PRO",
+    },
+    ai: {
+        label: "Jokko AI",
+        minPlan: "PRO",
+        description: "Assistant intelligent et génération IA",
+    },
+    api: {
+        label: "API & Intégrations",
+        minPlan: "PRO",
+    },
+    advancedMarketing: {
+        label: "Marketing Avancé",
+        minPlan: "PRO",
+    },
+
+    // ---------- Enterprise ----------
+    accountManager: {
+        label: "Account Manager dédié",
+        minPlan: "ENTERPRISE",
+    },
+};
+
+/**
+ * Map legacy (snake_case) -> FeatureKey canonique.
+ * Permet aux consommateurs existants de main de continuer à fonctionner.
+ */
+const LEGACY_FEATURE_ALIASES: Record<PlanFeature, FeatureKey> = {
+    flows: "flows",
+    broadcasts: "broadcasts",
+    segments: "segmentation",
+    webhooks: "webhooks",
+    integrations_crm: "integrations_crm",
+    ai: "ai",
+    analytics_advanced: "advancedStats",
+};
+
+/**
+ * Table publique FEATURE_MIN_PLAN : conservée pour le code hérité qui utilise
+ * le type PlanFeature (snake_case).
+ */
 export const FEATURE_MIN_PLAN: Record<PlanFeature, PlanKey> = {
-    flows: "BUSINESS",
-    broadcasts: "BUSINESS",
-    segments: "BUSINESS",
-    webhooks: "BUSINESS",
-    integrations_crm: "PRO",
-    ai: "PRO",
-    analytics_advanced: "BUSINESS",
+    flows: FEATURES.flows.minPlan,
+    broadcasts: FEATURES.broadcasts.minPlan,
+    segments: FEATURES.segmentation.minPlan,
+    webhooks: FEATURES.webhooks.minPlan,
+    integrations_crm: FEATURES.integrations_crm.minPlan,
+    ai: FEATURES.ai.minPlan,
+    analytics_advanced: FEATURES.advancedStats.minPlan,
 };
 
-/**
- * Labels user-friendly des features pour l'UI.
- */
 export const FEATURE_LABELS: Record<PlanFeature, string> = {
-    flows: "Automatisations",
-    broadcasts: "Campagnes marketing",
-    segments: "Segments",
-    webhooks: "Webhooks",
-    integrations_crm: "Intégrations CRM",
-    ai: "Jokko AI",
-    analytics_advanced: "Analytics avancées",
+    flows: FEATURES.flows.label,
+    broadcasts: FEATURES.broadcasts.label,
+    segments: FEATURES.segmentation.label,
+    webhooks: FEATURES.webhooks.label,
+    integrations_crm: FEATURES.integrations_crm.label,
+    ai: FEATURES.ai.label,
+    analytics_advanced: FEATURES.advancedStats.label,
 };
 
-/**
- * Indice du plan dans la hiérarchie. -1 si inconnu.
- */
-export function planRank(plan: PlanKey | string): number {
-    return PLAN_ORDER.indexOf(plan as PlanKey);
+export function planRank(plan: PlanKey | string | null | undefined): number {
+    if (plan == null) return 0;
+    const rank = PLAN_RANK[plan as PlanKey];
+    return rank ?? -1;
 }
 
 /**
- * Un plan `plan` inclut-il la feature demandée ?
- * Un plan inconnu est traité comme FREE (le plus restrictif).
+ * Résout n'importe quelle clé (FeatureKey ou PlanFeature legacy) vers la clé canonique.
  */
-export function planIncludesFeature(plan: PlanKey | string, feature: PlanFeature): boolean {
-    const rank = planRank(plan);
-    const minRank = planRank(FEATURE_MIN_PLAN[feature]);
-    if (rank < 0) return false;
-    return rank >= minRank;
+function resolveFeatureKey(feature: FeatureKey | PlanFeature | string): FeatureKey | null {
+    if (feature in FEATURES) return feature as FeatureKey;
+    if (feature in LEGACY_FEATURE_ALIASES) return LEGACY_FEATURE_ALIASES[feature as PlanFeature];
+    return null;
+}
+
+export function planIncludesFeature(
+    plan: PlanKey | string,
+    feature: FeatureKey | PlanFeature,
+): boolean {
+    const key = resolveFeatureKey(feature);
+    if (!key) return false;
+    return planRank(plan) >= planRank(FEATURES[key].minPlan);
 }
 
 /**
  * Pour l'UI : retourne le plan minimum requis pour une feature.
  */
-export function minPlanForFeature(feature: PlanFeature): PlanKey {
-    return FEATURE_MIN_PLAN[feature];
+export function minPlanForFeature(feature: FeatureKey | PlanFeature): PlanKey {
+    const key = resolveFeatureKey(feature);
+    if (!key) return "FREE";
+    return FEATURES[key].minPlan;
 }

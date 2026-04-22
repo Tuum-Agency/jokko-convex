@@ -128,6 +128,16 @@ export default defineSchema({
         ),
         creditBalance: v.optional(v.number()), // Solde de crédits (FCFA ou Unités)
 
+        // App-level trial (14 jours à partir de la création de l'org)
+        // Toutes les fonctionnalités sont déverrouillées pendant cette période, peu importe le plan choisi.
+        trialStartedAt: v.optional(v.number()),
+        trialEndsAt: v.optional(v.number()),
+
+        // Indique si l'utilisateur a explicitement sélectionné un plan payant.
+        // FREE est un sentinel "pas de plan choisi". Après expiration du trial et
+        // sans plan sélectionné, toutes les features sont verrouillées.
+        hasSelectedPlan: v.optional(v.boolean()),
+
         // Stripe Subscription
         stripe: v.optional(v.object({
             customerId: v.string(),

@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { Sidebar, DashboardHeader } from '@/components/dashboard'
 import { BrowserNotifications } from '@/components/browser-notifications'
 import { NotificationBanner } from '@/components/dashboard/notification-banner'
+import { TrialBanner } from '@/components/billing/trial-banner'
 import { CallNotificationProvider } from '@/components/calls/call-notification-provider'
 import { usePresence } from '@/hooks/use-presence'
 import { useCurrentOrg } from '@/hooks/use-current-org'
+import { useTrialStatus } from '@/hooks/usePlans'
 import { Id } from '@/convex/_generated/dataModel'
 
 interface DashboardLayoutClientProps {
@@ -32,6 +34,9 @@ export function DashboardLayoutClient({
     const basePath = '/dashboard'
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
     const { currentOrg } = useCurrentOrg()
+    const { isTrialing, hasSelectedPlan, isLoading: trialLoading } = useTrialStatus()
+    const showTopTrialBanner = !trialLoading && !hasSelectedPlan && !isTrialing
+    // ^ trial expiré + pas de plan : on affiche le gros bandeau rouge en haut.
 
     // Send heartbeat on ALL dashboard pages (not just conversations)
     usePresence(currentOrg?._id as Id<"organizations"> | undefined)
@@ -65,6 +70,11 @@ export function DashboardLayoutClient({
                 {/* Page Content */}
                 <main id="main-content" className="flex-1 overflow-y-auto" role="main">
                     <div className="p-3 sm:p-4 lg:p-6">
+                        {showTopTrialBanner && (
+                            <div className="mb-4">
+                                <TrialBanner variant="page" />
+                            </div>
+                        )}
                         {children}
                     </div>
                 </main>

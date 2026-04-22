@@ -45,6 +45,8 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/billing/feature-gate";
+import { PlanTierBadge } from "@/components/billing/plan-tier-badge";
 import {
     BarChart,
     Bar,
@@ -478,13 +480,17 @@ export default function AnalyticsPage() {
     };
 
     return (
+        <FeatureGate feature="advancedStats">
         <div className="space-y-6">
             {/* ==================== HEADER ==================== */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                        Analytique
-                    </h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                            Analytique
+                        </h1>
+                        <PlanTierBadge feature="advancedStats" />
+                    </div>
                     <p className="text-sm text-gray-500 mt-0.5">
                         Performances de l&apos;application et des agents
                     </p>
@@ -890,5 +896,6 @@ export default function AnalyticsPage() {
                 </CardContent>
             </Card>
         </div>
+        </FeatureGate>
     );
 }

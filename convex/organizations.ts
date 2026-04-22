@@ -128,6 +128,9 @@ export const create = mutation({
             }
         }
 
+        const now = Date.now();
+        const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000; // 14 jours
+
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,
             slug: args.slug,
@@ -138,10 +141,10 @@ export const create = mutation({
             locale: args.locale,
             onboardingStep: "PLAN_SELECT", // Next step
             ownerId: userId,
-            // Défaut STARTER : FREE n'est pas exposé publiquement et est
-            // un état interne legacy. Les quotas STARTER sont équivalents
-            // à FREE mais l'utilisateur peut upgrader depuis le pricing.
-            plan: "STARTER",
+            plan: "FREE",
+            hasSelectedPlan: false,
+            trialStartedAt: now,
+            trialEndsAt: now + TRIAL_DURATION_MS,
             settings: {
                 assignment: {
                     autoAssignEnabled: true,
@@ -149,8 +152,8 @@ export const create = mutation({
                     excludeOfflineAgents: true
                 }
             },
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            createdAt: now,
+            updatedAt: now,
         });
 
         await ctx.db.insert("memberships", {

@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { FlowsPageClient } from './client'
+import { FeatureGate } from '@/components/billing/feature-gate'
 
 export const metadata: Metadata = {
     title: 'Automatisation | Jokko',
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function FlowsPage() {
-    return <FlowsPageClient />
+    return (
+        <FeatureGate feature="flows">
+            <FlowsPageClient />
+        </FeatureGate>
+    )
 }
