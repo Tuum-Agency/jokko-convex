@@ -32,9 +32,10 @@ const columns = [
     title: "Ressources",
     links: [
       { name: "Blog", href: "/blog" },
-      { name: "Guides", href: "/guides" },
-      { name: "Documentation", href: "/docs" },
-      { name: "API", href: "/docs/api" },
+      // Masqués temporairement — à réactiver quand les pages seront finalisées
+      // { name: "Guides", href: "/guides" },
+      // { name: "Documentation", href: "/docs" },
+      // { name: "API", href: "/docs/api" },
     ],
   },
   {
