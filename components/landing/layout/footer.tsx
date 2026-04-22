@@ -32,6 +32,8 @@ const columns = [
     title: "Ressources",
     links: [
       { name: "Blog", href: "/blog" },
+      { name: "Cas d'usage", href: "/solutions/service-client" },
+      { name: "Centre d'aide", href: "/contact" },
       // Masqués temporairement — à réactiver quand les pages seront finalisées
       // { name: "Guides", href: "/guides" },
       // { name: "Documentation", href: "/docs" },
