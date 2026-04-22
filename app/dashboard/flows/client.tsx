@@ -104,7 +104,7 @@ export function FlowsPageClient() {
         <div className="p-8 space-y-8 h-screen overflow-y-auto bg-gray-50/30">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">Automatisation/Flux</h1>
+                    <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900">Automatisation/Flux</h1>
                     <p className="text-gray-500 mt-2 text-sm lg:text-base">Gérez vos séquences de messages et chatbots WhatsApp.</p>
                 </div>
                 <Button

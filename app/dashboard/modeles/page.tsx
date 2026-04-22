@@ -106,7 +106,7 @@ export default function TemplatesPage() {
                         </Button>
                     )}
                     <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                             {view === 'LIST' && "Mod\u00e8les et R\u00e9ponses Rapides"}
                             {view === 'SELECT_TYPE' && "Nouveau modele"}
                             {view === 'CREATE' && "Creer un modele"}

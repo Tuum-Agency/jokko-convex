@@ -50,7 +50,7 @@ export default function NewAutomationClient() {
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                    <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                         Nouvelle Automatisation
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">

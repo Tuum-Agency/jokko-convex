@@ -471,7 +471,7 @@ export default function TeamPage() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                    <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                         Equipe
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">
