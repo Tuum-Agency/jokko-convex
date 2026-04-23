@@ -2,13 +2,16 @@
 
 # Playwright auth state
 e2e/.auth/
+**/e2e/.auth/
 
 # Playwright reports & test results
 /playwright-report
 /test-results
+**/playwright-report
+**/test-results
 
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -19,13 +22,17 @@ e2e/.auth/
 
 # testing
 /coverage
+**/coverage
 
 # next.js
-/.next/
+.next
+**/.next
 /out/
+**/out/
 
 # production
 /build
+**/build
 
 # misc
 .DS_Store
@@ -46,6 +53,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+**/next-env.d.ts
 
 certificates
 .env*.local

@@ -4,7 +4,7 @@ import { internal, api } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { hasPermission, type Role } from "./lib/permissions";
 import { requirePlanFeature } from "./lib/planFeatures";
-import { getMessageCostFCFA, calculateBroadcastCost } from "../lib/whatsapp-pricing";
+import { getMessageCostFCFA, calculateBroadcastCost } from "@jokko/core/whatsapp-pricing";
 
 // List broadcasts for the current organization
 export const list = query({

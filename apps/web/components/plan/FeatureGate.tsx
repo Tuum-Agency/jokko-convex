@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlanFeature } from "@/hooks/use-plan-feature";
-import type { PlanFeature, PlanKey } from "@/lib/planFeatures";
+import type { PlanFeature, PlanKey } from "@jokko/core/planFeatures";
 
 type Props = {
     feature: PlanFeature;

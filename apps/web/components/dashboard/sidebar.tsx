@@ -33,7 +33,7 @@ import {
     minPlanForFeature,
     type FeatureKey,
     type PlanKey,
-} from '@/lib/planFeatures'
+} from '@jokko/core/planFeatures'
 import {
     Tooltip,
     TooltipContent,

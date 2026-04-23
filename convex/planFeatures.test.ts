@@ -11,7 +11,7 @@ import {
     PLAN_ORDER,
     type PlanKey,
     type PlanFeature,
-} from "../lib/planFeatures";
+} from "@jokko/core/planFeatures";
 
 /**
  * Tests exhaustifs du feature gating plan × features × mutations.

@@ -16,7 +16,7 @@ import {
     FEATURE_LABELS,
     type PlanFeature,
     type PlanKey,
-} from "@/lib/planFeatures";
+} from "@jokko/core/planFeatures";
 
 export function usePlanFeature(feature: PlanFeature): {
     allowed: boolean;

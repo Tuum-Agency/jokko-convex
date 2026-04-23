@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFeatureAccess } from "@/hooks/usePlans";
-import type { FeatureKey } from "@/lib/planFeatures";
+import type { FeatureKey } from "@jokko/core/planFeatures";
 import { cn } from "@/lib/utils";
 
 type PlanTierBadgeProps = {
