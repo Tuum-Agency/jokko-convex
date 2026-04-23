@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Info } from 'lucide-react';
-import { PRICING_TABLE, USD_TO_FCFA } from '@/lib/whatsapp-pricing';
+import { PRICING_TABLE, USD_TO_FCFA } from '@jokko/core/whatsapp-pricing';
 
 export function PricingDialog() {
     return (

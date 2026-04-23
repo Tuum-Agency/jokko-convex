@@ -5,7 +5,7 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFeatureAccess } from "@/hooks/usePlans";
-import type { FeatureKey } from "@/lib/planFeatures";
+import type { FeatureKey } from "@jokko/core/planFeatures";
 
 type FeatureGateProps = {
     feature: FeatureKey;

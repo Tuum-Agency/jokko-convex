@@ -5,7 +5,7 @@ import {
     PLAN_LABEL,
     type FeatureKey,
     type PlanKey,
-} from "@/lib/planFeatures";
+} from "@jokko/core/planFeatures";
 import { useCurrentOrg } from "./use-current-org";
 
 export function usePlans() {

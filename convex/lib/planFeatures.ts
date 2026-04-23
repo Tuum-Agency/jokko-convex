@@ -13,7 +13,7 @@ import {
     planIncludesFeature,
     type PlanFeature,
     type PlanKey,
-} from "../../lib/planFeatures";
+} from "@jokko/core/planFeatures";
 
 export {
     FEATURES,
@@ -25,8 +25,8 @@ export {
     planIncludesFeature,
     planRank,
     minPlanForFeature,
-} from "../../lib/planFeatures";
-export type { FeatureKey, PlanFeature, PlanKey } from "../../lib/planFeatures";
+} from "@jokko/core/planFeatures";
+export type { FeatureKey, PlanFeature, PlanKey } from "@jokko/core/planFeatures";
 
 /**
  * Throw si le plan de l'org n'inclut pas la feature demandée.
