@@ -10,9 +10,12 @@ const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 const AUTH_PRESENCE_COOKIE = '__jokko_auth';
 
 function getCookieProps() {
-    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes("localhost");
+    if (typeof window === 'undefined') return { isLocal: false, domainProp: "", secureProp: "; Secure" };
+    const hostname = window.location.hostname;
+    const isLocal = hostname.includes("localhost");
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "jokko.co";
-    const domainProp = isLocal ? "" : `; domain=.${rootDomain}`;
+    const isRootDomainHost = hostname === rootDomain || hostname.endsWith(`.${rootDomain}`);
+    const domainProp = isLocal || !isRootDomainHost ? "" : `; domain=.${rootDomain}`;
     const secureProp = isLocal ? "" : "; Secure";
     return { isLocal, domainProp, secureProp };
 }
