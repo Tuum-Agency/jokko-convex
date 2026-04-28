@@ -49,6 +49,7 @@ export const handleCheckoutCompleted = internalMutation({
 
         await ctx.db.patch(org._id, {
             plan: plan as any,
+            hasSelectedPlan: true,
             stripe: {
                 customerId: args.stripeCustomerId,
                 subscriptionId: args.subscriptionId,
@@ -102,6 +103,7 @@ export const updateSubscription = internalMutation({
 
         await ctx.db.patch(org._id, {
             plan: plan as any,
+            hasSelectedPlan: true,
             stripe: {
                 customerId: args.stripeCustomerId,
                 subscriptionId: args.subscriptionId,
@@ -137,6 +139,7 @@ export const cancelSubscription = internalMutation({
 
         await ctx.db.patch(org._id, {
             plan: "FREE" as any,
+            hasSelectedPlan: false,
             stripe: {
                 customerId: args.stripeCustomerId,
                 subscriptionId: org.stripe?.subscriptionId,

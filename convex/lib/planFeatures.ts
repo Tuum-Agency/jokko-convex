@@ -1,29 +1,35 @@
 /**
- * Plan feature gating — verrouillage de fonctionnalités par plan d'abonnement.
+ * Re-export du manifest de features depuis `lib/planFeatures` pour que Convex
+ * et le client utilisent exactement les mêmes constantes. Ajoute les helpers
+ * serveur `requirePlanFeature` / `requirePlanFeatureInAction`.
  *
- * Distinct des quotas (nombre max de canaux, agents, templates) gérés par
- * planLimits.ts. Ici on gate des FEATURES entières : flows/automatisation,
- * broadcasts, intégrations CRM, IA générative.
- *
- * Source de vérité partagée avec le client via lib/planFeatures.ts (racine).
+ * Règles de gating appliquées dans `planHelpers.hasFeatureAccess()`.
  */
 
-import type { QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import {
-    PLAN_ORDER,
     FEATURE_MIN_PLAN,
     planIncludesFeature,
     type PlanFeature,
     type PlanKey,
-} from "../../lib/planFeatures";
+} from "@jokko/core/planFeatures";
 
-export { PLAN_ORDER, FEATURE_MIN_PLAN, planIncludesFeature };
-export type { PlanFeature, PlanKey };
+export {
+    FEATURES,
+    FEATURE_MIN_PLAN,
+    FEATURE_LABELS,
+    PLAN_LABEL,
+    PLAN_ORDER,
+    PLAN_RANK,
+    planIncludesFeature,
+    planRank,
+    minPlanForFeature,
+} from "@jokko/core/planFeatures";
+export type { FeatureKey, PlanFeature, PlanKey } from "@jokko/core/planFeatures";
 
 /**
  * Throw si le plan de l'org n'inclut pas la feature demandée.
- * Lève une erreur user-friendly en français avec le plan minimum requis.
  */
 export async function requirePlanFeature(
     ctx: QueryCtx | MutationCtx,

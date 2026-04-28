@@ -7,7 +7,7 @@
 
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { getPlanLimits, isUnlimited } from "./planHelpers";
+import { getPlanLimits, hasChosenPlan, isTrialing, isUnlimited } from "./planHelpers";
 
 export type ResourceKind = "channels" | "agents" | "templates";
 
@@ -70,6 +70,16 @@ export async function assertWithinLimit(
 ): Promise<void> {
     const org = await ctx.db.get(organizationId);
     if (!org) throw new Error("Organization not found");
+
+    // Pendant la période d'essai : bypass complet des quotas.
+    if (isTrialing(org)) return;
+
+    // Trial expiré ET pas de plan choisi → tout est verrouillé.
+    if (!hasChosenPlan(org)) {
+        throw new Error(
+            "Votre période d'essai est terminée. Choisissez un plan depuis /dashboard/billing pour débloquer les fonctionnalités.",
+        );
+    }
 
     const limits = await getPlanLimits(ctx, org.plan);
 
