@@ -121,7 +121,7 @@ export function DashboardHeader({
     const handleLogout = async () => {
         try {
             await signOut()
-            router.push('/sign-in')
+            router.push('/auth/sign-in')
         } catch (error) {
             console.error('Logout failed:', error)
         }
@@ -152,7 +152,7 @@ export function DashboardHeader({
                 {title && (
                     <FadeInView trigger="mount" delay={0.1}>
                         <div className="hidden sm:block">
-                            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+                            <h1 className="font-display text-lg font-semibold tracking-tight text-gray-900">{title}</h1>
                             {description && (
                                 <p className="text-sm text-gray-500">{description}</p>
                             )}

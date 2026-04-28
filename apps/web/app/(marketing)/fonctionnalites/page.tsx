@@ -1,22 +1,32 @@
 import type { Metadata } from 'next'
+import { FeaturesHeroSection } from '@/components/landing/sections/fonctionnalities/features-hero-section'
 import { FeaturesOverviewSection } from '@/components/landing/sections/fonctionnalities/features-overview-section'
+import { FeaturesStatsSection } from '@/components/landing/sections/fonctionnalities/features-stats-section'
+import { FeaturesDeepDiveSection } from '@/components/landing/sections/fonctionnalities/features-deep-dive-section'
+import { FeaturesIntegrationsSection } from '@/components/landing/sections/fonctionnalities/features-integrations-section'
+import { SocialProofSection } from '@/components/landing/sections/home/social-proof-section'
 import { CtaSection } from '@/components/landing/sections/home/cta-section'
 
 export const metadata: Metadata = {
-    title: 'Fonctionnalités & Outils - Jokko',
-    description: 'Explorez nos outils puissants : Boîte de réception partagée, Chatbots IA, Campagnes Marketing WhatsApp en masse, et CRM intégré.',
+    title: 'Produit — Jokko',
+    description:
+        'Inbox partagée, copilot IA, campagnes marketing, CRM, automatisations, analytics. Une plateforme complète pour les équipes qui vendent et supportent sur WhatsApp Business.',
     openGraph: {
-        title: 'Fonctionnalités Jokko - Tout pour réussir sur WhatsApp',
-        description: 'Transformez vos conversations en ventes grâce à notre suite complète d\'outils WhatsApp Business.',
+        title: 'Produit Jokko — La suite WhatsApp Business pour équipes',
+        description:
+            'Tout pour centraliser, automatiser et mesurer vos conversations WhatsApp professionnelles.',
     },
 }
 
 export default function FeaturesPage() {
     return (
         <>
-
-
+            <FeaturesHeroSection />
             <FeaturesOverviewSection />
+            <FeaturesStatsSection />
+            <FeaturesDeepDiveSection />
+            <FeaturesIntegrationsSection />
+            <SocialProofSection />
             <CtaSection />
         </>
     )

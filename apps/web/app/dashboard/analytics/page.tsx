@@ -486,7 +486,7 @@ export default function AnalyticsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2">
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                        <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                             Analytique
                         </h1>
                         <PlanTierBadge feature="advancedStats" />

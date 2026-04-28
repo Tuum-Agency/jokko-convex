@@ -8,7 +8,7 @@ const PORT = process.env.PORT || '3000';
 test.describe('Login flow', () => {
     test('signs in and reaches dashboard without infinite spinner', async ({ page }) => {
         // 1. Go to sign-in page on subdomain (matches auth.setup.ts pattern)
-        await page.goto(`http://be-in-digital.localhost:${PORT}/sign-in`);
+        await page.goto(`http://be-in-digital.localhost:${PORT}/auth/sign-in`);
         await expect(page.getByRole('heading', { name: 'Bienvenue' })).toBeVisible({ timeout: 15000 });
 
         // 2. Fill credentials
@@ -33,7 +33,7 @@ test.describe('Login flow', () => {
     });
 
     test('shows error for invalid credentials', async ({ page }) => {
-        await page.goto(`http://be-in-digital.localhost:${PORT}/sign-in`);
+        await page.goto(`http://be-in-digital.localhost:${PORT}/auth/sign-in`);
         await expect(page.getByRole('heading', { name: 'Bienvenue' })).toBeVisible({ timeout: 15000 });
 
         await page.locator('#email').fill('wrong@example.com');

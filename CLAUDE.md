@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Jokko** is a multi-tenant WhatsApp Business CRM platform built with Next.js 16, Convex backend, React 19, and TypeScript. It enables businesses to manage WhatsApp conversations, contacts, broadcasts, templates, and automated flows.
+**Jokko** is a **multi-tenant SaaS platform that centralizes WhatsApp Business conversations for teams**. It lets a company manage customer exchanges across multiple WhatsApp Business numbers with team/agent permissions, conversation assignment, and AI assistance to reply faster.
+
+Target customers: companies that want to professionalize their customer relationship on WhatsApp — support, sales, customer service, operations.
+
+Built with Next.js 16, Convex backend, React 19, and TypeScript. Broadcasts, templates, contacts and automated flows exist as supporting features, but the core pitch is **multi-number centralization + team collaboration + AI assist** — not a generic WhatsApp CRM.
 
 ## Commands
 

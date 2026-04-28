@@ -57,7 +57,7 @@ export function CallErrorActionButton() {
                 size="sm"
                 className="gap-1 border-red-300 bg-white text-red-700 hover:bg-red-100"
             >
-                <Link href="/sign-in">
+                <Link href="/auth/sign-in">
                     <LogIn className="h-4 w-4" />
                     Se reconnecter
                 </Link>

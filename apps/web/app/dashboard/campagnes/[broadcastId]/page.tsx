@@ -268,7 +268,7 @@ export default function BroadcastDetailsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                            <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                                 {broadcast.name}
                             </h1>
                             <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border", statusConfig.className)}>

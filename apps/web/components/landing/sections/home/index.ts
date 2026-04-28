@@ -1,5 +1,10 @@
-export { HeroSection } from './hero-section'
-export { FeatureSection } from './feature-section'
-export { PricingSection } from './pricing-section'
-export { FaqSection } from './faq-section'
-export { CtaSection } from './cta-section'
+export { HeroSection } from "./hero-section";
+export { LogoTickerSection } from "./logo-ticker-section";
+export { NarrativeSection } from "./narrative-section";
+export { BentoSection } from "./bento-section";
+export { BeforeAfterSection } from "./before-after-section";
+export { AiSection } from "./ai-section";
+export { SocialProofSection, CaseStudyRow } from "./social-proof-section";
+export { PricingSection } from "./pricing-section";
+export { FaqSection } from "./faq-section";
+export { CtaSection } from "./cta-section";

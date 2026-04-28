@@ -134,7 +134,7 @@ describe('CallErrorActionButton — contextual fix-it buttons', () => {
         render(<CallErrorActionButton />);
 
         const link = screen.getByRole('link', { name: /Se reconnecter/i });
-        expect(link).toHaveAttribute('href', '/sign-in');
+        expect(link).toHaveAttribute('href', '/auth/sign-in');
     });
 
     it('renders a send-template link for action type "send-template"', () => {

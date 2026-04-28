@@ -32,7 +32,7 @@ export default function NotificationsPage() {
         <div className="space-y-6 max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">Notifications</h1>
+                    <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900">Notifications</h1>
                     <p className="text-gray-500 mt-2">
                         Historique de vos alertes et messages.
                     </p>
